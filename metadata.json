@@ -1,0 +1,6 @@
+{
+  "name": "LUV KUSH SEVA TRUST",
+  "description": "लव कुश सेवा ट्रस्ट - सेवा ही संकल्प, मानवता ही हमारा धर्म | अनाथ आश्रम, वृद्ध आश्रम, विधवा आश्रम, निःशुल्क शिक्षा एवं चिकित्सा सेवा। राजगीर, नालंदा, बिहार (Reg. No. BR/2026/1161821)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
