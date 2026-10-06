@@ -188,6 +188,7 @@ export interface TrustSettings {
   secondaryTagline: string;
   registrationNumber: string;
   chairpersonName: string;
+  chairpersonPhotoUrl?: string;
   address: string;
   phone: string;
   alternatePhone?: string;

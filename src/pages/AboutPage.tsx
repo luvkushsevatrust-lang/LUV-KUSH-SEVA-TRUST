@@ -4,7 +4,7 @@ import { CORE_SERVICES_DATA } from '../data/mockData';
 import { ShieldCheck, Heart, Users, Award, CheckCircle, Info } from 'lucide-react';
 import { ServiceDetailModal } from '../components/ServiceDetailModal';
 import { SafeImage } from '../components/SafeImage';
-import { HERO_TRUST_SEVA } from '../assets';
+import { HERO_TRUST_SEVA, CHAIRPERSON_PHOTO } from '../assets';
 
 export const AboutPage: React.FC = () => {
   const { settings, setCurrentPage, language, t } = useTrust();
@@ -72,13 +72,22 @@ export const AboutPage: React.FC = () => {
                 {language === 'en' ? 'Raisar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
               </span>
             </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <strong className="block text-slate-900 font-bold mb-1">
-                {language === 'en' ? 'Chairperson:' : 'अध्यक्ष:'}
-              </strong>
-              <span className="text-slate-600">
-                {language === 'en' ? 'Satyendra Kumar' : settings.chairpersonName}
-              </span>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
+              <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-amber-400 bg-amber-50 shrink-0 shadow-sm">
+                <SafeImage
+                  src={settings.chairpersonPhotoUrl || CHAIRPERSON_PHOTO}
+                  alt="Chairperson Satyendra Kumar"
+                  className="w-full h-full object-cover object-top"
+                />
+              </div>
+              <div>
+                <strong className="block text-slate-900 font-bold">
+                  {language === 'en' ? 'Chairperson:' : 'अध्यक्ष:'}
+                </strong>
+                <span className="text-slate-600 font-medium">
+                  {language === 'en' ? 'Satyendra Kumar' : settings.chairpersonName}
+                </span>
+              </div>
             </div>
           </div>
         </div>

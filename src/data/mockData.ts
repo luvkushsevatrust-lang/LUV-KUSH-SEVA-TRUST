@@ -23,6 +23,7 @@ export const INITIAL_TRUST_SETTINGS: TrustSettings = {
   secondaryTagline: 'सेवा ही सबसे बड़ा धर्म है',
   registrationNumber: 'BR/2026/1161821',
   chairpersonName: 'सत्येन्द्र कुमार',
+  chairpersonPhotoUrl: '',
   address: 'राईसर, क्रिकेट स्टेडियम के नजदीक, राजगीर - 803116, नालंदा, बिहार',
   phone: '9470635412',
   alternatePhone: '9470635412',

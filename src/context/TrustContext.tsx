@@ -1013,10 +1013,12 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const adminLogin = (user: string, pass: string): boolean => {
+    const cleanUser = user.trim().toLowerCase();
+    const cleanPass = pass.trim();
     if (
-      (user.trim().toLowerCase() === 'admin' ||
-        user.trim().toLowerCase() === 'luvkushsevatrust@gmail.com') &&
-      pass === 'admin123'
+      (cleanUser === 'satyendra' && cleanPass === 'kumar@1989@') ||
+      (cleanUser === 'admin' && (cleanPass === 'kumar@1989@' || cleanPass === 'admin123')) ||
+      (cleanUser === 'luvkushsevatrust@gmail.com' && (cleanPass === 'kumar@1989@' || cleanPass === 'admin123'))
     ) {
       setIsAdmin(true);
       return true;

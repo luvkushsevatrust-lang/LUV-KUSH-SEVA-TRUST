@@ -53,7 +53,7 @@ import { ID_CARD_CATEGORY_CONFIG } from '../data/mockData';
 import { AadhaarCardView } from '../components/AadhaarCardView';
 import { PrintableCandidateForm } from '../components/PrintableCandidateForm';
 import { SUPABASE_SQL_SCHEMA, SupabaseService } from '../lib/supabaseService';
-import { resolveAssetUrl } from '../assets';
+import { resolveAssetUrl, CHAIRPERSON_PHOTO } from '../assets';
 import { SUPABASE_PROJECT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -2070,6 +2070,68 @@ export const AdminDashboardPage: React.FC = () => {
                   onChange={(e) => setTempSettings({ ...tempSettings, chairpersonName: e.target.value })}
                   className="w-full px-3 py-2 border rounded-xl font-bold"
                 />
+              </div>
+
+              {/* Chairperson Official Photo Upload */}
+              <div className="sm:col-span-2 p-4 bg-amber-50/70 rounded-2xl border border-amber-300 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-900 text-sm">
+                      {language === 'en' ? 'Chairperson Official Portrait Photo' : 'अध्यक्ष (सत्येन्द्र कुमार) आधिकारिक फ़ोटो'}
+                    </label>
+                    <p className="text-xs text-slate-600">
+                      {language === 'en'
+                        ? 'Upload your official photograph (ChatGPT Image / Passport Photo) to display on homepage and about page'
+                        : 'वेबसाइट के मुख्य पृष्ठ एवं परिचय में अपनी असली फ़ोटो प्रदर्शित करें'}
+                    </p>
+                  </div>
+                  {tempSettings.chairpersonPhotoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setTempSettings({ ...tempSettings, chairpersonPhotoUrl: '' })}
+                      className="self-start sm:self-auto px-2.5 py-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 font-semibold cursor-pointer"
+                    >
+                      {language === 'en' ? 'Reset to Default' : 'डिफ़ॉल्ट पर रीसेट करें'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-amber-400 overflow-hidden bg-white shadow-sm shrink-0">
+                    <img
+                      src={tempSettings.chairpersonPhotoUrl || CHAIRPERSON_PHOTO}
+                      alt="Chairperson Preview"
+                      className="w-full h-full object-cover object-top"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-blue-900 hover:bg-blue-950 text-white rounded-xl text-xs font-bold shadow-md transition-colors">
+                      <Upload className="w-4 h-4 text-amber-300" />
+                      <span>{language === 'en' ? 'Choose Image File' : 'अपनी असली फ़ोटो चुनें (Upload Photo)'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const r = new FileReader();
+                            r.onloadend = () => {
+                              setTempSettings({ ...tempSettings, chairpersonPhotoUrl: r.result as string });
+                            };
+                            r.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      {language === 'en'
+                        ? 'Supported: JPG, PNG, WEBP (Instant high-res preview)'
+                        : 'समर्थित: JPG, PNG, WEBP (चुनते ही तुरंत सुरक्षित सेव होगी)'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div>

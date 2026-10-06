@@ -16,6 +16,7 @@ import freeEducationAlt from './images/free_education_1791140818155.jpg';
 import medicalCamp from './images/medical_camp_1790500125790.jpg';
 import communityWelfare from './images/community_welfare_1791140948090.jpg';
 import communityWelfareAlt from './images/community_welfare_1791140830800.jpg';
+import chairpersonSatyendraKumar from './images/chairperson_satyendra_kumar_1791278682704.jpg';
 
 export const TRUST_ASSETS = {
   trustEmblemLogo,
@@ -27,6 +28,7 @@ export const TRUST_ASSETS = {
   medicalCamp,
   communityWelfare,
   communityWelfareAlt,
+  chairpersonSatyendraKumar,
 } as const;
 
 export {
@@ -39,6 +41,7 @@ export {
   medicalCamp,
   communityWelfare,
   communityWelfareAlt,
+  chairpersonSatyendraKumar,
 };
 
 // Aliases matching domain entities
@@ -49,6 +52,8 @@ export const OLD_AGE_CARE = oldAgeCare;
 export const FREE_EDUCATION = freeEducation;
 export const MEDICAL_CAMP = medicalCamp;
 export const COMMUNITY_WELFARE = communityWelfare;
+export const CHAIRPERSON_PHOTO = chairpersonSatyendraKumar;
+export const CHAIRPERSON_SATYENDRA_KUMAR = chairpersonSatyendraKumar;
 
 /**
  * Mapping table from any raw filename or path to its bundled Vite asset URL
@@ -64,6 +69,9 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   'medical_camp_1790500125790.jpg': medicalCamp,
   'community_welfare_1791140948090.jpg': communityWelfare,
   'community_welfare_1791140830800.jpg': communityWelfareAlt,
+  'chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
+  'chairperson.jpg': chairpersonSatyendraKumar,
+  'satyendra_kumar.jpg': chairpersonSatyendraKumar,
 
   // Root filenames
   '/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,
@@ -75,6 +83,9 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   '/medical_camp_1790500125790.jpg': medicalCamp,
   '/community_welfare_1791140948090.jpg': communityWelfare,
   '/community_welfare_1791140830800.jpg': communityWelfareAlt,
+  '/chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
+  '/chairperson.jpg': chairpersonSatyendraKumar,
+  '/satyendra_kumar.jpg': chairpersonSatyendraKumar,
 
   // Full /src/assets/images/ paths
   '/src/assets/images/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,
@@ -86,6 +97,7 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   '/src/assets/images/medical_camp_1790500125790.jpg': medicalCamp,
   '/src/assets/images/community_welfare_1791140948090.jpg': communityWelfare,
   '/src/assets/images/community_welfare_1791140830800.jpg': communityWelfareAlt,
+  '/src/assets/images/chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
 
   // Relative src/assets/images/ paths
   'src/assets/images/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,
@@ -97,6 +109,7 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   'src/assets/images/medical_camp_1790500125790.jpg': medicalCamp,
   'src/assets/images/community_welfare_1791140948090.jpg': communityWelfare,
   'src/assets/images/community_welfare_1791140830800.jpg': communityWelfareAlt,
+  'src/assets/images/chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
 
   // Root /assets/images/ paths
   '/assets/images/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,
@@ -108,6 +121,7 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   '/assets/images/medical_camp_1790500125790.jpg': medicalCamp,
   '/assets/images/community_welfare_1791140948090.jpg': communityWelfare,
   '/assets/images/community_welfare_1791140830800.jpg': communityWelfareAlt,
+  '/assets/images/chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
 
   // Relative assets/images/ paths
   'assets/images/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,
@@ -119,6 +133,7 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   'assets/images/medical_camp_1790500125790.jpg': medicalCamp,
   'assets/images/community_welfare_1791140948090.jpg': communityWelfare,
   'assets/images/community_welfare_1791140830800.jpg': communityWelfareAlt,
+  'assets/images/chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
 
   // Root /images/ paths
   '/images/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,
@@ -130,6 +145,7 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   '/images/medical_camp_1790500125790.jpg': medicalCamp,
   '/images/community_welfare_1791140948090.jpg': communityWelfare,
   '/images/community_welfare_1791140830800.jpg': communityWelfareAlt,
+  '/images/chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
 
   // Relative images/ paths
   'images/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,
@@ -141,6 +157,7 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   'images/medical_camp_1790500125790.jpg': medicalCamp,
   'images/community_welfare_1791140948090.jpg': communityWelfare,
   'images/community_welfare_1791140830800.jpg': communityWelfareAlt,
+  'images/chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
 
   // Legacy fallback alias
   '/trust_official_emblem.png': trustEmblemLogo,

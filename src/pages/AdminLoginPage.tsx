@@ -4,8 +4,8 @@ import { Shield, Key, AlertCircle, LogIn } from 'lucide-react';
 
 export const AdminLoginPage: React.FC = () => {
   const { adminLogin, setCurrentPage, language, t } = useTrust();
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
@@ -25,8 +25,8 @@ export const AdminLoginPage: React.FC = () => {
     } else {
       setErrorMsg(
         language === 'en'
-          ? 'Invalid credentials! (Default: admin / admin123)'
-          : 'अमान्य क्रेडेंशियल! (डिफ़ॉल्ट: admin / admin123)'
+          ? 'Invalid username or password!'
+          : 'अमान्य यूजरनेम अथवा पासवर्ड!'
       );
     }
   };
@@ -64,7 +64,7 @@ export const AdminLoginPage: React.FC = () => {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin"
+                placeholder={language === 'en' ? 'Enter username' : 'यूजरनेम दर्ज करें'}
                 className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
             </div>
@@ -94,15 +94,6 @@ export const AdminLoginPage: React.FC = () => {
               <span>{t.admin.loginBtn}</span>
             </button>
           </form>
-
-          {/* Quick Demo Helper */}
-          <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs text-slate-600">
-            <span className="font-bold text-slate-800 block mb-1">
-              {language === 'en' ? 'Authorized Demo Credentials:' : 'अधिकृत क्रेडेंशियल:'}
-            </span>
-            <div>{t.admin.username}: <strong className="font-mono text-blue-900">admin</strong></div>
-            <div>{t.admin.password}: <strong className="font-mono text-blue-900">admin123</strong></div>
-          </div>
         </div>
       </div>
     </div>
