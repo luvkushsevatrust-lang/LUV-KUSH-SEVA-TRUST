@@ -19,6 +19,8 @@ import {
   AlertCircle,
   HelpCircle,
 } from 'lucide-react';
+import { SafeImage } from './SafeImage';
+import { ORPHANAGE_CARE, resolveAssetUrl } from '../assets';
 
 interface ServiceDetailModalProps {
   service: any;
@@ -81,11 +83,10 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
         
         {/* Header Visual Hero */}
         <div className="relative h-52 sm:h-64 md:h-72 w-full bg-slate-950 overflow-hidden shrink-0">
-          <img
-            src={service.imageUrl || '/src/assets/images/orphanage_care_1790500099587.jpg'}
+          <SafeImage
+            src={resolveAssetUrl(service.imageUrl) || ORPHANAGE_CARE}
             alt={title}
             className="w-full h-full object-cover opacity-75 transform scale-100 hover:scale-105 transition-transform duration-700"
-            referrerPolicy="no-referrer"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent flex flex-col justify-between p-4 sm:p-6 md:p-8">
             <div className="flex items-center justify-between">

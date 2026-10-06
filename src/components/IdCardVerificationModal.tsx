@@ -2,6 +2,8 @@ import React from 'react';
 import { useTrust } from '../context/TrustContext';
 import { CheckCircle2, ShieldCheck, X, Building, Phone, MapPin, Calendar, Award } from 'lucide-react';
 import { IdCard } from '../types';
+import { SafeImage } from './SafeImage';
+import { TRUST_EMBLEM_LOGO } from '../assets';
 
 interface IdCardVerificationModalProps {
   card: IdCard | null;
@@ -37,8 +39,8 @@ export const IdCardVerificationModal: React.FC<IdCardVerificationModalProps> = (
           </button>
 
           <div className="w-16 h-16 rounded-full bg-white p-1 shadow-lg mx-auto mb-3 flex items-center justify-center border-2 border-amber-400">
-            <img
-              src="/src/assets/images/trust_emblem_logo_1790500141646.jpg"
+            <SafeImage
+              src={TRUST_EMBLEM_LOGO}
               alt="Logo"
               className="w-full h-full object-cover rounded-full"
             />

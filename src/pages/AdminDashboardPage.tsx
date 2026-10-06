@@ -53,6 +53,7 @@ import { ID_CARD_CATEGORY_CONFIG } from '../data/mockData';
 import { AadhaarCardView } from '../components/AadhaarCardView';
 import { PrintableCandidateForm } from '../components/PrintableCandidateForm';
 import { SUPABASE_SQL_SCHEMA, SupabaseService } from '../lib/supabaseService';
+import { resolveAssetUrl } from '../assets';
 import { SUPABASE_PROJECT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -1810,7 +1811,7 @@ export const AdminDashboardPage: React.FC = () => {
                           className="group relative inline-block rounded-xl overflow-hidden border border-slate-300 shadow-xs cursor-pointer hover:border-blue-500 transition-colors"
                         >
                           <img
-                            src={ann.imageUrl}
+                            src={resolveAssetUrl(ann.imageUrl)}
                             alt={ann.title}
                             className="w-48 h-28 object-cover group-hover:scale-105 transition-transform"
                           />
@@ -1855,7 +1856,7 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
             <div className="p-4 flex items-center justify-center bg-black/50 max-h-[75vh] overflow-auto">
               <img
-                src={previewingImageModal}
+                src={resolveAssetUrl(previewingImageModal)}
                 alt="Announcement Full Preview"
                 className="max-h-[70vh] w-auto max-w-full rounded-lg object-contain shadow-lg"
               />

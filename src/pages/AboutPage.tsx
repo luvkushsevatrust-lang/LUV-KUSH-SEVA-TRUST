@@ -3,6 +3,8 @@ import { useTrust } from '../context/TrustContext';
 import { CORE_SERVICES_DATA } from '../data/mockData';
 import { ShieldCheck, Heart, Users, Award, CheckCircle, Info } from 'lucide-react';
 import { ServiceDetailModal } from '../components/ServiceDetailModal';
+import { SafeImage } from '../components/SafeImage';
+import { HERO_TRUST_SEVA } from '../assets';
 
 export const AboutPage: React.FC = () => {
   const { settings, setCurrentPage, language, t } = useTrust();
@@ -26,8 +28,8 @@ export const AboutPage: React.FC = () => {
       {/* Main Vision Banner Card */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-md overflow-hidden grid grid-cols-1 lg:grid-cols-12">
         <div className="lg:col-span-6 relative aspect-video lg:aspect-auto min-h-[300px]">
-          <img
-            src="/src/assets/images/hero_trust_seva_1790500083256.jpg"
+          <SafeImage
+            src={HERO_TRUST_SEVA}
             alt="Luv Kush Seva Trust"
             className="w-full h-full object-cover"
           />
@@ -278,11 +280,10 @@ export const ServicesPage: React.FC = () => {
                   onClick={() => setSelectedServiceForDetail(srv)}
                   className="rounded-2xl overflow-hidden aspect-video border border-slate-200 shadow-sm relative cursor-pointer group"
                 >
-                  <img
+                  <SafeImage
                     src={srv.imageUrl}
                     alt={title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="text-white text-xs font-bold drop-shadow">

@@ -9,6 +9,8 @@ import {
   CheckCircle,
   Clock,
 } from 'lucide-react';
+import { SafeImage } from '../components/SafeImage';
+import { TRUST_EMBLEM_LOGO } from '../assets';
 
 export const ContactPage: React.FC = () => {
   const { settings, language, t } = useTrust();
@@ -48,10 +50,11 @@ export const ContactPage: React.FC = () => {
           <div className="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
               <div className="w-14 h-14 rounded-full border border-amber-400 bg-amber-50 p-0.5 shrink-0">
-                <img
-                  src="/trust_official_emblem.png"
+                <SafeImage
+                  src={TRUST_EMBLEM_LOGO}
                   alt="Logo"
                   className="w-full h-full object-cover rounded-full"
+                  loading="lazy"
                 />
               </div>
               <div>

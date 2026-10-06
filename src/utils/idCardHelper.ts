@@ -1,6 +1,7 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { IdCard } from '../types';
+import { TRUST_EMBLEM_LOGO, resolveAssetUrl } from '../assets';
 
 /**
  * Returns a clean, official passport photo for any ID card.
@@ -135,7 +136,7 @@ export function getCardPhotoUrl(card: {
 }
 
 /**
- * Safely loads an image from a URL or Data URI with crossOrigin anonymous
+ * Safely loads an image from a URL or Data URI
  */
 export function loadImageSafe(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
@@ -143,11 +144,14 @@ export function loadImageSafe(src: string): Promise<HTMLImageElement | null> {
       resolve(null);
       return;
     }
+    const resolved = resolveAssetUrl(src);
     const img = new Image();
-    img.crossOrigin = 'anonymous';
+    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+      img.crossOrigin = 'anonymous';
+    }
     img.onload = () => resolve(img);
     img.onerror = () => resolve(null);
-    img.src = src;
+    img.src = resolved;
 
     // 5-second timeout safeguard
     setTimeout(() => {
@@ -324,7 +328,7 @@ export async function renderIdCardSideToCanvas(
   const chairpersonName = settings?.chairpersonName || 'सत्येन्द्र कुमार';
 
   // Load emblem logo image
-  const emblemLogoImg = await loadImageSafe('/src/assets/images/trust_emblem_logo_1790500141646.jpg');
+  const emblemLogoImg = await loadImageSafe(TRUST_EMBLEM_LOGO);
 
   if (side === 'front') {
     // 1. Background with Rounded Corners

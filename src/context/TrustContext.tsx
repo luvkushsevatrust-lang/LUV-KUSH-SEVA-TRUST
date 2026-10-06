@@ -25,6 +25,7 @@ import {
   ID_CARD_CATEGORY_CONFIG,
 } from '../data/mockData';
 import { SupabaseService } from '../lib/supabaseService';
+import { resolveAssetUrl } from '../assets';
 
 interface TrustContextType {
   settings: TrustSettings;
@@ -281,11 +282,12 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     try {
       const parsed: Announcement[] = JSON.parse(saved);
       return parsed.map((a) => {
-        if (!a.imageUrl) {
-          const initMatch = INITIAL_ANNOUNCEMENTS.find((i) => i.id === a.id);
-          if (initMatch?.imageUrl) {
-            return { ...a, imageUrl: initMatch.imageUrl };
-          }
+        const initMatch = INITIAL_ANNOUNCEMENTS.find((i) => i.id === a.id);
+        if (!a.imageUrl && initMatch?.imageUrl) {
+          return { ...a, imageUrl: initMatch.imageUrl };
+        }
+        if (a.imageUrl) {
+          return { ...a, imageUrl: resolveAssetUrl(a.imageUrl) };
         }
         return a;
       });

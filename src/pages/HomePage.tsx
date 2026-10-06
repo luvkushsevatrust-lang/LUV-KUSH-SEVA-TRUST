@@ -3,6 +3,8 @@ import { useTrust } from '../context/TrustContext';
 import { CORE_SERVICES_DATA } from '../data/mockData';
 import { Announcement } from '../types';
 import { ServiceDetailModal } from '../components/ServiceDetailModal';
+import { SafeImage } from '../components/SafeImage';
+import { HERO_TRUST_SEVA, COMMUNITY_WELFARE } from '../assets';
 import {
   Heart,
   Users,
@@ -33,8 +35,8 @@ export const HomePage: React.FC = () => {
       <section className="relative overflow-hidden bg-gradient-to-b from-blue-950 via-slate-900 to-slate-950 text-white py-12 md:py-20 px-4 sm:px-6">
         {/* Background Overlay */}
         <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-luminosity">
-          <img
-            src="/src/assets/images/hero_trust_seva_1790500083256.jpg"
+          <SafeImage
+            src={HERO_TRUST_SEVA}
             alt="Luv Kush Seva Trust"
             className="w-full h-full object-cover"
           />
@@ -114,11 +116,10 @@ export const HomePage: React.FC = () => {
                 onClick={() => setSelectedServiceForDetail(CORE_SERVICES_DATA.find((s) => s.id === 'social_welfare') || null)}
                 className="rounded-xl overflow-hidden shadow-lg border border-white/20 aspect-video relative cursor-pointer group"
               >
-                <img
-                  src="/src/assets/images/community_welfare_1791140948090.jpg"
+                <SafeImage
+                  src={COMMUNITY_WELFARE}
                   alt="Community Welfare Camp"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  referrerPolicy="no-referrer"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-4">
                   <div className="flex items-center justify-between w-full">
@@ -224,11 +225,10 @@ export const HomePage: React.FC = () => {
                   onClick={() => setSelectedServiceForDetail(service)}
                   className="relative h-44 w-full overflow-hidden bg-slate-100 cursor-pointer group/img"
                 >
-                  <img
+                  <SafeImage
                     src={service.imageUrl}
                     alt={title}
                     className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
-                    referrerPolicy="no-referrer"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end justify-between p-3">
                     <span className="text-white text-xs font-bold flex items-center gap-1 drop-shadow">
@@ -504,8 +504,8 @@ export const HomePage: React.FC = () => {
           <div className="lg:col-span-4 text-center">
             <div className="relative inline-block">
               <div className="w-44 h-44 rounded-2xl overflow-hidden shadow-lg border-4 border-amber-400 bg-amber-50 mx-auto">
-                <img
-                  src="/src/assets/images/hero_trust_seva_1790500083256.jpg"
+                <SafeImage
+                  src={HERO_TRUST_SEVA}
                   alt="Chairperson Satyendra Kumar"
                   className="w-full h-full object-cover"
                 />
@@ -588,13 +588,10 @@ export const HomePage: React.FC = () => {
                   onClick={() => setSelectedAnnouncement(ann)}
                   className="relative w-full h-48 bg-slate-100 overflow-hidden cursor-pointer group border-b border-slate-100"
                 >
-                  <img
+                  <SafeImage
                     src={ann.imageUrl}
                     alt={ann.title}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
                     <span className="text-white text-xs font-semibold flex items-center gap-1.5 drop-shadow">
@@ -689,7 +686,7 @@ export const HomePage: React.FC = () => {
                 {/* Image if available */}
                 {selectedAnnouncement.imageUrl && (
                   <div className="w-full rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 shadow-inner flex items-center justify-center max-h-80">
-                    <img
+                    <SafeImage
                       src={selectedAnnouncement.imageUrl}
                       alt={selectedAnnouncement.title}
                       className="w-full h-full max-h-80 object-contain"

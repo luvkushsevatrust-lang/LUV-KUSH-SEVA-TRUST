@@ -2,6 +2,8 @@ import React, { useRef, useState } from 'react';
 import { useTrust } from '../context/TrustContext';
 import { X, Printer, CheckCircle, Download, CreditCard, ZoomIn, ZoomOut } from 'lucide-react';
 import { downloadElementAsPdf } from '../utils/idCardHelper';
+import { SafeImage } from './SafeImage';
+import { TRUST_EMBLEM_LOGO } from '../assets';
 
 export const PrintableReceipt: React.FC = () => {
   const { activeReceipt, setActiveReceipt, settings, language, t } = useTrust();
@@ -117,8 +119,8 @@ export const PrintableReceipt: React.FC = () => {
         >
           {/* Subtle Watermark Emblem Background */}
           <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none">
-            <img
-              src="/src/assets/images/trust_emblem_logo_1790500141646.jpg"
+            <SafeImage
+              src={TRUST_EMBLEM_LOGO}
               alt="Seal"
               className="w-48 h-48 object-contain"
             />
@@ -128,8 +130,8 @@ export const PrintableReceipt: React.FC = () => {
           <div className="text-center pb-2.5 border-b-2 border-slate-800">
             <div className="flex items-center justify-center gap-2.5 mb-1">
               <div className="w-11 h-11 rounded-full border border-amber-500 p-0.5 bg-white shadow-2xs overflow-hidden flex items-center justify-center shrink-0">
-                <img
-                  src="/src/assets/images/trust_emblem_logo_1790500141646.jpg"
+                <SafeImage
+                  src={TRUST_EMBLEM_LOGO}
                   alt="Logo"
                   className="w-full h-full object-cover"
                 />

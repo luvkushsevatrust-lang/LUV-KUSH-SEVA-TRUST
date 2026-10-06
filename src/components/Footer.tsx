@@ -2,6 +2,7 @@ import React from 'react';
 import { useTrust } from '../context/TrustContext';
 import { BG_THEMES } from '../data/bgThemeConfig';
 import { BgTheme } from '../types';
+import { SafeImage } from './SafeImage';
 import {
   Heart,
   Phone,
@@ -13,6 +14,7 @@ import {
   CheckCircle,
   Palette,
 } from 'lucide-react';
+import { TRUST_EMBLEM_LOGO } from '../assets';
 
 export const Footer: React.FC = () => {
   const { setCurrentPage, language, t, settings, bgTheme, setBgTheme } = useTrust();
@@ -30,10 +32,11 @@ export const Footer: React.FC = () => {
           <div className="space-y-4">
             <div className="flex items-center space-x-3">
               <div className="w-12 h-12 rounded-full bg-white p-1 flex items-center justify-center shadow-md">
-                <img
-                  src="/src/assets/images/trust_emblem_logo_1790500141646.jpg"
+                <SafeImage
+                  src={TRUST_EMBLEM_LOGO}
                   alt="Luv Kush Seva Trust Emblem"
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-contain rounded-full"
+                  loading="lazy"
                 />
               </div>
               <div>

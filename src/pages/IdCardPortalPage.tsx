@@ -13,6 +13,7 @@ import {
 import { IdCard } from '../types';
 import { ID_CARD_CATEGORY_CONFIG } from '../data/mockData';
 import { getCardPhotoUrl } from '../utils/idCardHelper';
+import { SafeImage } from '../components/SafeImage';
 
 export const IdCardPortalPage: React.FC = () => {
   const { searchIdCard, setActiveIdCard, setVerifyModalCard, setCurrentPage, settings, language, t } =
@@ -200,7 +201,7 @@ export const IdCardPortalPage: React.FC = () => {
                 {/* Photo Display */}
                 <div className="shrink-0 flex flex-col items-center">
                   <div className="w-24 h-28 rounded-xl border-2 border-amber-400 bg-white overflow-hidden shadow-md relative flex items-center justify-center">
-                    <img
+                    <SafeImage
                       src={getCardPhotoUrl(foundCard)}
                       alt={foundCard.fullName}
                       className="w-full h-full object-cover"

@@ -20,6 +20,8 @@ import {
   X,
 } from 'lucide-react';
 import { QRCodeSVG } from '../components/QRCodeSVG';
+import { SafeImage } from '../components/SafeImage';
+import { TRUST_EMBLEM_LOGO } from '../assets';
 
 export const StudentDashboardPage: React.FC = () => {
   const {
@@ -181,8 +183,8 @@ export const StudentDashboardPage: React.FC = () => {
                         <div className="bg-gradient-to-r from-red-700 via-rose-700 to-red-800 text-white px-3 py-2 flex items-center justify-between border-b-2 border-amber-400">
                           <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-white p-0.5 border border-amber-300 shrink-0">
-                              <img
-                                src="/src/assets/images/trust_emblem_logo_1790500141646.jpg"
+                              <SafeImage
+                                src={TRUST_EMBLEM_LOGO}
                                 alt="Logo"
                                 className="w-full h-full object-cover rounded-full"
                               />
@@ -426,7 +428,7 @@ export const StudentDashboardPage: React.FC = () => {
                       onClick={() => setSelectedNoticeModal(ann)}
                       className="w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-100 relative group cursor-pointer shadow-xs"
                     >
-                      <img
+                      <SafeImage
                         src={ann.imageUrl}
                         alt={ann.title}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
@@ -476,7 +478,7 @@ export const StudentDashboardPage: React.FC = () => {
                 <div className="p-4 space-y-3">
                   {selectedNoticeModal.imageUrl && (
                     <div className="w-full max-h-72 rounded-xl overflow-hidden bg-slate-100 border flex items-center justify-center">
-                      <img
+                      <SafeImage
                         src={selectedNoticeModal.imageUrl}
                         alt={selectedNoticeModal.title}
                         className="max-h-72 w-auto object-contain"

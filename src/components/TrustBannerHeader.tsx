@@ -3,6 +3,8 @@ import { useTrust } from '../context/TrustContext';
 import { MapPin, Phone, Heart } from 'lucide-react';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { ThemeColorSwitcher } from './ThemeColorSwitcher';
+import { SafeImage } from './SafeImage';
+import { TRUST_EMBLEM_LOGO } from '../assets';
 
 export const TrustBannerHeader: React.FC = () => {
   const { settings, setCurrentPage, language, t } = useTrust();
@@ -44,11 +46,11 @@ export const TrustBannerHeader: React.FC = () => {
               title={language === 'en' ? 'Luv Kush Seva Trust - Home' : 'लव कुश सेवा ट्रस्ट - मुख्य पृष्ठ'}
             >
               <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-amber-400 p-0.5 bg-white shadow-md overflow-hidden flex items-center justify-center">
-                <img
-                  src="/src/assets/images/trust_emblem_logo_1790500141646.jpg"
+                <SafeImage
+                  src={TRUST_EMBLEM_LOGO}
                   alt="Luv Kush Seva Trust Emblem"
                   className="w-full h-full object-cover rounded-full"
-                  referrerPolicy="no-referrer"
+                  loading="eager"
                 />
               </div>
             </div>

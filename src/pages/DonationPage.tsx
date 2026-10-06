@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useTrust } from '../context/TrustContext';
+import { SafeImage } from '../components/SafeImage';
 import {
   Heart,
   QrCode,
@@ -194,7 +195,7 @@ export const DonationPage: React.FC = () => {
 
               <div className="w-56 h-56 mx-auto bg-slate-50 border-2 border-slate-300 rounded-2xl p-3 flex flex-col items-center justify-center relative shadow-inner">
                 {settings.donationQrUrl ? (
-                  <img
+                  <SafeImage
                     src={settings.donationQrUrl}
                     alt="Luv Kush Seva Trust QR"
                     className="w-full h-full object-contain rounded-xl"

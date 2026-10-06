@@ -7,6 +7,14 @@ import {
   Donation,
   Announcement,
 } from '../types';
+import {
+  ORPHANAGE_CARE,
+  OLD_AGE_CARE,
+  HERO_TRUST_SEVA,
+  FREE_EDUCATION,
+  MEDICAL_CAMP,
+  COMMUNITY_WELFARE,
+} from '../assets';
 
 export const INITIAL_TRUST_SETTINGS: TrustSettings = {
   name: 'LUV KUSH SEVA TRUST',
@@ -51,7 +59,7 @@ export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
     date: '2026-10-15',
     content: 'राजगीर स्टेडियम परिसर में प्रातः 9:00 बजे से निःशुल्क स्वास्थ्य शिविर का आयोजन किया जाएगा। अनुभवी चिकित्सकों द्वारा परामर्श व आवश्यक दवाएं निःशुल्क दी जाएंगी।',
     isImportant: true,
-    imageUrl: '/src/assets/images/medical_camp_1790500125790.jpg',
+    imageUrl: MEDICAL_CAMP,
   },
   {
     id: 'ann-2',
@@ -59,7 +67,7 @@ export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
     date: '2026-10-02',
     content: 'लव कुश सेवा ट्रस्ट द्वारा सभी पंजीकृत विद्यार्थियों को निःशुल्क कोचिंग, पाठ्य-सामग्री वितरण एवं डिजिटल पहचान पत्र (ID Card) पोर्टल पर उपलब्ध करा दिया गया है।',
     isImportant: true,
-    imageUrl: '/src/assets/images/free_education_1791140935609.jpg',
+    imageUrl: FREE_EDUCATION,
   },
   {
     id: 'ann-3',
@@ -67,7 +75,7 @@ export const INITIAL_ANNOUNCEMENTS: Announcement[] = [
     date: '2026-09-28',
     content: 'नालंदा जिले के ग्रामीण अंचलों में निराश्रित परिवारों, बुजुर्गों व माताओं के लिए समाज कल्याण राहत शिविर एवं आवश्यक राशन व किट वितरण सफलतापूर्वक संचालित किया गया।',
     isImportant: false,
-    imageUrl: '/src/assets/images/community_welfare_1791140948090.jpg',
+    imageUrl: COMMUNITY_WELFARE,
   },
 ];
 
@@ -588,7 +596,7 @@ export const CORE_SERVICES_DATA = [
     colorTheme: 'emerald',
     borderColor: 'border-emerald-500',
     badgeBg: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    imageUrl: '/src/assets/images/orphanage_care_1790500099587.jpg',
+    imageUrl: ORPHANAGE_CARE,
     description: 'निराश्रित, अनाथ और बेसहारा बच्चों को पारिवारिक स्नेह, सुरक्षित आवास, पौष्टिक भोजन और प्राथमिक से लेकर उच्च शिक्षा तक का संपूर्ण प्रबंध।',
     descriptionEn: 'Providing safe shelter, nutritious meals, healthcare, love and quality education to orphaned and underprivileged children.',
     features: ['सुरक्षित व स्वच्छ आवासीय सुविधा', 'नियमित स्वास्थ्य परीक्षण व संतुलित आहार', 'उत्कृष्ट विद्यालयी शिक्षा व कौशल विकास', 'संस्कार, योग एवं खेलकूद प्रशिक्षण'],
@@ -661,7 +669,7 @@ export const CORE_SERVICES_DATA = [
     colorTheme: 'blue',
     borderColor: 'border-blue-600',
     badgeBg: 'bg-blue-50 text-blue-800 border-blue-200',
-    imageUrl: '/src/assets/images/old_age_care_1790500114183.jpg',
+    imageUrl: OLD_AGE_CARE,
     description: 'जीवन के इस पड़ाव पर अपनों से उपेक्षित या बेसहारा वरिष्ठ नागरिकों को सम्मानजनक, शांतिपूर्ण और परिवार जैसा अपनत्व भरा वातावरण प्रदान करना।',
     descriptionEn: 'Providing a peaceful, loving and dignified home for destitute senior citizens with complete daily care and medical support.',
     features: ['24x7 सेवादार एवं चिकित्सकीय निगरानी', 'सात्विक भोजन एवं नियमित दवाइयां', 'मनोरंजन कक्ष, धार्मिक ग्रंथ व सत्संग', 'सद्भाव और पारिवारिक स्नेहपूर्ण माहौल'],
@@ -758,7 +766,7 @@ export const CORE_SERVICES_DATA = [
     colorTheme: 'pink',
     borderColor: 'border-rose-500',
     badgeBg: 'bg-rose-50 text-rose-800 border-rose-200',
-    imageUrl: '/src/assets/images/hero_trust_seva_1790500083256.jpg',
+    imageUrl: HERO_TRUST_SEVA,
     description: 'पति के असामयिक निधन से निराश्रित हुई बहनों को सामाजिक सुरक्षा, कानूनी व मानसिक संबल तथा आत्मनिर्भर बनाने हेतु वोकेशनल प्रशिक्षण।',
     descriptionEn: 'Empowering destitute widows through vocational training, financial relief, essential rations and dignified livelihood.',
     features: ['सिलाई-कढ़ाई, हस्तशिल्प व लघु उद्योग प्रशिक्षण', 'मासिक पोषण व वस्त्र सहायता', 'बच्चों की पढ़ाई के लिए छात्रवृत्ति', 'कानूनी परामर्श एवं पुनर्वास सहायता'],
@@ -847,7 +855,7 @@ export const CORE_SERVICES_DATA = [
     colorTheme: 'teal',
     borderColor: 'border-teal-600',
     badgeBg: 'bg-teal-50 text-teal-800 border-teal-200',
-    imageUrl: '/src/assets/images/free_education_1791140935609.jpg',
+    imageUrl: FREE_EDUCATION,
     description: 'आर्थिक तंगी से जूझ रहे मेधावी बच्चों को कोचिंग, पाठ्य-सामग्री, बैग, यूनिफॉर्म व डिजिटल शिक्षा उपलब्ध कराकर उन्हें स्वावलंबी बनाना।',
     descriptionEn: 'Free coaching, school kits, uniforms and computer education for talented students from economically weak backgrounds.',
     features: ['योग्य शिक्षकों द्वारा निःशुल्क कोचिंग', 'किताबें, कॉपी एवं स्टेशनरी वितरण', 'डिजिटल कंप्यूटर साक्षरता केंद्र', 'प्रतियोगी परीक्षाओं की तैयारी मार्गदर्शन'],
@@ -930,7 +938,7 @@ export const CORE_SERVICES_DATA = [
     colorTheme: 'cyan',
     borderColor: 'border-sky-600',
     badgeBg: 'bg-sky-50 text-sky-800 border-sky-200',
-    imageUrl: '/src/assets/images/medical_camp_1790500125790.jpg',
+    imageUrl: MEDICAL_CAMP,
     description: 'ग्रामीण व सुदूर अंचलों में गरीब परिवारों के लिए निःशुल्क स्वास्थ्य जांच शिविर, दवा वितरण, पैथोलॉजी जांच एवं गंभीर रोगों में अस्पताल सहायता।',
     descriptionEn: 'Organizing free health checkup camps, essential medicine distribution, diagnostic support and emergency hospital assistance.',
     features: ['सप्ताहिक स्वास्थ्य परीक्षण शिविर', 'निःशुल्क आवश्यक जीवनरक्षक दवाएं', 'नेत्र जांच व मोतियाबिंद ऑपरेशन सहायता', 'आपातकालीन एम्बुलेंस परामर्श'],
@@ -1011,7 +1019,7 @@ export const CORE_SERVICES_DATA = [
     colorTheme: 'red',
     borderColor: 'border-red-600',
     badgeBg: 'bg-red-50 text-red-800 border-red-200',
-    imageUrl: '/src/assets/images/community_welfare_1791140948090.jpg',
+    imageUrl: COMMUNITY_WELFARE,
     description: 'नशामुक्ति अभियान, पर्यावरण संरक्षण, स्वच्छता जागरूकता, रक्तदान शिविर एवं सामाजिक समरसता के माध्यम से एक सशक्त राष्ट्र का निर्माण।',
     descriptionEn: 'Promoting cleanliness, blood donation drives, tree plantation, addiction recovery and youth empowerment across villages.',
     features: ['नियमित रक्तदान शिविरों का आयोजन', 'वृक्षारोपण व जल संरक्षण अभियान', 'युवा नशामुक्ति एवं योग चेतना', 'आपदा प्रबंधन व आपातकालीन राहत कार्य'],
