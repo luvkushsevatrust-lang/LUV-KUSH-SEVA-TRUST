@@ -11,6 +11,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Volunteer } from '../types';
+import { compressImageFile } from '../utils/imageCompressor';
 
 export const VolunteerRegistrationPage: React.FC = () => {
   const { addVolunteer, setCurrentPage, settings, language, t } = useTrust();
@@ -59,36 +60,45 @@ export const VolunteerRegistrationPage: React.FC = () => {
     setErrorMsg('');
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 600, 600, 0.75);
+        setPhotoPreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => setPhotoPreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handleAadhaarFrontUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAadhaarFrontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAadhaarFrontPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 800, 800, 0.7);
+        setAadhaarFrontPreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => setAadhaarFrontPreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handleAadhaarBackUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAadhaarBackUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAadhaarBackPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 800, 800, 0.7);
+        setAadhaarBackPreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => setAadhaarBackPreview(reader.result as string);
+        reader.readAsDataURL(file);
+      }
     }
   };
 

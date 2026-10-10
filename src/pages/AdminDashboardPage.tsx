@@ -55,6 +55,7 @@ import { PrintableCandidateForm } from '../components/PrintableCandidateForm';
 import { SUPABASE_SQL_SCHEMA, SupabaseService } from '../lib/supabaseService';
 import { resolveAssetUrl, CHAIRPERSON_PHOTO, TRUST_EMBLEM_LOGO } from '../assets';
 import { SUPABASE_PROJECT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
+import { compressImageFile } from '../utils/imageCompressor';
 
 export const AdminDashboardPage: React.FC = () => {
   const {
@@ -366,17 +367,25 @@ export const AdminDashboardPage: React.FC = () => {
     setTimeout(() => setSettingsSaved(false), 2500);
   };
 
-  const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
+      try {
+        const compressed = await compressImageFile(file, 600, 600, 0.8);
         setTempSettings((prev) => ({
           ...prev,
-          donationQrUrl: reader.result as string,
+          donationQrUrl: compressed,
         }));
-      };
-      reader.readAsDataURL(file);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setTempSettings((prev) => ({
+            ...prev,
+            donationQrUrl: reader.result as string,
+          }));
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -1713,14 +1722,19 @@ export const AdminDashboardPage: React.FC = () => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setAnnImagePreview(reader.result as string);
-                            };
-                            reader.readAsDataURL(file);
+                            try {
+                              const compressed = await compressImageFile(file, 800, 800, 0.75);
+                              setAnnImagePreview(compressed);
+                            } catch {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setAnnImagePreview(reader.result as string);
+                              };
+                              reader.readAsDataURL(file);
+                            }
                           }
                         }}
                       />
@@ -2129,14 +2143,19 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onloadend = () => {
-                                setTempSettings({ ...tempSettings, logoUrl: r.result as string });
-                              };
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 600, 600, 0.8);
+                                setTempSettings({ ...tempSettings, logoUrl: compressed });
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => {
+                                  setTempSettings({ ...tempSettings, logoUrl: r.result as string });
+                                };
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -2192,14 +2211,19 @@ export const AdminDashboardPage: React.FC = () => {
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const r = new FileReader();
-                            r.onloadend = () => {
-                              setTempSettings({ ...tempSettings, chairpersonPhotoUrl: r.result as string });
-                            };
-                            r.readAsDataURL(file);
+                            try {
+                              const compressed = await compressImageFile(file, 600, 600, 0.75);
+                              setTempSettings({ ...tempSettings, chairpersonPhotoUrl: compressed });
+                            } catch {
+                              const r = new FileReader();
+                              r.onloadend = () => {
+                                setTempSettings({ ...tempSettings, chairpersonPhotoUrl: r.result as string });
+                              };
+                              r.readAsDataURL(file);
+                            }
                           }
                         }}
                       />
@@ -3048,12 +3072,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onloadend = () => setNewCardPhotoPreview(r.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 600, 600, 0.75);
+                                setNewCardPhotoPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => setNewCardPhotoPreview(r.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -3085,12 +3114,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*,.pdf"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onloadend = () => setNewCardAadhaarFrontPreview(r.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 800, 800, 0.7);
+                                setNewCardAadhaarFrontPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => setNewCardAadhaarFrontPreview(r.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -3122,12 +3156,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*,.pdf"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onloadend = () => setNewCardAadhaarBackPreview(r.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 800, 800, 0.7);
+                                setNewCardAadhaarBackPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => setNewCardAadhaarBackPreview(r.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -3272,12 +3311,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onloadend = () => setNewStuPhotoPreview(r.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 600, 600, 0.75);
+                                setNewStuPhotoPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => setNewStuPhotoPreview(r.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -3309,12 +3353,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*,.pdf"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onloadend = () => setNewStuAadhaarFrontPreview(r.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 800, 800, 0.7);
+                                setNewStuAadhaarFrontPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => setNewStuAadhaarFrontPreview(r.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -3346,12 +3395,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*,.pdf"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onloadend = () => setNewStuAadhaarBackPreview(r.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 800, 800, 0.7);
+                                setNewStuAadhaarBackPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => setNewStuAadhaarBackPreview(r.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -3705,12 +3759,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const f = e.target.files?.[0];
                             if (f) {
-                              const r = new FileReader();
-                              r.onload = (ev) => setEditAppPhotoPreview(ev.target?.result as string);
-                              r.readAsDataURL(f);
+                              try {
+                                const compressed = await compressImageFile(f, 600, 600, 0.75);
+                                setEditAppPhotoPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onload = (ev) => setEditAppPhotoPreview(ev.target?.result as string);
+                                r.readAsDataURL(f);
+                              }
                             }
                           }}
                         />
@@ -3742,12 +3801,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const f = e.target.files?.[0];
                             if (f) {
-                              const r = new FileReader();
-                              r.onload = (ev) => setEditAppAadhaarFrontPreview(ev.target?.result as string);
-                              r.readAsDataURL(f);
+                              try {
+                                const compressed = await compressImageFile(f, 800, 800, 0.7);
+                                setEditAppAadhaarFrontPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onload = (ev) => setEditAppAadhaarFrontPreview(ev.target?.result as string);
+                                r.readAsDataURL(f);
+                              }
                             }
                           }}
                         />
@@ -3779,12 +3843,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const f = e.target.files?.[0];
                             if (f) {
-                              const r = new FileReader();
-                              r.onload = (ev) => setEditAppAadhaarBackPreview(ev.target?.result as string);
-                              r.readAsDataURL(f);
+                              try {
+                                const compressed = await compressImageFile(f, 800, 800, 0.7);
+                                setEditAppAadhaarBackPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onload = (ev) => setEditAppAadhaarBackPreview(ev.target?.result as string);
+                                r.readAsDataURL(f);
+                              }
                             }
                           }}
                         />
@@ -4465,12 +4534,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onload = (ev) => setEditVolPhotoPreview(ev.target?.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 600, 600, 0.75);
+                                setEditVolPhotoPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onload = (ev) => setEditVolPhotoPreview(ev.target?.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -4502,12 +4576,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onload = (ev) => setEditVolAadhaarFrontPreview(ev.target?.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 800, 800, 0.7);
+                                setEditVolAadhaarFrontPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onload = (ev) => setEditVolAadhaarFrontPreview(ev.target?.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />
@@ -4539,12 +4618,17 @@ export const AdminDashboardPage: React.FC = () => {
                           type="file"
                           accept="image/*"
                           className="hidden"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const r = new FileReader();
-                              r.onload = (ev) => setEditVolAadhaarBackPreview(ev.target?.result as string);
-                              r.readAsDataURL(file);
+                              try {
+                                const compressed = await compressImageFile(file, 800, 800, 0.7);
+                                setEditVolAadhaarBackPreview(compressed);
+                              } catch {
+                                const r = new FileReader();
+                                r.onload = (ev) => setEditVolAadhaarBackPreview(ev.target?.result as string);
+                                r.readAsDataURL(file);
+                              }
                             }
                           }}
                         />

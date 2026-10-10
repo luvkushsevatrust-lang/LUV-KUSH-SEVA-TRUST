@@ -15,6 +15,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import { Donation } from '../types';
+import { compressImageFile } from '../utils/imageCompressor';
 
 export const DonationPage: React.FC = () => {
   const { settings, addDonation, setActiveReceipt, language, t } = useTrust();
@@ -54,14 +55,19 @@ export const DonationPage: React.FC = () => {
     setTimeout(() => setCopiedBank(false), 2000);
   };
 
-  const handleScreenshotUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setScreenshotPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 800, 800, 0.7);
+        setScreenshotPreview(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setScreenshotPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

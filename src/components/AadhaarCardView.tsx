@@ -15,6 +15,7 @@ import {
   Check,
 } from 'lucide-react';
 import { getCardPhotoUrl } from '../utils/idCardHelper';
+import { compressImageFile } from '../utils/imageCompressor';
 
 export interface AadhaarCardViewProps {
   fullName: string;
@@ -79,25 +80,35 @@ export const AadhaarCardView: React.FC<AadhaarCardViewProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleFrontUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFrontUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onFrontChange) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onFrontChange(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 800, 800, 0.7);
+        onFrontChange(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          onFrontChange(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
-  const handleBackUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBackUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onBackChange) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        onBackChange(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImageFile(file, 800, 800, 0.7);
+        onBackChange(compressed);
+      } catch {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          onBackChange(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 

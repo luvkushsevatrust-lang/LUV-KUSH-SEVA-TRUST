@@ -26,6 +26,7 @@ import {
 } from '../data/mockData';
 import { SupabaseService } from '../lib/supabaseService';
 import { resolveAssetUrl, TRUST_EMBLEM_LOGO } from '../assets';
+import { safeSetItem, safeRemoveItem, cleanupStorageQuota } from '../utils/safeStorage';
 
 interface TrustContextType {
   settings: TrustSettings;
@@ -144,11 +145,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    try {
-      localStorage.setItem('lkst_language', lang);
-    } catch {
-      // ignore local storage errors
-    }
+    safeSetItem('lkst_language', lang);
   };
 
   const t = getTranslation(language);
@@ -164,11 +161,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setBgTheme = (theme: BgTheme) => {
     setBgThemeState(theme);
-    try {
-      localStorage.setItem('lkst_bg_theme', theme);
-    } catch {
-      // ignore
-    }
+    safeSetItem('lkst_bg_theme', theme);
   };
 
   // Sync background color with document.body and root html
@@ -270,7 +263,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             sanitized.length !== parsed.length ||
             sanitized.some((c, idx) => c.id !== parsed[idx]?.id)
           ) {
-            localStorage.setItem('lkst_id_cards', JSON.stringify(sanitized));
+            safeSetItem('lkst_id_cards', JSON.stringify(sanitized));
           }
           return sanitized;
         }
@@ -446,45 +439,50 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Sync to LocalStorage
+  // Run storage quota cleanup on initial startup to clear any bloated items
   useEffect(() => {
-    localStorage.setItem('lkst_settings', JSON.stringify(settings));
+    cleanupStorageQuota();
+  }, []);
+
+  // Sync to LocalStorage safely (prevents QuotaExceededError crashes)
+  useEffect(() => {
+    safeSetItem('lkst_settings', JSON.stringify(settings));
   }, [settings]);
 
   useEffect(() => {
-    localStorage.setItem('lkst_applications', JSON.stringify(applications));
+    safeSetItem('lkst_applications', JSON.stringify(applications));
   }, [applications]);
 
   useEffect(() => {
-    localStorage.setItem('lkst_students', JSON.stringify(students));
+    safeSetItem('lkst_students', JSON.stringify(students));
   }, [students]);
 
   useEffect(() => {
-    localStorage.setItem('lkst_id_cards', JSON.stringify(idCards));
+    safeSetItem('lkst_id_cards', JSON.stringify(idCards));
   }, [idCards]);
 
   useEffect(() => {
-    localStorage.setItem('lkst_volunteers', JSON.stringify(volunteers));
+    safeSetItem('lkst_volunteers', JSON.stringify(volunteers));
   }, [volunteers]);
 
   useEffect(() => {
-    localStorage.setItem('lkst_donations', JSON.stringify(donations));
+    safeSetItem('lkst_donations', JSON.stringify(donations));
   }, [donations]);
 
   useEffect(() => {
-    localStorage.setItem('lkst_announcements', JSON.stringify(announcements));
+    safeSetItem('lkst_announcements', JSON.stringify(announcements));
   }, [announcements]);
 
   useEffect(() => {
     if (currentStudent) {
-      localStorage.setItem('lkst_current_student', JSON.stringify(currentStudent));
+      safeSetItem('lkst_current_student', JSON.stringify(currentStudent));
     } else {
-      localStorage.removeItem('lkst_current_student');
+      safeRemoveItem('lkst_current_student');
     }
   }, [currentStudent]);
 
   useEffect(() => {
-    localStorage.setItem('lkst_is_admin', isAdmin ? 'true' : 'false');
+    safeSetItem('lkst_is_admin', isAdmin ? 'true' : 'false');
   }, [isAdmin]);
 
   // Listen to browser Back/Forward navigation
@@ -884,11 +882,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const deleteIdCard = (id: string) => {
     setIdCards((prev) => {
       const updated = prev.filter((card) => card.id !== id && card.cardNumber !== id);
-      try {
-        localStorage.setItem('lkst_id_cards', JSON.stringify(updated));
-      } catch (err) {
-        console.error('Error updating lkst_id_cards in localStorage', err);
-      }
+      safeSetItem('lkst_id_cards', JSON.stringify(updated));
       return updated;
     });
     SupabaseService.deleteIdCard(id);
@@ -926,12 +920,8 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         return v;
       });
-      try {
-        localStorage.setItem('lkst_volunteers', JSON.stringify(updatedList));
-      } catch (e) {
-        console.error('Error saving updated volunteers to localStorage', e);
-      }
-      return updatedList;
+        safeSetItem('lkst_volunteers', JSON.stringify(updatedList));
+        return updatedList;
     });
 
     // Also synchronize associated ID card if present
