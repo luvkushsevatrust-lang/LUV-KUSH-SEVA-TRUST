@@ -372,7 +372,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                 {/* Background Subtle Watermark */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] pointer-events-none">
                   <SafeImage
-                    src={TRUST_EMBLEM_LOGO}
+                    src={settings.logoUrl || TRUST_EMBLEM_LOGO}
                     alt="Watermark"
                     className="w-48 h-48 object-contain"
                   />
@@ -381,11 +381,11 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                 {/* Top Header Strip */}
                 <div className="bg-gradient-to-r from-red-700 via-rose-700 to-red-800 text-white px-3 py-2 flex items-center justify-between border-b-2 border-amber-400 relative z-10">
                   <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-amber-300 shadow-sm shrink-0 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-amber-300 shadow-sm shrink-0 flex items-center justify-center overflow-hidden">
                       <SafeImage
-                        src={TRUST_EMBLEM_LOGO}
+                        src={settings.logoUrl || TRUST_EMBLEM_LOGO}
                         alt="Logo"
-                        className="w-full h-full object-cover rounded-full"
+                        className="w-full h-full object-contain rounded-full"
                       />
                     </div>
                     <div>
@@ -517,11 +517,11 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                 {/* Top Header */}
                 <div className="bg-blue-950 text-white px-3 py-1.5 flex items-center justify-between border-b border-amber-400">
                   <div className="flex items-center gap-1.5">
-                    <div className="w-5 h-5 rounded-full bg-white p-0.5 shrink-0">
+                    <div className="w-5 h-5 rounded-full bg-white p-0.5 shrink-0 flex items-center justify-center overflow-hidden">
                       <SafeImage
-                        src={TRUST_EMBLEM_LOGO}
+                        src={settings.logoUrl || TRUST_EMBLEM_LOGO}
                         alt="Logo"
-                        className="w-full h-full object-cover rounded-full"
+                        className="w-full h-full object-contain rounded-full"
                       />
                     </div>
                     <span className="text-[10px] font-black text-amber-300 uppercase tracking-wide">

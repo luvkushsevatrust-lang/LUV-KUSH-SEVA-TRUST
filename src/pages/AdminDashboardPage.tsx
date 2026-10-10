@@ -53,7 +53,7 @@ import { ID_CARD_CATEGORY_CONFIG } from '../data/mockData';
 import { AadhaarCardView } from '../components/AadhaarCardView';
 import { PrintableCandidateForm } from '../components/PrintableCandidateForm';
 import { SUPABASE_SQL_SCHEMA, SupabaseService } from '../lib/supabaseService';
-import { resolveAssetUrl, CHAIRPERSON_PHOTO } from '../assets';
+import { resolveAssetUrl, CHAIRPERSON_PHOTO, TRUST_EMBLEM_LOGO } from '../assets';
 import { SUPABASE_PROJECT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 
 export const AdminDashboardPage: React.FC = () => {
@@ -2070,6 +2070,85 @@ export const AdminDashboardPage: React.FC = () => {
                   onChange={(e) => setTempSettings({ ...tempSettings, chairpersonName: e.target.value })}
                   className="w-full px-3 py-2 border rounded-xl font-bold"
                 />
+              </div>
+
+              {/* Official Trust Website Logo & Icon Upload */}
+              <div className="sm:col-span-2 p-5 bg-sky-50/90 rounded-2xl border-2 border-sky-300 space-y-4 shadow-xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block font-black text-slate-900 text-sm sm:text-base">
+                      {language === 'en' ? 'Official Trust Website Logo & Browser Icon' : 'ट्रस्ट आधिकारिक वेबसाइट लोगो एवं ब्राउज़र आइकन (Official Logo & Icon)'}
+                    </label>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {language === 'en'
+                        ? 'Displays identically and clearly across the header banner, sticky navbar, footer, ID cards, and browser tab favicon'
+                        : 'वेबसाइट के मुख्य हेडर बैनर, नेवबार, फुटर, आईडी कार्ड तथा ब्राउज़र टैब आइकन (Favicon) में 100% स्पष्ट व सेम-टू-सेम दिखेगा'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTempSettings({ ...tempSettings, logoUrl: '/trust_logo_clear.png' })}
+                      className="px-2.5 py-1 text-xs text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-lg border border-blue-300 font-bold cursor-pointer transition-colors"
+                    >
+                      {language === 'en' ? 'Set High-Clarity Logo' : 'स्पष्ट HD लोगो सेट करें'}
+                    </button>
+                    {tempSettings.logoUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setTempSettings({ ...tempSettings, logoUrl: '' })}
+                        className="px-2.5 py-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 font-semibold cursor-pointer transition-colors"
+                      >
+                        {language === 'en' ? 'Reset' : 'रीसेट'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  {/* Round Badge Preview Only */}
+                  <div className="text-center shrink-0">
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full border-4 border-amber-400 bg-white shadow-md p-1.5 flex items-center justify-center overflow-hidden ring-4 ring-blue-900/10 mx-auto">
+                      <img
+                        src={tempSettings.logoUrl || TRUST_EMBLEM_LOGO}
+                        alt="Trust Round Logo"
+                        className="w-full h-full object-contain rounded-full"
+                      />
+                    </div>
+                    <span className="block text-[10px] font-bold text-slate-600 mt-1.5">
+                      {language === 'en' ? 'Official Round Logo' : 'आधिकारिक राउंड लोगो (Round Logo)'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-blue-900 hover:bg-blue-950 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-colors">
+                        <Upload className="w-4 h-4 text-amber-300" />
+                        <span>{language === 'en' ? 'Upload Official Logo' : 'वेबसाइट लोगो अपलोड करें (Upload Logo)'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const r = new FileReader();
+                              r.onloadend = () => {
+                                setTempSettings({ ...tempSettings, logoUrl: r.result as string });
+                              };
+                              r.readAsDataURL(file);
+                            }
+                          }}
+                        />
+                      </label>
+                    </div>
+                    <p className="text-[11px] text-slate-600">
+                      {language === 'en'
+                        ? 'Supported: High-resolution PNG, JPG, WEBP, SVG (Automatically synced in header, footer, id cards, and tab icon)'
+                        : 'समर्थित प्रारूप: PNG, JPG, WEBP, SVG (अपलोड करते ही हेडर, फुटर, आईडी कार्ड तथा ब्राउज़र टैब आइकन में स्वतः क्लियर सेट होगा)'}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Chairperson Official Photo Upload */}

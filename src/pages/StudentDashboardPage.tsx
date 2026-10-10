@@ -182,11 +182,11 @@ export const StudentDashboardPage: React.FC = () => {
                       <>
                         <div className="bg-gradient-to-r from-red-700 via-rose-700 to-red-800 text-white px-3 py-2 flex items-center justify-between border-b-2 border-amber-400">
                           <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-white p-0.5 border border-amber-300 shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-white p-0.5 border border-amber-300 shrink-0 flex items-center justify-center overflow-hidden">
                               <SafeImage
-                                src={TRUST_EMBLEM_LOGO}
+                                src={settings.logoUrl || TRUST_EMBLEM_LOGO}
                                 alt="Logo"
-                                className="w-full h-full object-cover rounded-full"
+                                className="w-full h-full object-contain rounded-full"
                               />
                             </div>
                             <div>

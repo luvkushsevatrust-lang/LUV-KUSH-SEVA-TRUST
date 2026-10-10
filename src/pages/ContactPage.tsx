@@ -49,11 +49,11 @@ export const ContactPage: React.FC = () => {
           
           <div className="bg-white rounded-3xl border border-slate-200 shadow-md p-6 sm:p-8 space-y-6">
             <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
-              <div className="w-14 h-14 rounded-full border border-amber-400 bg-amber-50 p-0.5 shrink-0">
+              <div className="w-16 h-16 rounded-full border-2 border-amber-400 bg-white p-1 shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
                 <SafeImage
-                  src={TRUST_EMBLEM_LOGO}
+                  src={settings.logoUrl || TRUST_EMBLEM_LOGO}
                   alt="Logo"
-                  className="w-full h-full object-cover rounded-full"
+                  className="w-full h-full object-contain rounded-full"
                   loading="lazy"
                 />
               </div>

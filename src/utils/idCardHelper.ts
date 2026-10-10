@@ -328,7 +328,7 @@ export async function renderIdCardSideToCanvas(
   const chairpersonName = settings?.chairpersonName || 'सत्येन्द्र कुमार';
 
   // Load emblem logo image
-  const emblemLogoImg = await loadImageSafe(TRUST_EMBLEM_LOGO);
+  const emblemLogoImg = await loadImageSafe(settings?.logoUrl || TRUST_EMBLEM_LOGO);
 
   if (side === 'front') {
     // 1. Background with Rounded Corners

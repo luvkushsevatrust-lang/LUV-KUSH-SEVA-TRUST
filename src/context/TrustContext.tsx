@@ -25,7 +25,7 @@ import {
   ID_CARD_CATEGORY_CONFIG,
 } from '../data/mockData';
 import { SupabaseService } from '../lib/supabaseService';
-import { resolveAssetUrl } from '../assets';
+import { resolveAssetUrl, TRUST_EMBLEM_LOGO } from '../assets';
 
 interface TrustContextType {
   settings: TrustSettings;
@@ -193,6 +193,24 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return INITIAL_TRUST_SETTINGS;
     }
   });
+
+  // Dynamic sync of browser icon/favicon with website logo
+  useEffect(() => {
+    const iconLinks = document.querySelectorAll<HTMLLinkElement>("link[rel*='icon']");
+    if (iconLinks.length > 0) {
+      iconLinks.forEach((link) => {
+        if (settings.logoUrl) {
+          link.href = settings.logoUrl;
+        } else {
+          link.href = link.sizes?.value?.includes('32') ? '/favicon-32x32.png' : '/favicon.ico';
+        }
+      });
+    }
+    const appleTouchLink = document.querySelector<HTMLLinkElement>("link[rel='apple-touch-icon']");
+    if (appleTouchLink) {
+      appleTouchLink.href = settings.logoUrl || '/apple-touch-icon.png';
+    }
+  }, [settings.logoUrl]);
 
   // Persistent Applications
   const [applications, setApplications] = useState<ServiceApplication[]>(() => {

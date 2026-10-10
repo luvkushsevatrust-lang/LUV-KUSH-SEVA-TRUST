@@ -189,6 +189,7 @@ export interface TrustSettings {
   registrationNumber: string;
   chairpersonName: string;
   chairpersonPhotoUrl?: string;
+  logoUrl?: string;
   address: string;
   phone: string;
   alternatePhone?: string;

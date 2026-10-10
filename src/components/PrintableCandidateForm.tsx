@@ -17,6 +17,7 @@ import { downloadElementAsPdf, getCardPhotoUrl } from '../utils/idCardHelper';
 import { AadhaarCardView } from './AadhaarCardView';
 import { SafeImage } from './SafeImage';
 import { TRUST_EMBLEM_LOGO } from '../assets';
+import { useTrust } from '../context/TrustContext';
 
 export interface PrintableCandidateFormProps {
   candidate: ServiceApplication | Student;
@@ -31,6 +32,7 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
   onClose,
   language = 'hi',
 }) => {
+  const { settings } = useTrust();
   const formRef = useRef<HTMLDivElement>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
@@ -140,7 +142,7 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
           {/* Subtle Watermark Emblem Background */}
           <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
             <SafeImage
-              src={TRUST_EMBLEM_LOGO}
+              src={settings?.logoUrl || TRUST_EMBLEM_LOGO}
               alt="Seal"
               className="w-96 h-96 object-contain"
             />
@@ -151,9 +153,9 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
             <div className="flex items-center justify-center gap-3 mb-2">
               <div className="w-16 h-16 rounded-full border-2 border-amber-500 p-0.5 bg-white shadow-sm overflow-hidden flex items-center justify-center">
                 <SafeImage
-                  src={TRUST_EMBLEM_LOGO}
+                  src={settings?.logoUrl || TRUST_EMBLEM_LOGO}
                   alt="Logo"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain rounded-full"
                 />
               </div>
               <div className="text-left">

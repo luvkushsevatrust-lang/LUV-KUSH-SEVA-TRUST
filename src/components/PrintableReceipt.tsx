@@ -120,7 +120,7 @@ export const PrintableReceipt: React.FC = () => {
           {/* Subtle Watermark Emblem Background */}
           <div className="absolute inset-0 flex items-center justify-center opacity-[0.035] pointer-events-none">
             <SafeImage
-              src={TRUST_EMBLEM_LOGO}
+              src={settings?.logoUrl || TRUST_EMBLEM_LOGO}
               alt="Seal"
               className="w-48 h-48 object-contain"
             />
@@ -131,9 +131,9 @@ export const PrintableReceipt: React.FC = () => {
             <div className="flex items-center justify-center gap-2.5 mb-1">
               <div className="w-11 h-11 rounded-full border border-amber-500 p-0.5 bg-white shadow-2xs overflow-hidden flex items-center justify-center shrink-0">
                 <SafeImage
-                  src={TRUST_EMBLEM_LOGO}
+                  src={settings?.logoUrl || TRUST_EMBLEM_LOGO}
                   alt="Logo"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain rounded-full"
                 />
               </div>
               <div className="text-left">

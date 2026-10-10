@@ -21,28 +21,12 @@ import {
   Image as ImageIcon,
   X,
   Info,
-  Upload,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
-  const { settings, updateSettings, announcements, setCurrentPage, language, t } = useTrust();
+  const { settings, announcements, setCurrentPage, language, t } = useTrust();
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [selectedServiceForDetail, setSelectedServiceForDetail] = useState<any | null>(null);
-  const [photoUploadSuccess, setPhotoUploadSuccess] = useState(false);
-
-  const handleChairpersonPhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const result = reader.result as string;
-        updateSettings({ chairpersonPhotoUrl: result });
-        setPhotoUploadSuccess(true);
-        setTimeout(() => setPhotoUploadSuccess(false), 5000);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
 
   return (
     <div className="space-y-16 pb-16">
@@ -519,59 +503,22 @@ export const HomePage: React.FC = () => {
           
           <div className="lg:col-span-4 text-center">
             <div className="relative inline-block">
-              <div className="w-44 h-44 sm:w-48 sm:h-48 rounded-2xl overflow-hidden shadow-xl border-4 border-amber-400 bg-amber-50 mx-auto relative group">
+              <div className="w-44 h-44 sm:w-48 sm:h-48 rounded-2xl overflow-hidden shadow-xl border-4 border-amber-400 bg-amber-50 mx-auto">
                 <SafeImage
                   src={settings.chairpersonPhotoUrl || CHAIRPERSON_PHOTO}
                   alt="Chairperson Satyendra Kumar"
                   className="w-full h-full object-cover object-top"
                 />
-                
-                {/* Instant upload overlay on hover/tap */}
-                <label
-                  title="अपनी असली फ़ोटो अपलोड करें"
-                  className="absolute inset-0 bg-slate-900/75 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center text-white cursor-pointer transition-opacity p-2 text-center"
-                >
-                  <Upload className="w-6 h-6 text-amber-300 mb-1" />
-                  <span className="text-xs font-bold text-amber-200">अपनी असली फ़ोटो चुनें</span>
-                  <span className="text-[10px] text-slate-300">(Upload Photo)</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleChairpersonPhotoUpload}
-                  />
-                </label>
               </div>
 
-              {/* Direct visible button right under photo */}
-              <div className="mt-2.5 flex flex-col items-center gap-1.5">
-                <label className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-100 hover:bg-amber-200 text-amber-950 border border-amber-300 rounded-full text-[11px] font-bold cursor-pointer shadow-xs transition-transform active:scale-95">
-                  <Upload className="w-3.5 h-3.5 text-amber-800" />
-                  <span>{settings.chairpersonPhotoUrl ? 'फ़ोटो बदलें (Change Photo)' : 'अपनी असली फ़ोटो चुनें (Upload Photo)'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleChairpersonPhotoUpload}
-                  />
-                </label>
-
-                {photoUploadSuccess && (
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                    <CheckCircle className="w-3 h-3 text-emerald-600" />
-                    <span>फ़ोटो सफलतापूर्वक सेट हो गई!</span>
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-2">
-                <h3 className="font-extrabold text-lg text-slate-900">
+              <div className="mt-3">
+                <h3 className="font-extrabold text-lg sm:text-xl text-slate-900">
                   {language === 'en' ? 'Satyendra Kumar' : settings.chairpersonName}
                 </h3>
-                <p className="text-xs font-bold text-red-600">
+                <p className="text-xs sm:text-sm font-bold text-red-600 mt-0.5">
                   {t.home.chairpersonTitle}
                 </p>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">
                   {language === 'en' ? 'Office: Raisar, Rajgir (Nalanda)' : 'कार्यालय : राईसर, राजगीर (नालंदा)'}
                 </p>
               </div>

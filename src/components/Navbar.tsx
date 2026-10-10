@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { useTrust } from '../context/TrustContext';
+import { SafeImage } from './SafeImage';
+import { TRUST_EMBLEM_LOGO } from '../assets';
 import {
   Menu,
   X,
@@ -28,6 +30,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenStatusModal }) => {
     studentLogout,
     language,
     t,
+    settings,
   } = useTrust();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -69,23 +72,48 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenStatusModal }) => {
       {/* Main Navigation Bar */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14 sm:h-16">
-          {/* Mobile Left: Home Button */}
+          {/* Mobile Left: Brand Logo & Title */}
           <div className="lg:hidden flex items-center">
             <button
               onClick={() => handleNavClick('home')}
-              className={`inline-flex items-center space-x-1.5 px-2.5 py-1.5 rounded-lg text-sm font-bold transition-colors ${
-                currentPage === 'home'
-                  ? 'text-orange-600 bg-orange-50'
-                  : 'text-stone-800 hover:text-orange-600 hover:bg-stone-50'
-              }`}
+              className="inline-flex items-center gap-2 px-1.5 py-1 rounded-xl text-left hover:bg-orange-50 transition-colors"
             >
-              <Home className="w-4 h-4 text-orange-600" />
-              <span>{t.nav.home}</span>
+              <div className="w-8 h-8 rounded-full border-2 border-amber-400 bg-white p-0.5 shadow-sm overflow-hidden flex items-center justify-center shrink-0">
+                <SafeImage
+                  src={settings.logoUrl || TRUST_EMBLEM_LOGO}
+                  alt="Luv Kush Seva Trust Emblem"
+                  className="w-full h-full object-contain rounded-full"
+                />
+              </div>
+              <div className="leading-tight">
+                <span className="block text-xs font-black text-red-600 tracking-tight">LUV KUSH SEVA TRUST</span>
+                <span className="block text-[10px] font-bold text-blue-900">{settings.nameHi}</span>
+              </div>
             </button>
           </div>
 
           {/* Desktop Navigation Links */}
-          <nav className="hidden lg:flex items-center space-x-1 xl:space-x-1.5">
+          <div className="hidden lg:flex items-center space-x-2">
+            {/* Desktop Brand Logo pill */}
+            <button
+              onClick={() => handleNavClick('home')}
+              className="mr-2 inline-flex items-center gap-2 px-2.5 py-1 rounded-xl hover:bg-orange-50 transition-colors group cursor-pointer"
+              title={language === 'en' ? 'Luv Kush Seva Trust - Home' : 'लव कुश सेवा ट्रस्ट - मुख्य पृष्ठ'}
+            >
+              <div className="w-8 h-8 rounded-full border border-amber-400 bg-white p-0.5 shadow-sm overflow-hidden flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                <SafeImage
+                  src={settings.logoUrl || TRUST_EMBLEM_LOGO}
+                  alt="Luv Kush Seva Trust Emblem"
+                  className="w-full h-full object-contain rounded-full"
+                />
+              </div>
+              <div className="text-left leading-none hidden xl:block">
+                <span className="block text-xs font-black text-red-600">LUV KUSH</span>
+                <span className="block text-[9px] font-bold text-blue-900">SEVA TRUST</span>
+              </div>
+            </button>
+
+            <nav className="flex items-center space-x-1 xl:space-x-1.5">
             {navLinks.map((link) => {
               const isActive =
                 currentPage === link.id ||
@@ -144,6 +172,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenStatusModal }) => {
               );
             })}
           </nav>
+        </div>
 
           {/* Action CTAs: Status Search + Donate + Login / Account */}
           <div className="hidden lg:flex items-center space-x-2.5">

@@ -17,9 +17,17 @@ import medicalCamp from './images/medical_camp_1790500125790.jpg';
 import communityWelfare from './images/community_welfare_1791140948090.jpg';
 import communityWelfareAlt from './images/community_welfare_1791140830800.jpg';
 import chairpersonSatyendraKumar from './images/chairperson_satyendra_kumar_1791278682704.jpg';
+import officialTrustLogo from './images/official_trust_logo_1791611180186.jpg';
+import trustLogoClear from './images/trust_logo_clear.png';
+import trustEmblemClear from './images/trust_emblem_clear.png';
+import trustLogoRound from './images/trust_logo_round.png';
 
 export const TRUST_ASSETS = {
+  trustLogoRound,
+  trustLogoClear,
+  trustEmblemClear,
   trustEmblemLogo,
+  officialTrustLogo,
   heroTrustSeva,
   orphanageCare,
   oldAgeCare,
@@ -32,7 +40,11 @@ export const TRUST_ASSETS = {
 } as const;
 
 export {
+  trustLogoRound,
+  trustLogoClear,
+  trustEmblemClear,
   trustEmblemLogo,
+  officialTrustLogo,
   heroTrustSeva,
   orphanageCare,
   oldAgeCare,
@@ -44,8 +56,12 @@ export {
   chairpersonSatyendraKumar,
 };
 
-// Aliases matching domain entities
-export const TRUST_EMBLEM_LOGO = trustEmblemLogo;
+// Aliases matching domain entities - high clarity round logo default
+export const TRUST_LOGO_ROUND = trustLogoRound;
+export const TRUST_LOGO_CLEAR = trustLogoRound;
+export const TRUST_EMBLEM_CLEAR = trustLogoRound;
+export const TRUST_EMBLEM_LOGO = trustLogoRound;
+export const OFFICIAL_TRUST_LOGO = trustLogoRound;
 export const HERO_TRUST_SEVA = heroTrustSeva;
 export const ORPHANAGE_CARE = orphanageCare;
 export const OLD_AGE_CARE = oldAgeCare;
@@ -72,6 +88,16 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   'chairperson_satyendra_kumar_1791278682704.jpg': chairpersonSatyendraKumar,
   'chairperson.jpg': chairpersonSatyendraKumar,
   'satyendra_kumar.jpg': chairpersonSatyendraKumar,
+  'trust_logo_round.png': trustLogoRound,
+  '/trust_logo_round.png': trustLogoRound,
+  'trust_logo_clear.png': trustLogoClear,
+  'trust_emblem_clear.png': trustEmblemClear,
+  '/trust_logo_clear.png': trustLogoClear,
+  '/trust_emblem_clear.png': trustEmblemClear,
+  'official_trust_logo_1791611180186.jpg': officialTrustLogo,
+  'official_trust_logo.jpg': officialTrustLogo,
+  'trust_logo.jpg': officialTrustLogo,
+  'logo.jpg': officialTrustLogo,
 
   // Root filenames
   '/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,

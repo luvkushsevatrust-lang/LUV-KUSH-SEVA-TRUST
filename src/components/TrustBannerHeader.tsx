@@ -9,6 +9,8 @@ import { TRUST_EMBLEM_LOGO } from '../assets';
 export const TrustBannerHeader: React.FC = () => {
   const { settings, setCurrentPage, language, t } = useTrust();
 
+  const activeLogoSrc = settings.logoUrl || TRUST_EMBLEM_LOGO;
+
   return (
     <div className="w-full bg-slate-900 border-b border-amber-300/40 select-none shadow-md overflow-hidden">
       {/* Top Red Tagline Ribbon with Theme Color Switcher & Language Switcher */}
@@ -38,18 +40,18 @@ export const TrustBannerHeader: React.FC = () => {
       <div className="bg-gradient-to-b from-sky-50 via-white to-blue-50 py-3 px-3 sm:px-6 relative">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-4">
           
-          {/* Left: Luv Kush Divine Emblem */}
+          {/* Left: Luv Kush Divine Emblem - Perfect Round Crest */}
           <div className="flex items-center gap-3 shrink-0">
             <div 
               onClick={() => setCurrentPage('home')}
               className="cursor-pointer group flex items-center transition-transform hover:scale-105"
               title={language === 'en' ? 'Luv Kush Seva Trust - Home' : 'लव कुश सेवा ट्रस्ट - मुख्य पृष्ठ'}
             >
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-amber-400 p-0.5 bg-white shadow-md overflow-hidden flex items-center justify-center">
+              <div className="relative w-22 h-22 sm:w-26 sm:h-26 md:w-28 md:h-28 rounded-full border-4 border-amber-400 p-1 bg-white shadow-xl overflow-hidden flex items-center justify-center ring-4 ring-blue-900/10">
                 <SafeImage
-                  src={TRUST_EMBLEM_LOGO}
+                  src={activeLogoSrc}
                   alt="Luv Kush Seva Trust Emblem"
-                  className="w-full h-full object-cover rounded-full"
+                  className="w-full h-full object-contain rounded-full"
                   loading="eager"
                 />
               </div>

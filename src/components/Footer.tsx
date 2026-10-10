@@ -30,20 +30,20 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
           {/* Organization Info */}
           <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 rounded-full bg-white p-1 flex items-center justify-center shadow-md">
+            <div className="flex items-center space-x-3.5">
+              <div className="w-16 h-16 rounded-full bg-white border-2 border-amber-400 p-1 flex items-center justify-center shadow-lg shrink-0 overflow-hidden">
                 <SafeImage
-                  src={TRUST_EMBLEM_LOGO}
+                  src={settings.logoUrl || TRUST_EMBLEM_LOGO}
                   alt="Luv Kush Seva Trust Emblem"
                   className="w-full h-full object-contain rounded-full"
                   loading="lazy"
                 />
               </div>
               <div>
-                <h3 className="text-white font-bold text-lg tracking-tight">
+                <h3 className="text-white font-black text-lg tracking-tight">
                   {language === 'en' ? 'Luv Kush Seva Trust' : 'लव कुश सेवा ट्रस्ट'}
                 </h3>
-                <p className="text-xs text-orange-400 font-medium">LUV KUSH SEVA TRUST</p>
+                <p className="text-xs text-orange-400 font-extrabold tracking-wider">LUV KUSH SEVA TRUST</p>
               </div>
             </div>
 
