@@ -41,7 +41,7 @@ export const IdCardVerificationModal: React.FC<IdCardVerificationModalProps> = (
           <div className="w-16 h-16 rounded-full bg-white p-1 shadow-lg mx-auto mb-3 flex items-center justify-center border-2 border-amber-400 overflow-hidden">
             <SafeImage
               src={settings.logoUrl || TRUST_EMBLEM_LOGO}
-              alt="Logo"
+              alt="Luv Kush Seva Trust Official Emblem"
               className="w-full h-full object-contain rounded-full"
             />
           </div>

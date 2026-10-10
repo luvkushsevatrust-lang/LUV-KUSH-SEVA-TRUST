@@ -52,7 +52,7 @@ export const ContactPage: React.FC = () => {
               <div className="w-16 h-16 rounded-full border-2 border-amber-400 bg-white p-1 shrink-0 flex items-center justify-center shadow-sm overflow-hidden">
                 <SafeImage
                   src={settings.logoUrl || TRUST_EMBLEM_LOGO}
-                  alt="Logo"
+                  alt="Luv Kush Seva Trust Official Emblem"
                   className="w-full h-full object-contain rounded-full"
                   loading="lazy"
                 />

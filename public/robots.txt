@@ -1,0 +1,23 @@
+# Robots.txt for Luv Kush Seva Trust
+# Website: https://www.luvkushsevatrust.in/
+
+User-agent: *
+Allow: /
+Allow: /about
+Allow: /services
+Allow: /donation
+Allow: /volunteer-registration
+Allow: /student-registration
+Allow: /id-card
+Allow: /contact
+Allow: /privacy-policy
+Allow: /terms
+
+# Disallow private and administrative portals
+Disallow: /admin-dashboard
+Disallow: /admin-login
+Disallow: /student-dashboard
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://www.luvkushsevatrust.in/sitemap.xml

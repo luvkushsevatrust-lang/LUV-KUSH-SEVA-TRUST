@@ -37,7 +37,7 @@ export const HomePage: React.FC = () => {
         <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-luminosity">
           <SafeImage
             src={HERO_TRUST_SEVA}
-            alt="Luv Kush Seva Trust"
+            alt="Luv Kush Seva Trust Social Welfare Activities and Humanitarian Outreach"
             className="w-full h-full object-cover"
           />
         </div>
@@ -118,7 +118,7 @@ export const HomePage: React.FC = () => {
               >
                 <SafeImage
                   src={COMMUNITY_WELFARE}
-                  alt="Community Welfare Camp"
+                  alt="Luv Kush Seva Trust Community Welfare & Social Relief Work"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-4">
@@ -506,7 +506,7 @@ export const HomePage: React.FC = () => {
               <div className="w-44 h-44 sm:w-48 sm:h-48 rounded-2xl overflow-hidden shadow-xl border-4 border-amber-400 bg-amber-50 mx-auto">
                 <SafeImage
                   src={settings.chairpersonPhotoUrl || CHAIRPERSON_PHOTO}
-                  alt="Chairperson Satyendra Kumar"
+                  alt="Satyendra Kumar, Founder & Chairperson, Luv Kush Seva Trust"
                   className="w-full h-full object-cover object-top"
                 />
               </div>

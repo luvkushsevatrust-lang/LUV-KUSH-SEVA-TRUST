@@ -7,6 +7,7 @@ import { ApplicationStatusModal } from './components/ApplicationStatusModal';
 import { PrintableReceipt } from './components/PrintableReceipt';
 import { PrintableIdCard } from './components/PrintableIdCard';
 import { IdCardVerificationModal } from './components/IdCardVerificationModal';
+import { SEOHead } from './components/SEOHead';
 
 // Pages
 import { HomePage } from './pages/HomePage';
@@ -92,6 +93,9 @@ const AppContent: React.FC = () => {
       className="min-h-screen flex flex-col text-slate-800 transition-colors duration-300"
       style={{ backgroundColor: currentTheme.bgHex }}
     >
+      {/* Dynamic SEO & Social Metadata Head */}
+      <SEOHead />
+
       {/* Top Authentic Banner - faithful to uploaded reference */}
       <div className="no-print">
         <TrustBannerHeader />

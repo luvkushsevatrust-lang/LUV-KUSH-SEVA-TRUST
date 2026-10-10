@@ -132,7 +132,7 @@ export const PrintableReceipt: React.FC = () => {
               <div className="w-11 h-11 rounded-full border border-amber-500 p-0.5 bg-white shadow-2xs overflow-hidden flex items-center justify-center shrink-0">
                 <SafeImage
                   src={settings?.logoUrl || TRUST_EMBLEM_LOGO}
-                  alt="Logo"
+                  alt="Luv Kush Seva Trust Official Emblem"
                   className="w-full h-full object-contain rounded-full"
                 />
               </div>

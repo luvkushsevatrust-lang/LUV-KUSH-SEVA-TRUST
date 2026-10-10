@@ -373,7 +373,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                 <div className="absolute inset-0 flex items-center justify-center opacity-[0.06] pointer-events-none">
                   <SafeImage
                     src={settings.logoUrl || TRUST_EMBLEM_LOGO}
-                    alt="Watermark"
+                    alt="Luv Kush Seva Trust Security Watermark"
                     className="w-48 h-48 object-contain"
                   />
                 </div>
@@ -384,7 +384,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                     <div className="w-9 h-9 rounded-full bg-white p-0.5 border border-amber-300 shadow-sm shrink-0 flex items-center justify-center overflow-hidden">
                       <SafeImage
                         src={settings.logoUrl || TRUST_EMBLEM_LOGO}
-                        alt="Logo"
+                        alt="Luv Kush Seva Trust Official Emblem"
                         className="w-full h-full object-contain rounded-full"
                       />
                     </div>
@@ -520,7 +520,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                     <div className="w-5 h-5 rounded-full bg-white p-0.5 shrink-0 flex items-center justify-center overflow-hidden">
                       <SafeImage
                         src={settings.logoUrl || TRUST_EMBLEM_LOGO}
-                        alt="Logo"
+                        alt="Luv Kush Seva Trust Official Emblem"
                         className="w-full h-full object-contain rounded-full"
                       />
                     </div>

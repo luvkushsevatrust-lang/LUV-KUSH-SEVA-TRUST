@@ -324,8 +324,17 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return localStorage.getItem('lkst_is_admin') === 'true';
   });
 
+  // Helper to determine initial page from browser URL pathname
+  const getInitialPageFromUrl = (): string => {
+    if (typeof window === 'undefined') return 'home';
+    const path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+    if (!path) return 'home';
+    if (path === 'admit-card') return 'id-card';
+    return path;
+  };
+
   // Active navigation
-  const [currentPage, setCurrentPageState] = useState<string>('home');
+  const [currentPage, setCurrentPageState] = useState<string>(() => getInitialPageFromUrl());
   const [pageParams, setPageParams] = useState<Record<string, any>>({});
 
   // Active Receipts and Modals
@@ -478,11 +487,28 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem('lkst_is_admin', isAdmin ? 'true' : 'false');
   }, [isAdmin]);
 
+  // Listen to browser Back/Forward navigation
+  useEffect(() => {
+    const handlePopState = () => {
+      const page = getInitialPageFromUrl();
+      setCurrentPageState(page);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const setCurrentPage = (page: string, params: Record<string, any> = {}) => {
     // If old admit-card route was invoked, redirect cleanly to id-card
     const targetPage = page === 'admit-card' ? 'id-card' : page;
     setCurrentPageState(targetPage);
     setPageParams(params);
+
+    if (typeof window !== 'undefined') {
+      const targetPath = targetPage === 'home' ? '/' : `/${targetPage}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.pushState({ page: targetPage }, '', targetPath);
+      }
+    }
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 

@@ -197,7 +197,7 @@ export const DonationPage: React.FC = () => {
                 {settings.donationQrUrl ? (
                   <SafeImage
                     src={settings.donationQrUrl}
-                    alt="Luv Kush Seva Trust QR"
+                    alt="Luv Kush Seva Trust Official UPI QR Code for Charitable Donations"
                     className="w-full h-full object-contain rounded-xl"
                   />
                 ) : (

@@ -30,7 +30,7 @@ export const AboutPage: React.FC = () => {
         <div className="lg:col-span-6 relative aspect-video lg:aspect-auto min-h-[300px]">
           <SafeImage
             src={HERO_TRUST_SEVA}
-            alt="Luv Kush Seva Trust"
+            alt="Luv Kush Seva Trust Humanitarian & Social Welfare Outreach"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-6">
@@ -76,7 +76,7 @@ export const AboutPage: React.FC = () => {
               <div className="w-12 h-12 rounded-xl overflow-hidden border-2 border-amber-400 bg-amber-50 shrink-0 shadow-sm">
                 <SafeImage
                   src={settings.chairpersonPhotoUrl || CHAIRPERSON_PHOTO}
-                  alt="Chairperson Satyendra Kumar"
+                  alt="Satyendra Kumar, Founder & Chairperson, Luv Kush Seva Trust"
                   className="w-full h-full object-cover object-top"
                 />
               </div>

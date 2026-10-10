@@ -185,7 +185,7 @@ export const StudentDashboardPage: React.FC = () => {
                             <div className="w-8 h-8 rounded-full bg-white p-0.5 border border-amber-300 shrink-0 flex items-center justify-center overflow-hidden">
                               <SafeImage
                                 src={settings.logoUrl || TRUST_EMBLEM_LOGO}
-                                alt="Logo"
+                                alt="Luv Kush Seva Trust Official Emblem"
                                 className="w-full h-full object-contain rounded-full"
                               />
                             </div>
