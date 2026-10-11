@@ -519,7 +519,7 @@ export const HomePage: React.FC = () => {
                   {t.home.chairpersonTitle}
                 </p>
                 <p className="text-[11px] sm:text-xs text-slate-500 mt-0.5 font-medium">
-                  {language === 'en' ? 'Office: Raisar, Rajgir (Nalanda)' : 'कार्यालय : राईसर, राजगीर (नालंदा)'}
+                  {language === 'en' ? 'Office: Raicpar, Rajgir (Nalanda)' : 'कार्यालय : राइचपार, राजगीर (नालंदा)'}
                 </p>
               </div>
             </div>
@@ -801,8 +801,8 @@ export const HomePage: React.FC = () => {
               <Quote className="w-5 h-5 text-amber-500" />
               <p className="text-xs text-slate-700 leading-relaxed italic">
                 {language === 'en'
-                  ? '"I personally visited the office at Raisar and witnessed their transparent operations and genuine devotion to public service."'
-                  : '"मैंने स्वयं जाकर राईसर स्थित कार्यालय और कार्यों को देखा है। पूरी पारदर्शिता और सेवा भाव से कार्य हो रहा है।"'}
+                  ? '"I personally visited the office at Raicpar and witnessed their transparent operations and genuine devotion to public service."'
+                  : '"मैंने स्वयं जाकर राइचपार स्थित कार्यालय और कार्यों को देखा है। पूरी पारदर्शिता और सेवा भाव से कार्य हो रहा है।"'}
               </p>
               <div className="pt-2 border-t border-slate-100">
                 <strong className="block text-xs font-bold text-slate-900">

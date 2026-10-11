@@ -277,7 +277,7 @@ export const StudentDashboardPage: React.FC = () => {
                                 : 'कोचिंग केंद्र, कंप्यूटर लैब एवं पुस्तकालय में प्रवेश हेतु यह परिचय पत्र अनिवार्य है।'}
                             </p>
                             <div className="pt-1 text-[7px] text-slate-500">
-                              <div>{language === 'en' ? 'Raisar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}</div>
+                              <div>{language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}</div>
                               <div className="font-bold text-slate-700 mt-0.5">{language === 'en' ? 'Helpline:' : 'हेल्पलाइन:'} {settings.phone}</div>
                             </div>
                           </div>
@@ -509,7 +509,7 @@ export const StudentDashboardPage: React.FC = () => {
                 {language === 'en' ? 'Luv Kush Seva Trust Education Center' : 'लव कुश सेवा ट्रस्ट शिक्षा केंद्र'}
               </div>
               <div className="text-slate-600 text-[11px]">
-                {language === 'en' ? 'Raisar, Near Cricket Stadium, Rajgir - 803116' : 'राईसर, क्रिकेट स्टेडियम के समीप, राजगीर'}
+                {language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir - 803116' : 'राइचपार, क्रिकेट स्टेडियम के समीप, राजगीर'}
               </div>
               <div className="font-mono font-bold text-emerald-700 pt-1">
                 {language === 'en' ? 'Helpline:' : 'हेल्पलाइन:'} {settings.phone}

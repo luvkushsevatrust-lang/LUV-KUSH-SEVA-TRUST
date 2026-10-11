@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTrust } from '../context/TrustContext';
 import {
   Users,
@@ -38,6 +38,7 @@ import {
   Cloud,
   Copy,
   Check,
+  Save,
 } from 'lucide-react';
 import {
   ApplicationStatus,
@@ -244,6 +245,12 @@ export const AdminDashboardPage: React.FC = () => {
   // Settings State
   const [tempSettings, setTempSettings] = useState(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [bankDetailsSaved, setBankDetailsSaved] = useState(false);
+
+  // Keep tempSettings synced whenever settings changes from context
+  useEffect(() => {
+    setTempSettings(settings);
+  }, [settings]);
 
   if (!isAdmin) {
     return (
@@ -364,7 +371,17 @@ export const AdminDashboardPage: React.FC = () => {
     e.preventDefault();
     updateSettings(tempSettings);
     setSettingsSaved(true);
-    setTimeout(() => setSettingsSaved(false), 2500);
+    setActionToast({
+      message:
+        language === 'en'
+          ? 'Settings & Bank Account Details saved successfully!'
+          : 'सेटिंग्स व बैंक खाता विवरण सफलतापूर्वक सुरक्षित कर लिया गया!',
+      type: 'success',
+    });
+    setTimeout(() => {
+      setSettingsSaved(false);
+      setActionToast(null);
+    }, 3500);
   };
 
   const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -675,7 +692,7 @@ export const AdminDashboardPage: React.FC = () => {
           </h1>
           <p className="text-xs text-slate-300 mt-1">
             {language === 'en'
-              ? `Office: Raisar, Near Cricket Stadium, Rajgir (Nalanda) | Chairperson: Satyendra Kumar`
+              ? `Office: Raicpar, Near Cricket Stadium, Rajgir (Nalanda) | Chairperson: Satyendra Kumar`
               : `कार्यालय: ${settings.address} | अध्यक्ष: ${settings.chairpersonName}`}
           </p>
         </div>
@@ -2287,87 +2304,198 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
 
             {/* Bank Info */}
-            <div className="pt-4 border-t border-slate-100">
-              <h3 className="font-bold text-sm text-slate-900 mb-3 flex items-center gap-2">
-                <Building className="w-4 h-4 text-blue-700" />
-                <span>
-                  {language === 'en' ? 'Official Bank Account Details' : 'ट्रस्ट बैंक खाता विवरण'}
-                </span>
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="pt-4 border-t border-slate-100 bg-slate-50/80 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
+                  <Building className="w-4 h-4 text-blue-700" />
+                  <span>
+                    {language === 'en' ? 'Official Bank Account Details' : 'ट्रस्ट बैंक खाता विवरण'}
+                  </span>
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateSettings({
+                      bankDetails: {
+                        ...(tempSettings?.bankDetails || {}),
+                      },
+                    });
+                    setBankDetailsSaved(true);
+                    setActionToast({
+                      message:
+                        language === 'en'
+                          ? 'Official Bank Account details saved successfully!'
+                          : 'आधिकारिक बैंक खाता विवरण सफलतापूर्वक सुरक्षित कर लिया गया!',
+                      type: 'success',
+                    });
+                    setTimeout(() => {
+                      setBankDetailsSaved(false);
+                      setActionToast(null);
+                    }, 3500);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-blue-900 hover:bg-blue-950 text-white rounded-xl text-xs font-bold shadow transition-colors cursor-pointer self-start sm:self-auto"
+                >
+                  {bankDetailsSaved ? (
+                    <>
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{language === 'en' ? 'Saved!' : 'बैंक विवरण सहेजा गया!'}</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5 text-amber-300" />
+                      <span>{language === 'en' ? 'Save Bank Details' : 'बैंक विवरण सुरक्षित करें'}</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {bankDetailsSaved && (
+                <div className="bg-emerald-50 border border-emerald-300 text-emerald-800 p-2.5 rounded-xl text-xs font-bold flex items-center gap-2 animate-fadeIn">
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    {language === 'en'
+                      ? 'Official Bank Account Details updated and active across donations & receipts!'
+                      : 'आधिकारिक बैंक खाता विवरण सुरक्षित हो गया है और दान पृष्ठ पर सक्रिय है!'}
+                  </span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     {language === 'en' ? 'Bank Name' : 'बैंक का नाम'}
                   </label>
                   <input
                     type="text"
-                    value={tempSettings.bankDetails.bankName}
+                    value={tempSettings?.bankDetails?.bankName || ''}
                     onChange={(e) =>
                       setTempSettings({
                         ...tempSettings,
-                        bankDetails: { ...tempSettings.bankDetails, bankName: e.target.value },
+                        bankDetails: {
+                          ...(tempSettings?.bankDetails || {}),
+                          bankName: e.target.value,
+                        },
                       })
                     }
-                    className="w-full px-3 py-2 border rounded-xl"
+                    placeholder="भारतीय स्टेट बैंक (State Bank of India)"
+                    className="w-full px-3 py-2 border rounded-xl bg-white"
                   />
                 </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Account Holder Name' : 'खाताधारक का नाम (Account Holder)'}
+                  </label>
+                  <input
+                    type="text"
+                    value={tempSettings?.bankDetails?.accountHolderName || ''}
+                    onChange={(e) =>
+                      setTempSettings({
+                        ...tempSettings,
+                        bankDetails: {
+                          ...(tempSettings?.bankDetails || {}),
+                          accountHolderName: e.target.value,
+                        },
+                      })
+                    }
+                    placeholder="LUV KUSH SEVA TRUST"
+                    className="w-full px-3 py-2 border rounded-xl font-bold bg-white"
+                  />
+                </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     {language === 'en' ? 'Account Number' : 'खाता संख्या'}
                   </label>
                   <input
                     type="text"
-                    value={tempSettings.bankDetails.accountNumber}
+                    value={tempSettings?.bankDetails?.accountNumber || ''}
                     onChange={(e) =>
                       setTempSettings({
                         ...tempSettings,
-                        bankDetails: { ...tempSettings.bankDetails, accountNumber: e.target.value },
+                        bankDetails: {
+                          ...(tempSettings?.bankDetails || {}),
+                          accountNumber: e.target.value,
+                        },
                       })
                     }
-                    className="w-full px-3 py-2 border rounded-xl font-mono"
+                    placeholder="42891029384"
+                    className="w-full px-3 py-2 border rounded-xl font-mono font-bold bg-white"
                   />
                 </div>
+
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">
                     {language === 'en' ? 'IFSC Code' : 'IFSC कोड'}
                   </label>
                   <input
                     type="text"
-                    value={tempSettings.bankDetails.ifscCode}
+                    value={tempSettings?.bankDetails?.ifscCode || ''}
                     onChange={(e) =>
                       setTempSettings({
                         ...tempSettings,
-                        bankDetails: { ...tempSettings.bankDetails, ifscCode: e.target.value },
+                        bankDetails: {
+                          ...(tempSettings?.bankDetails || {}),
+                          ifscCode: e.target.value.toUpperCase(),
+                        },
                       })
                     }
-                    className="w-full px-3 py-2 border rounded-xl font-mono"
+                    placeholder="SBIN0003598"
+                    className="w-full px-3 py-2 border rounded-xl font-mono uppercase bg-white"
                   />
                 </div>
-                <div>
+
+                <div className="sm:col-span-2">
                   <label className="block font-bold text-slate-700 mb-1">
                     {language === 'en' ? 'Branch' : 'शाखा'}
                   </label>
                   <input
                     type="text"
-                    value={tempSettings.bankDetails.branch}
+                    value={tempSettings?.bankDetails?.branch || ''}
                     onChange={(e) =>
                       setTempSettings({
                         ...tempSettings,
-                        bankDetails: { ...tempSettings.bankDetails, branch: e.target.value },
+                        bankDetails: {
+                          ...(tempSettings?.bankDetails || {}),
+                          branch: e.target.value,
+                        },
                       })
                     }
-                    className="w-full px-3 py-2 border rounded-xl"
+                    placeholder="राजगीर मुख्य शाखा, नालंदा (बिहार)"
+                    className="w-full px-3 py-2 border rounded-xl bg-white"
                   />
                 </div>
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-colors cursor-pointer"
-            >
-              {t.admin.saveSettingsBtn}
-            </button>
+            <div className="pt-2 flex flex-wrap items-center gap-4">
+              <button
+                type="submit"
+                className="py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-colors cursor-pointer flex items-center gap-2"
+              >
+                {settingsSaved ? (
+                  <>
+                    <CheckCircle className="w-4 h-4 text-emerald-300" />
+                    <span>{language === 'en' ? 'Saved Successfully!' : 'सफलतापूर्वक सुरक्षित हो गया!'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 text-amber-300" />
+                    <span>{t.admin.saveSettingsBtn}</span>
+                  </>
+                )}
+              </button>
+
+              {settingsSaved && (
+                <span className="text-emerald-700 font-bold text-xs flex items-center gap-1.5">
+                  <CheckCircle className="w-4 h-4 text-emerald-600" />
+                  {language === 'en'
+                    ? 'All settings and bank details are safely updated!'
+                    : 'सभी सेटिंग्स व बैंक खाता विवरण सुरक्षित कर दिया गया!'}
+                </span>
+              )}
+            </div>
           </form>
         </div>
       )}

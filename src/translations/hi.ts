@@ -38,7 +38,7 @@ export const hiTranslations: Translations = {
     trustNameBlue: 'SEVA TRUST',
     hindiName: 'लव कुश सेवा ट्रस्ट, राजगीर (नालंदा)',
     registeredOfficeLabel: 'पंजीकृत प्रधान कार्यालय',
-    registeredOfficeAddress: 'राईसर, क्रिकेट स्टेडियम के पास, राजगीर (नालंदा) बिहार - 803116',
+    registeredOfficeAddress: 'राइचपार, क्रिकेट स्टेडियम के पास, राजगीर (नालंदा) बिहार - 803116',
     helplineLabel: 'हेल्पलाइन / व्हाट्सएप',
   },
   common: {
@@ -383,7 +383,7 @@ export const hiTranslations: Translations = {
     title: 'संपर्क करें',
     subtitle: 'लव कुश सेवा ट्रस्ट के कार्यालय अथवा हेल्पलाइन पर किसी भी समय संपर्क किया जा सकता है।',
     officeTitle: 'पंजीकृत प्रधान कार्यालय',
-    officeDesc: 'राईसर, क्रिकेट स्टेडियम के नजदीक, राजगीर - 803116, नालंदा, बिहार',
+    officeDesc: 'राइचपार, क्रिकेट स्टेडियम के नजदीक, राजगीर - 803116, नालंदा, बिहार',
     phoneTitle: 'हेल्पलाइन / फोन',
     phoneDesc: '+91 9470635412 (सोमवार - शनिवार, 9 AM - 6 PM)',
     emailTitle: 'आधिकारिक ईमेल',

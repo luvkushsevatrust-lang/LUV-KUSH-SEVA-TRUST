@@ -184,7 +184,7 @@ export const Footer: React.FC = () => {
               <div className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
                 <span className="leading-snug">
-                  {language === 'en' ? 'Raisar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
+                  {language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
                 </span>
               </div>
               <div className="flex items-center space-x-3">

@@ -324,7 +324,7 @@ export async function renderIdCardSideToCanvas(
 
   const regNo = settings?.registrationNumber || 'BR/2026/1161821';
   const phone = settings?.phone || '9470635412';
-  const address = settings?.address || 'राईसर, क्रिकेट स्टेडियम के नजदीक, राजगीर - 803116, नालंदा (बिहार)';
+  const address = settings?.address || 'राइचपार, क्रिकेट स्टेडियम के नजदीक, राजगीर - 803116, नालंदा (बिहार)';
   const chairpersonName = settings?.chairpersonName || 'सत्येन्द्र कुमार';
 
   // Load emblem logo image

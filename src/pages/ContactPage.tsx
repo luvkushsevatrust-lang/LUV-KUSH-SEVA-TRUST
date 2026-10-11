@@ -78,7 +78,7 @@ export const ContactPage: React.FC = () => {
                     {language === 'en' ? 'Office Address:' : 'कार्यालय का पता:'}
                   </strong>
                   <p className="text-slate-600 mt-0.5 leading-relaxed">
-                    {language === 'en' ? 'Raisar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
+                    {language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
                   </p>
                 </div>
               </div>
@@ -295,8 +295,8 @@ export const ContactPage: React.FC = () => {
             </div>
             <span className="text-[11px] text-slate-500 block text-right">
               {language === 'en'
-                ? 'Near Cricket Stadium, Raisar, Rajgir (Nalanda), Bihar'
-                : 'क्रिकेट स्टेडियम के नजदीक, राईसर, राजगीर (नालंदा)'}
+                ? 'Near Cricket Stadium, Raicpar, Rajgir (Nalanda), Bihar'
+                : 'क्रिकेट स्टेडियम के नजदीक, राइचपार, राजगीर (नालंदा)'}
             </span>
           </div>
 

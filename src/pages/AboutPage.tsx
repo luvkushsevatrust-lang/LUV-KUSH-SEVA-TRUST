@@ -69,7 +69,7 @@ export const AboutPage: React.FC = () => {
                 {language === 'en' ? 'Headquarters:' : 'मुख्यालय:'}
               </strong>
               <span className="text-slate-600">
-                {language === 'en' ? 'Raisar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
+                {language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
               </span>
             </div>
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center gap-3">
@@ -167,7 +167,7 @@ export const AboutPage: React.FC = () => {
                 {language === 'en' ? 'Registered Office:' : 'कार्यालय का पता:'}
               </span>
               <span className="text-slate-200">
-                {language === 'en' ? 'Raisar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
+                {language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}
               </span>
             </div>
 

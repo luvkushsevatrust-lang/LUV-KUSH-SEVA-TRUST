@@ -177,11 +177,29 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!saved) return INITIAL_TRUST_SETTINGS;
     try {
       const parsed = JSON.parse(saved);
-      // ensure idCardConfig exists
-      if (!parsed.idCardConfig) {
-        parsed.idCardConfig = INITIAL_TRUST_SETTINGS.idCardConfig;
+      const merged: TrustSettings = {
+        ...INITIAL_TRUST_SETTINGS,
+        ...parsed,
+        bankDetails: {
+          ...INITIAL_TRUST_SETTINGS.bankDetails,
+          ...(parsed?.bankDetails || {}),
+        },
+        stats: {
+          ...INITIAL_TRUST_SETTINGS.stats,
+          ...(parsed?.stats || {}),
+        },
+        idCardConfig: {
+          ...INITIAL_TRUST_SETTINGS.idCardConfig,
+          ...(parsed?.idCardConfig || {}),
+        },
+      };
+
+      // Auto-heal address from old spelling if present
+      if (merged.address && (merged.address.includes('राईसर') || merged.address.includes('Raisar'))) {
+        merged.address = merged.address.replace(/राईसर/g, 'राइचपार').replace(/Raisar/g, 'Raicpar');
       }
-      return parsed;
+
+      return merged;
     } catch {
       return INITIAL_TRUST_SETTINGS;
     }
@@ -512,22 +530,27 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const updateSettings = (newSettings: Partial<TrustSettings>) => {
     setSettings((prev) => {
-      const updated = {
+      const updated: TrustSettings = {
         ...prev,
         ...newSettings,
         bankDetails: {
-          ...prev.bankDetails,
-          ...(newSettings.bankDetails || {}),
+          ...INITIAL_TRUST_SETTINGS.bankDetails,
+          ...(prev?.bankDetails || {}),
+          ...(newSettings?.bankDetails || {}),
         },
         stats: {
-          ...prev.stats,
-          ...(newSettings.stats || {}),
+          ...INITIAL_TRUST_SETTINGS.stats,
+          ...(prev?.stats || {}),
+          ...(newSettings?.stats || {}),
         },
         idCardConfig: {
-          ...prev.idCardConfig,
-          ...(newSettings.idCardConfig || {}),
+          ...INITIAL_TRUST_SETTINGS.idCardConfig,
+          ...(prev?.idCardConfig || {}),
+          ...(newSettings?.idCardConfig || {}),
         },
       };
+      // Synchronously write to safe localStorage
+      safeSetItem('lkst_settings', JSON.stringify(updated));
       SupabaseService.saveSettings(updated);
       return updated;
     });
@@ -792,7 +815,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       verificationCode: verifCode,
       instructions: [
         'यह पहचान पत्र लव कुश सेवा ट्रस्ट (पंजी BR/2026/1161821) द्वारा जारी अधिकृत परिचय पत्र है।',
-        'यह कार्ड अहस्तांतरणीय है। खो जाने पर संस्था कार्यालय राईसर, राजगीर में तुरंत सूचित करें।',
+        'यह कार्ड अहस्तांतरणीय है। खो जाने पर संस्था कार्यालय राइचपार, राजगीर में तुरंत सूचित करें।',
         'संस्था की निःशुल्क सुविधाओं एवं सहायता प्राप्त करने हेतु यह कार्ड प्रस्तुत करना अनिवार्य है।',
         'सत्यापन हेतु पृष्ठ भाग पर अंकित सुरक्षित QR कोड को किसी भी कैमरे से स्कैन करें।',
       ],
