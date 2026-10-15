@@ -25,7 +25,7 @@ export const VERIFIED_ORGANIZATION = {
   founder: 'Satyendra Kumar',
   founderTitle: 'Founder & Chairperson',
   address: {
-    street: 'Raicpar, Near Cricket Stadium',
+    street: 'Raispar, Near Cricket Stadium',
     locality: 'Rajgir',
     district: 'Nalanda',
     state: 'Bihar',
@@ -128,9 +128,9 @@ export const PAGE_SEO_CONFIG: Record<string, PageSEO> = {
     title: 'Contact Us | Luv Kush Seva Trust - Office, Helpline & Location',
     titleHi: 'संपर्क करें | लव कुश सेवा ट्रस्ट - कार्यालय, हेल्पलाइन एवं पता',
     description:
-      'Get in touch with Luv Kush Seva Trust. Office at Raicpar, Near Cricket Stadium, Rajgir (Nalanda), Bihar 803116. Phone: 9570997162, Email: luvkushsevatrust@gmail.com.',
+      'Get in touch with Luv Kush Seva Trust. Office at Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar. Phone: 9570997162, Email: luvkushsevatrust@gmail.com.',
     descriptionHi:
-      'लव कुश सेवा ट्रस्ट से संपर्क करें: राइचपार, क्रिकेट स्टेडियम के समीप, राजगीर (नालंदा) बिहार। 24x7 हेल्पलाइन: 9570997162, ईमेल: luvkushsevatrust@gmail.com।',
+      'लव कुश सेवा ट्रस्ट से संपर्क करें: राइसपर, क्रिकेट स्टेडियम के पास, राजगीर – 803116, नालंदा, बिहार। 24x7 हेल्पलाइन: 9570997162, ईमेल: luvkushsevatrust@gmail.com।',
     keywords:
       'contact Luv Kush Seva Trust, NGO Rajgir Nalanda, NGO phone number, luvkushsevatrust@gmail.com, Satyendra Kumar contact, NGO address Bihar',
     ogType: 'website',

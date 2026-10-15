@@ -564,7 +564,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                     <div className="border-t border-slate-100 pt-1 text-[7.5px]">
                       <div className="flex items-start gap-1 text-slate-800">
                         <MapPin className="w-2.5 h-2.5 text-red-600 shrink-0 mt-0.5" />
-                        <span>{language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir (Nalanda) Bihar - 803116' : settings.address}</span>
+                        <span>{language === 'en' ? 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}</span>
                       </div>
                       <div className="flex items-center gap-1 text-slate-800 mt-0.5 font-bold">
                         <Phone className="w-2.5 h-2.5 text-emerald-700 shrink-0" />

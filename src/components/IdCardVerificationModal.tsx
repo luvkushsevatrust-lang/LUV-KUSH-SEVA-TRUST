@@ -126,7 +126,7 @@ export const IdCardVerificationModal: React.FC<IdCardVerificationModalProps> = (
             <div className="pt-1 flex flex-col gap-1 text-[11px] font-semibold text-slate-700">
               <span className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-red-600" />
-                <span>{language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir (Nalanda) Bihar - 803116' : settings.address}</span>
+                <span>{language === 'en' ? 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}</span>
               </span>
               <span className="flex items-center gap-1.5">
                 <Phone className="w-3.5 h-3.5 text-emerald-700" />

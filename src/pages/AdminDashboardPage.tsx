@@ -692,7 +692,7 @@ export const AdminDashboardPage: React.FC = () => {
           </h1>
           <p className="text-xs text-slate-300 mt-1">
             {language === 'en'
-              ? `Office: Raicpar, Near Cricket Stadium, Rajgir (Nalanda) | Chairperson: Satyendra Kumar`
+              ? `Office: Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar | Chairperson: Satyendra Kumar`
               : `कार्यालय: ${settings.address} | अध्यक्ष: ${settings.chairpersonName}`}
           </p>
         </div>

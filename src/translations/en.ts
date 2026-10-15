@@ -38,7 +38,7 @@ export const enTranslations: Translations = {
     trustNameBlue: 'SEVA TRUST',
     hindiName: 'Luv Kush Seva Trust, Rajgir (Nalanda)',
     registeredOfficeLabel: 'Registered Head Office',
-    registeredOfficeAddress: 'Raicpar, Near Cricket Stadium, Rajgir (Nalanda) Bihar - 803116',
+    registeredOfficeAddress: 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar',
     helplineLabel: 'Helpline / WhatsApp',
   },
   common: {
@@ -383,7 +383,7 @@ export const enTranslations: Translations = {
     title: 'Contact Us',
     subtitle: 'Reach out to Luv Kush Seva Trust for any queries, support, or volunteer inquiries.',
     officeTitle: 'Registered Head Office',
-    officeDesc: 'Raicpar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar',
+    officeDesc: 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar',
     phoneTitle: 'Helpline / Phone',
     phoneDesc: '+91 9470635412 (Monday - Saturday, 9 AM - 6 PM)',
     emailTitle: 'Official Email',

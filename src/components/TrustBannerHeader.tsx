@@ -121,7 +121,7 @@ export const TrustBannerHeader: React.FC = () => {
           <div className="flex items-center gap-1.5 bg-amber-100/90 text-slate-900 font-semibold px-3 py-1.5 rounded-lg border border-amber-300 w-full sm:w-auto">
             <MapPin className="w-4 h-4 text-red-600 shrink-0" />
             <span className="font-bold text-red-700 shrink-0">{language === 'en' ? 'Address:' : 'पता :'}</span>
-            <span className="truncate">{language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir (Nalanda) Bihar - 803116' : settings.address}</span>
+            <span className="truncate">{language === 'en' ? 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address}</span>
           </div>
 
           {/* Green WhatsApp / Contact Strip */}

@@ -153,7 +153,7 @@ export const PrintableReceipt: React.FC = () => {
               {t.banner.regNumberLabel} : <strong className="font-mono text-slate-900">{settings.registrationNumber}</strong> | {language === 'en' ? 'Chairperson' : 'अध्यक्ष'}: <strong className="text-slate-900">{language === 'en' ? 'Satyendra Kumar' : settings.chairpersonName}</strong>
             </p>
             <p className="text-[9px] text-slate-500">
-              {language === 'en' ? 'Raicpar, Near Cricket Stadium, Rajgir (Nalanda) Bihar - 803116' : settings.address} | {t.contact.phoneTitle}: {settings.phone}
+              {language === 'en' ? 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address} | {t.contact.phoneTitle}: {settings.phone}
             </p>
           </div>
 

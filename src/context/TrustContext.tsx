@@ -195,8 +195,15 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
 
       // Auto-heal address from old spelling if present
-      if (merged.address && (merged.address.includes('राईसर') || merged.address.includes('Raisar'))) {
-        merged.address = merged.address.replace(/राईसर/g, 'राइचपार').replace(/Raisar/g, 'Raicpar');
+      if (
+        merged.address &&
+        (merged.address.includes('राईसर') ||
+          merged.address.includes('Raisar') ||
+          merged.address.includes('राइचपार') ||
+          merged.address.includes('Raicpar') ||
+          merged.address.includes('क्रिकेट स्टेडियम के नजदीक'))
+      ) {
+        merged.address = 'राइसपर, क्रिकेट स्टेडियम के पास, राजगीर – 803116, नालंदा, बिहार।';
       }
 
       return merged;
@@ -815,7 +822,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       verificationCode: verifCode,
       instructions: [
         'यह पहचान पत्र लव कुश सेवा ट्रस्ट (पंजी BR/2026/1161821) द्वारा जारी अधिकृत परिचय पत्र है।',
-        'यह कार्ड अहस्तांतरणीय है। खो जाने पर संस्था कार्यालय राइचपार, राजगीर में तुरंत सूचित करें।',
+        'यह कार्ड अहस्तांतरणीय है। खो जाने पर संस्था कार्यालय राइसपर, राजगीर में तुरंत सूचित करें।',
         'संस्था की निःशुल्क सुविधाओं एवं सहायता प्राप्त करने हेतु यह कार्ड प्रस्तुत करना अनिवार्य है।',
         'सत्यापन हेतु पृष्ठ भाग पर अंकित सुरक्षित QR कोड को किसी भी कैमरे से स्कैन करें।',
       ],
