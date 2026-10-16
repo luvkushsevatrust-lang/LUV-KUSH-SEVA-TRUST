@@ -189,7 +189,17 @@ export interface TrustSettings {
   registrationNumber: string;
   chairpersonName: string;
   chairpersonPhotoUrl?: string;
+  officeBuildingPhotoUrl?: string;
   logoUrl?: string;
+  serviceImages?: {
+    orphanage?: string;
+    old_age?: string;
+    widow?: string;
+    education?: string;
+    medical?: string;
+    social_welfare?: string;
+    [key: string]: string | undefined;
+  };
   address: string;
   phone: string;
   alternatePhone?: string;

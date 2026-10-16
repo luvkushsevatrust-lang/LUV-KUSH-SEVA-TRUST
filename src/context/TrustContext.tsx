@@ -192,6 +192,10 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...INITIAL_TRUST_SETTINGS.idCardConfig,
           ...(parsed?.idCardConfig || {}),
         },
+        serviceImages: {
+          ...(INITIAL_TRUST_SETTINGS.serviceImages || {}),
+          ...(parsed?.serviceImages || {}),
+        },
       };
 
       // Auto-heal address from old spelling if present
@@ -554,6 +558,10 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...INITIAL_TRUST_SETTINGS.idCardConfig,
           ...(prev?.idCardConfig || {}),
           ...(newSettings?.idCardConfig || {}),
+        },
+        serviceImages: {
+          ...(prev?.serviceImages || {}),
+          ...(newSettings?.serviceImages || {}),
         },
       };
       // Synchronously write to safe localStorage

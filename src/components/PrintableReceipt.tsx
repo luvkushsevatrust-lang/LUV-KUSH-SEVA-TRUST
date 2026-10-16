@@ -1,7 +1,22 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useTrust } from '../context/TrustContext';
-import { X, Printer, CheckCircle, Download, CreditCard, ZoomIn, ZoomOut } from 'lucide-react';
-import { downloadElementAsPdf } from '../utils/idCardHelper';
+import {
+  X,
+  Printer,
+  CheckCircle,
+  Download,
+  CreditCard,
+  ZoomIn,
+  ZoomOut,
+  Image as ImageIcon,
+  Loader2,
+  FileText,
+} from 'lucide-react';
+import {
+  downloadReceiptDirectPdf,
+  downloadReceiptDirectImage,
+  printReceiptDirect,
+} from '../utils/idCardHelper';
 import { SafeImage } from './SafeImage';
 import { TRUST_EMBLEM_LOGO } from '../assets';
 
@@ -9,32 +24,92 @@ export const PrintableReceipt: React.FC = () => {
   const { activeReceipt, setActiveReceipt, settings, language, t } = useTrust();
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isDownloadingImage, setIsDownloadingImage] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [isCompact, setIsCompact] = useState(true);
+  const [actionToast, setActionToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (actionToast) {
+      const timer = setTimeout(() => setActionToast(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [actionToast]);
 
   if (!activeReceipt) return null;
 
   const { type, data } = activeReceipt;
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    try {
+      await printReceiptDirect(activeReceipt, settings, language, receiptRef.current);
+      setActionToast(
+        language === 'en'
+          ? 'Print file prepared & PDF downloaded successfully! You can print directly.'
+          : 'प्रिंट फाइल तैयार हो गई है और रसीद PDF भी डाउनलोड हो गई है! आप इसे सीधे प्रिंट कर सकते हैं।'
+      );
+    } catch (e) {
+      console.warn('Print error fallback:', e);
+      try {
+        window.print();
+      } catch {
+        // ignore
+      }
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   const handleDownloadPdf = async () => {
-    if (!receiptRef.current) return;
+    setIsDownloadingPdf(true);
     try {
-      setIsDownloadingPdf(true);
       const filename =
         type === 'donation'
           ? `LKST-Donation-${data.receiptNumber || 'Receipt'}.pdf`
           : `LKST-Application-${data.id || data.registrationNumber || 'Doc'}.pdf`;
-      await downloadElementAsPdf(receiptRef.current, filename);
+      const ok = await downloadReceiptDirectPdf(
+        activeReceipt,
+        settings,
+        language,
+        receiptRef.current,
+        filename
+      );
+      if (ok) {
+        setActionToast(
+          language === 'en'
+            ? 'Official PDF document downloaded successfully!'
+            : 'आधिकारिक PDF दस्तावेज सफलतापूर्वक डाउनलोड हो गया!'
+        );
+      }
     } finally {
       setIsDownloadingPdf(false);
     }
   };
 
+  const handleDownloadImage = async () => {
+    if (!receiptRef.current) return;
+    setIsDownloadingImage(true);
+    try {
+      const filename =
+        type === 'donation'
+          ? `LKST-Donation-${data.receiptNumber || 'Receipt'}.png`
+          : `LKST-Application-${data.id || data.registrationNumber || 'Doc'}.png`;
+      const ok = await downloadReceiptDirectImage(receiptRef.current, filename);
+      if (ok) {
+        setActionToast(
+          language === 'en'
+            ? 'PNG Receipt image downloaded successfully!'
+            : 'रसीद फोटो (PNG) सफलतापूर्वक डाउनलोड हो गई!'
+        );
+      }
+    } finally {
+      setIsDownloadingImage(false);
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
       {/* Container with responsive compact or normal width */}
       <div
         className={`bg-white rounded-2xl shadow-2xl ${
@@ -47,8 +122,12 @@ export const PrintableReceipt: React.FC = () => {
             <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
             <span>
               {type === 'donation'
-                ? (language === 'en' ? 'Official Donation Receipt' : 'आधिकारिक दान पावती रसीद')
-                : (language === 'en' ? 'Official Application Slip' : 'आधिकारिक आवेदन पावती रसीद')}
+                ? language === 'en'
+                  ? 'Official Donation Receipt'
+                  : 'आधिकारिक दान पावती रसीद'
+                : language === 'en'
+                ? 'Official Application Slip'
+                : 'आधिकारिक आवेदन पावती रसीद'}
             </span>
           </span>
 
@@ -59,8 +138,12 @@ export const PrintableReceipt: React.FC = () => {
               className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold rounded-lg border border-slate-600 transition-colors cursor-pointer"
               title={
                 isCompact
-                  ? (language === 'en' ? 'Switch to Normal Size' : 'बड़ा आकार देखें')
-                  : (language === 'en' ? 'Switch to Compact Size' : 'छोटा आकार देखें')
+                  ? language === 'en'
+                    ? 'Switch to Normal Size'
+                    : 'बड़ा आकार देखें'
+                  : language === 'en'
+                  ? 'Switch to Compact Size'
+                  : 'छोटा आकार देखें'
               }
             >
               {isCompact ? (
@@ -79,26 +162,61 @@ export const PrintableReceipt: React.FC = () => {
             {/* Direct PDF Download Button */}
             <button
               onClick={handleDownloadPdf}
-              disabled={isDownloadingPdf}
-              className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+              disabled={isDownloadingPdf || isPrinting || isDownloadingImage}
+              className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer active:scale-95"
               title={language === 'en' ? 'Download Official PDF' : 'आधिकारिक PDF डाउनलोड करें'}
             >
-              <Download className="w-3 h-3" />
-              <span>
-                {isDownloadingPdf
-                  ? (language === 'en' ? 'Saving...' : 'सहेज रहे हैं...')
-                  : (language === 'en' ? 'PDF' : 'PDF')}
-              </span>
+              {isDownloadingPdf ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>{language === 'en' ? 'Saving...' : 'सहेज रहे हैं...'}</span>
+                </>
+              ) : (
+                <>
+                  <FileText className="w-3 h-3 text-amber-300" />
+                  <span>PDF</span>
+                </>
+              )}
+            </button>
+
+            {/* Direct PNG Image Download Button */}
+            <button
+              onClick={handleDownloadImage}
+              disabled={isDownloadingPdf || isPrinting || isDownloadingImage}
+              className="flex items-center gap-1 px-2.5 py-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer active:scale-95"
+              title={language === 'en' ? 'Download as Image (PNG)' : 'फोटो डाउनलोड करें (PNG)'}
+            >
+              {isDownloadingImage ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>PNG...</span>
+                </>
+              ) : (
+                <>
+                  <ImageIcon className="w-3 h-3 text-teal-200" />
+                  <span>PNG</span>
+                </>
+              )}
             </button>
 
             {/* Print Button */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer"
+              disabled={isPrinting || isDownloadingPdf}
+              className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer active:scale-95"
               title={language === 'en' ? 'Print Document' : 'प्रिंट करें'}
             >
-              <Printer className="w-3 h-3" />
-              <span>{language === 'en' ? 'Print' : 'प्रिंट'}</span>
+              {isPrinting ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>{language === 'en' ? 'Printing...' : 'प्रिंट...'}</span>
+                </>
+              ) : (
+                <>
+                  <Printer className="w-3 h-3 text-yellow-300" />
+                  <span>{language === 'en' ? 'Print' : 'प्रिंट'}</span>
+                </>
+              )}
             </button>
 
             {/* Close Button */}
@@ -111,6 +229,22 @@ export const PrintableReceipt: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Action Status Feedback Toast Bar */}
+        {actionToast && (
+          <div className="no-print bg-emerald-600 text-white text-xs font-semibold px-4 py-2 flex items-center justify-between border-b border-emerald-500 shadow-inner">
+            <span className="flex items-center gap-1.5">
+              <CheckCircle className="w-4 h-4 text-amber-300 shrink-0" />
+              <span>{actionToast}</span>
+            </span>
+            <button
+              onClick={() => setActionToast(null)}
+              className="text-white/80 hover:text-white p-0.5 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* Printable Official Slip Document (Clean, Compact, Well-Proportioned) */}
         <div

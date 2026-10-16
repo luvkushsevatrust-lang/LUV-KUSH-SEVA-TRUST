@@ -18,6 +18,7 @@ import communityWelfare from './images/community_welfare_1791140948090.jpg';
 import communityWelfareAlt from './images/community_welfare_1791140830800.jpg';
 import chairpersonSatyendraKumar from './images/chairperson_satyendra_kumar_1791278682704.jpg';
 import officialTrustLogo from './images/official_trust_logo_1791611180186.jpg';
+import trustOfficeBuilding from './images/office_building_real_1792055343729.jpg';
 import trustLogoClear from './images/trust_logo_clear.png';
 import trustEmblemClear from './images/trust_emblem_clear.png';
 import trustLogoRound from './images/trust_logo_round.png';
@@ -37,6 +38,7 @@ export const TRUST_ASSETS = {
   communityWelfare,
   communityWelfareAlt,
   chairpersonSatyendraKumar,
+  trustOfficeBuilding,
 } as const;
 
 export {
@@ -54,6 +56,7 @@ export {
   communityWelfare,
   communityWelfareAlt,
   chairpersonSatyendraKumar,
+  trustOfficeBuilding,
 };
 
 // Aliases matching domain entities - high clarity round logo default
@@ -70,6 +73,7 @@ export const MEDICAL_CAMP = medicalCamp;
 export const COMMUNITY_WELFARE = communityWelfare;
 export const CHAIRPERSON_PHOTO = chairpersonSatyendraKumar;
 export const CHAIRPERSON_SATYENDRA_KUMAR = chairpersonSatyendraKumar;
+export const TRUST_OFFICE_BUILDING = trustOfficeBuilding;
 
 /**
  * Mapping table from any raw filename or path to its bundled Vite asset URL
@@ -98,6 +102,12 @@ const ASSET_PATH_LOOKUP: Record<string, string> = {
   'official_trust_logo.jpg': officialTrustLogo,
   'trust_logo.jpg': officialTrustLogo,
   'logo.jpg': officialTrustLogo,
+  'trust_office_building_1792054824574.jpg': trustOfficeBuilding,
+  'trust_office_building.jpg': trustOfficeBuilding,
+  '/trust_office_building_1792054824574.jpg': trustOfficeBuilding,
+  '/src/assets/images/trust_office_building_1792054824574.jpg': trustOfficeBuilding,
+  'src/assets/images/trust_office_building_1792054824574.jpg': trustOfficeBuilding,
+  '/images/trust_office_building_1792054824574.jpg': trustOfficeBuilding,
 
   // Root filenames
   '/trust_emblem_logo_1790500141646.jpg': trustEmblemLogo,

@@ -4,7 +4,8 @@ import { CORE_SERVICES_DATA } from '../data/mockData';
 import { Announcement } from '../types';
 import { ServiceDetailModal } from '../components/ServiceDetailModal';
 import { SafeImage } from '../components/SafeImage';
-import { HERO_TRUST_SEVA, COMMUNITY_WELFARE, CHAIRPERSON_PHOTO } from '../assets';
+import { HERO_TRUST_SEVA, COMMUNITY_WELFARE, CHAIRPERSON_PHOTO, TRUST_OFFICE_BUILDING } from '../assets';
+import { compressImageFile } from '../utils/imageCompressor';
 import {
   Heart,
   Users,
@@ -21,10 +22,12 @@ import {
   Image as ImageIcon,
   X,
   Info,
+  Camera,
+  Upload,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
-  const { settings, announcements, setCurrentPage, language, t } = useTrust();
+  const { settings, updateSettings, announcements, setCurrentPage, language, t, isAdmin } = useTrust();
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
   const [selectedServiceForDetail, setSelectedServiceForDetail] = useState<any | null>(null);
 
@@ -113,18 +116,18 @@ export const HomePage: React.FC = () => {
           <div className="lg:col-span-5">
             <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 sm:p-6 border border-white/20 shadow-2xl relative">
               <div
-                onClick={() => setSelectedServiceForDetail(CORE_SERVICES_DATA.find((s) => s.id === 'social_welfare') || null)}
+                onClick={() => setSelectedServiceForDetail(CORE_SERVICES_DATA.find((s) => s.id === 'medical_camp') || null)}
                 className="rounded-xl overflow-hidden shadow-lg border border-white/20 aspect-video relative cursor-pointer group"
               >
                 <SafeImage
-                  src={COMMUNITY_WELFARE}
-                  alt="Luv Kush Seva Trust Community Welfare & Social Relief Work"
+                  src={settings.officeBuildingPhotoUrl || TRUST_OFFICE_BUILDING}
+                  alt="Luv Kush Seva Trust & Health Center, Raispar, Rajgir, Nalanda"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-4">
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/20 to-transparent flex items-end p-4">
                   <div className="flex items-center justify-between w-full">
-                    <span className="text-white text-xs font-semibold">
-                      {language === 'en' ? 'Community Welfare & Relief Camp at Rajgir, Nalanda' : 'राजगीर, नालंदा में आयोजित जनसेवा व सहायता कार्य'}
+                    <span className="text-white text-xs font-semibold drop-shadow">
+                      {language === 'en' ? 'Luv Kush Seva Trust & Health Center, Raispar (Rajgir)' : 'लव कुश सेवा ट्रस्ट एवं चिकित्सा केंद्र, राइसपर (राजगीर)'}
                     </span>
                     <span className="text-[10px] bg-amber-400 text-slate-950 font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
                       <Eye className="w-3 h-3" />
@@ -132,6 +135,36 @@ export const HomePage: React.FC = () => {
                     </span>
                   </div>
                 </div>
+
+                {/* Direct 1-Click Upload Button for exact user photo */}
+                <label
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-2.5 right-2.5 bg-slate-900/90 hover:bg-slate-950 text-white text-[10.5px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl flex items-center gap-1.5 border border-amber-400/50 backdrop-blur-md cursor-pointer transition-transform hover:scale-105 z-20"
+                  title={language === 'en' ? 'Upload Exact WhatsApp / Real Image' : 'अपनी मूल फ़ोटो (WhatsApp Image) लगाएं'}
+                >
+                  <Camera className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{language === 'en' ? 'Upload Real Photo' : 'असली फ़ोटो लगाएं'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        try {
+                          const compressed = await compressImageFile(file, 1400, 1400, 0.85);
+                          updateSettings({ officeBuildingPhotoUrl: compressed });
+                        } catch {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            updateSettings({ officeBuildingPhotoUrl: reader.result as string });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }
+                    }}
+                  />
+                </label>
               </div>
 
               {/* Fast Action Tiles */}
@@ -170,7 +203,7 @@ export const HomePage: React.FC = () => {
 
       {/* Main 6 Services Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="text-center space-y-2 mb-10">
+        <div className="text-center space-y-2 mb-8">
           <span className="text-xs font-bold tracking-wider uppercase text-red-600 bg-red-50 border border-red-200 px-3.5 py-1 rounded-full">
             {t.nav.services}
           </span>
@@ -182,6 +215,52 @@ export const HomePage: React.FC = () => {
           </p>
         </div>
 
+        {/* Admin Image Control Bar for 6 Projects */}
+        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white rounded-2xl p-4 sm:p-5 mb-8 shadow-lg border border-amber-400/30 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow">
+              <Camera className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30">
+                  {language === 'en' ? 'Admin Photo Manager' : 'एडमिन फोटो प्रबंधन'}
+                </span>
+                <span className="text-xs text-slate-400 font-semibold">
+                  {language === 'en' ? '6 Core Welfare Projects' : '6 प्रमुख सेवा प्रकल्प'}
+                </span>
+              </div>
+              <h3 className="text-sm sm:text-base font-extrabold text-white mt-0.5">
+                {language === 'en'
+                  ? 'Change & Customize All 6 Service Project Images'
+                  : 'इन सभी 6 सेवा प्रकल्पों की तस्वीरें एडमिन पेज से बदलें'}
+              </h3>
+              <p className="text-[11px] sm:text-xs text-slate-300 leading-snug">
+                {language === 'en'
+                  ? 'Easily change photos for Orphanage, Old Age Care, Widow Relief, Free Education, Medical Camp, and Social Welfare.'
+                  : 'अनाथ आश्रम, वृद्ध आश्रम, विधवा कल्याण, निःशुल्क शिक्षा, निःशुल्क चिकित्सा एवं समाज सेवा की फ़ोटो एडमिन से बदल सकते हैं।'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
+            <button
+              onClick={() => {
+                if (isAdmin) {
+                  setCurrentPage('admin-dashboard');
+                } else {
+                  setCurrentPage('admin-login');
+                }
+              }}
+              className="flex-1 md:flex-none px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition-transform hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-slate-950" />
+              <span>{language === 'en' ? 'Change Images in Admin Page' : 'एडमिन पेज से फोटो बदलें'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+
         {/* 6 Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {CORE_SERVICES_DATA.map((service, idx) => {
@@ -189,6 +268,7 @@ export const HomePage: React.FC = () => {
             const tagline = language === 'en' ? service.taglineEn : service.taglineHi;
             const description = language === 'en' ? service.descriptionEn : service.description;
             const features = language === 'en' ? service.featuresEn : service.features;
+            const currentImg = settings.serviceImages?.[service.id] || service.imageUrl;
 
             return (
               <div
@@ -226,7 +306,7 @@ export const HomePage: React.FC = () => {
                   className="relative h-44 w-full overflow-hidden bg-slate-100 cursor-pointer group/img"
                 >
                   <SafeImage
-                    src={service.imageUrl}
+                    src={currentImg}
                     alt={title}
                     className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
                   />
@@ -238,6 +318,64 @@ export const HomePage: React.FC = () => {
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 text-slate-900 shadow">
                       {service.id === 'orphanage' ? (language === 'en' ? 'Full Details' : 'विस्तृत विवरण') : (language === 'en' ? 'Service Info' : 'सेवा विवरण')}
                     </span>
+                  </div>
+
+                  {/* Direct 1-Click Image Changer & Admin Link */}
+                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
+                    <label
+                      onClick={(e) => e.stopPropagation()}
+                      className="bg-slate-900/90 hover:bg-slate-950 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-lg flex items-center gap-1.5 border border-amber-400/50 backdrop-blur-md cursor-pointer transition-transform hover:scale-105"
+                      title={language === 'en' ? 'Change Image' : 'फोटो बदलें'}
+                    >
+                      <Camera className="w-3 h-3 text-amber-300" />
+                      <span>{language === 'en' ? 'Change' : 'फोटो बदलें'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const compressed = await compressImageFile(file, 1200, 1200, 0.85);
+                              updateSettings({
+                                serviceImages: {
+                                  ...(settings.serviceImages || {}),
+                                  [service.id]: compressed,
+                                },
+                              });
+                            } catch {
+                              const r = new FileReader();
+                              r.onloadend = () => {
+                                updateSettings({
+                                  serviceImages: {
+                                    ...(settings.serviceImages || {}),
+                                    [service.id]: r.result as string,
+                                  },
+                                });
+                              };
+                              r.readAsDataURL(file);
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (isAdmin) {
+                          setCurrentPage('admin-dashboard');
+                        } else {
+                          setCurrentPage('admin-login');
+                        }
+                      }}
+                      className="bg-blue-900/90 hover:bg-blue-950 text-white p-1.5 rounded-lg shadow-lg border border-white/30 backdrop-blur-md cursor-pointer transition-transform hover:scale-105"
+                      title={language === 'en' ? 'Manage from Admin Page' : 'एडमिन पेज से बदलें'}
+                    >
+                      <Upload className="w-3 h-3 text-amber-300" />
+                    </button>
                   </div>
                 </div>
 

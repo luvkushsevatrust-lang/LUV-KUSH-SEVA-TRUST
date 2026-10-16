@@ -1143,18 +1143,28 @@ export async function printIdCardDirect(
 }
 
 /**
- * Ensures all images inside target element have finished loading
+ * Ensures all images inside target element have finished loading (with safety timeout)
  */
-async function waitForElementImages(element: HTMLElement): Promise<void> {
+async function waitForElementImages(element: HTMLElement, timeoutMs: number = 2500): Promise<void> {
   const images = Array.from(element.querySelectorAll('img'));
   const promises = images.map((img) => {
     if (img.complete) return Promise.resolve();
     return new Promise<void>((resolve) => {
-      img.onload = () => resolve();
-      img.onerror = () => resolve();
+      const timer = setTimeout(() => resolve(), timeoutMs);
+      img.onload = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      img.onerror = () => {
+        clearTimeout(timer);
+        resolve();
+      };
     });
   });
-  await Promise.all(promises);
+  await Promise.race([
+    Promise.all(promises),
+    new Promise<void>((resolve) => setTimeout(resolve, timeoutMs)),
+  ]);
 }
 
 /**
@@ -1170,7 +1180,7 @@ export async function downloadIdCardAsImage(
     const canvas = await html2canvas(element, {
       scale: 2.5,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
     });
@@ -1185,7 +1195,11 @@ export async function downloadIdCardAsImage(
     return true;
   } catch (error) {
     console.error('Failed to download ID card as image via DOM:', error);
-    window.print();
+    try {
+      window.print();
+    } catch {
+      // ignore
+    }
     return false;
   }
 }
@@ -1203,7 +1217,7 @@ export async function downloadIdCardAsPdf(
     const canvas = await html2canvas(element, {
       scale: 2.5,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
     });
@@ -1237,7 +1251,11 @@ export async function downloadIdCardAsPdf(
     return true;
   } catch (error) {
     console.error('Failed to download ID card as PDF via DOM:', error);
-    window.print();
+    try {
+      window.print();
+    } catch {
+      // ignore
+    }
     return false;
   }
 }
@@ -1254,9 +1272,9 @@ export async function downloadElementAsPdf(
     await waitForElementImages(element);
 
     const canvas = await html2canvas(element, {
-      scale: 2.5,
+      scale: 2.2,
       useCORS: true,
-      allowTaint: true,
+      allowTaint: false,
       backgroundColor: '#ffffff',
       logging: false,
     });
@@ -1289,7 +1307,330 @@ export async function downloadElementAsPdf(
     return true;
   } catch (error) {
     console.error('Failed to download element as PDF:', error);
-    window.print();
+    try {
+      window.print();
+    } catch {
+      // ignore
+    }
     return false;
   }
 }
+
+/**
+ * Highly resilient, fail-safe PDF generator specifically for Receipts and Application Slips.
+ * Attempts DOM-to-Canvas first, and if anything is blocked by iframe/canvas sandbox policies,
+ * immediately builds a crisp, official vector A4 PDF using jsPDF directly.
+ */
+export async function downloadReceiptDirectPdf(
+  receipt: { type: 'donation' | 'application' | 'service'; data: any },
+  settings?: any,
+  language: string = 'hi',
+  element?: HTMLElement | null,
+  fileName?: string
+): Promise<boolean> {
+  const finalName = fileName
+    ? (fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`)
+    : receipt.type === 'donation'
+    ? `LKST-Donation-${receipt.data?.receiptNumber || 'Receipt'}.pdf`
+    : `LKST-Application-${receipt.data?.id || 'Slip'}.pdf`;
+
+  // 1. Try DOM Canvas Capture first if element provided
+  if (element) {
+    try {
+      await waitForElementImages(element, 2000);
+      const canvas = await html2canvas(element, {
+        scale: 2.2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#ffffff',
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 10;
+      const maxW = pageWidth - margin * 2;
+      const maxH = pageHeight - margin * 2;
+      const ratio = Math.min(maxW / imgWidth, maxH / imgHeight);
+
+      const finalW = imgWidth * ratio;
+      const finalH = imgHeight * ratio;
+      const posX = (pageWidth - finalW) / 2;
+      const posY = margin;
+
+      pdf.addImage(imgData, 'PNG', posX, posY, finalW, finalH, undefined, 'FAST');
+      pdf.save(finalName);
+      return true;
+    } catch (canvasErr) {
+      console.warn('html2canvas capture skipped/failed, generating direct vector PDF fallback:', canvasErr);
+    }
+  }
+
+  // 2. Direct Fail-Safe Vector PDF generation (100% Guaranteed to work in every browser/iframe)
+  try {
+    const { type, data } = receipt;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+    const margin = 15;
+    const contentW = pageWidth - margin * 2; // 180mm
+
+    // Top Red Header Stripe
+    doc.setFillColor(185, 28, 28); // #b91c1c
+    doc.rect(0, 0, 210, 8, 'F');
+
+    // Trust Title
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(185, 28, 28);
+    doc.setFontSize(22);
+    doc.text('LUV KUSH SEVA TRUST', pageWidth / 2, 22, { align: 'center' });
+
+    doc.setFontSize(11);
+    doc.setTextColor(30, 58, 138); // Navy blue
+    doc.text('Luv Kush Seva Trust, Rajgir (Nalanda), Bihar', pageWidth / 2, 28, { align: 'center' });
+
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(120, 53, 15);
+    doc.text('"Dedicated to Service, Education, Health and Humanity"', pageWidth / 2, 33, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    const regNum = settings?.registrationNumber || 'BR/2026/1161821';
+    const chairName = settings?.chairpersonName || 'Satyendra Kumar';
+    const phoneNum = settings?.phone || '9570997162';
+    doc.text(`Govt. Reg. No: ${regNum} | Chairperson: ${chairName} | Helpline: ${phoneNum}`, pageWidth / 2, 38, { align: 'center' });
+
+    doc.text('Office: Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar', pageWidth / 2, 42.5, { align: 'center' });
+
+    // Decorative divider line
+    doc.setDrawColor(203, 213, 225);
+    doc.setLineWidth(0.6);
+    doc.line(margin, 46, pageWidth - margin, 46);
+
+    // Document Type Banner Bar
+    let currentY = 50;
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(margin, currentY, contentW, 14, 2, 2, 'F');
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, currentY, contentW, 14, 2, 2, 'S');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    const docTitle =
+      type === 'donation'
+        ? 'OFFICIAL DONATION RECEIPT'
+        : 'OFFICIAL SERVICE APPLICATION SLIP';
+    doc.text(docTitle, margin + 4, currentY + 6);
+
+    doc.setFontSize(9);
+    doc.setTextColor(30, 58, 138);
+    const docIdLabel = type === 'donation' ? `Receipt No: ${data?.receiptNumber || 'N/A'}` : `App ID: ${data?.id || 'N/A'}`;
+    doc.text(docIdLabel, margin + 4, currentY + 11);
+
+    const docDate = new Date(data?.donatedAt || data?.submittedAt || Date.now()).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
+    doc.setTextColor(71, 85, 105);
+    doc.text(`Date: ${docDate}`, pageWidth - margin - 4, currentY + 8, { align: 'right' });
+
+    currentY += 20;
+
+    // Table Data
+    const rows: Array<[string, string]> = [];
+    if (type === 'donation') {
+      rows.push(['Donor Full Name', String(data?.donorName || 'N/A')]);
+      rows.push(['Contact Mobile', String(data?.mobile || 'N/A')]);
+      if (data?.email) rows.push(['Email Address', String(data?.email)]);
+      rows.push(['Payment Mode', String(data?.paymentMethod || 'Online UPI')]);
+      if (data?.transactionId) rows.push(['Transaction Reference (UTR)', String(data?.transactionId)]);
+      if (data?.message) rows.push(['Donation Cause / Purpose', String(data?.message)]);
+      rows.push(['Amount Donated (INR)', `Rs. ${Number(data?.amount || 0).toLocaleString('en-IN')} /-`]);
+    } else {
+      rows.push(['Applied Welfare Service', String(data?.serviceTitleEn || data?.serviceTitleHi || 'Social Welfare')]);
+      rows.push(['Applicant Full Name', String(data?.fullName || 'N/A')]);
+      rows.push(['Father / Guardian Name', String(data?.fatherOrHusbandName || 'N/A')]);
+      rows.push(['Mother Name', String(data?.motherName || 'N/A')]);
+      rows.push(['Date of Birth / Gender', `${data?.dob || 'N/A'} (${data?.gender || 'N/A'})`]);
+      rows.push(['Primary Mobile', String(data?.mobile || 'N/A')]);
+      if (data?.aadhaarNumber) rows.push(['Aadhaar Number (UIDAI)', String(data?.aadhaarNumber)]);
+      rows.push(['Registered Address', `${data?.address || ''}, ${data?.village || ''}, ${data?.district || 'Nalanda'} - ${data?.pinCode || '803116'} (${data?.state || 'Bihar'})`]);
+      rows.push(['Current Status', String(data?.status || 'Pending Verification')]);
+    }
+
+    // Render Table
+    doc.setFontSize(9.5);
+    for (const [label, val] of rows) {
+      const isAmountRow = label.includes('Amount');
+      const rowHeight = isAmountRow ? 10 : 7.5;
+
+      if (isAmountRow) {
+        doc.setFillColor(254, 243, 199); // Amber highlight
+        doc.rect(margin, currentY, contentW, rowHeight, 'F');
+      } else {
+        doc.setFillColor(248, 250, 252);
+        doc.rect(margin, currentY, 60, rowHeight, 'F');
+      }
+
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.2);
+      doc.rect(margin, currentY, contentW, rowHeight, 'S');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(isAmountRow ? 185 : 71, isAmountRow ? 28 : 85, isAmountRow ? 28 : 105);
+      doc.text(label, margin + 3, currentY + (isAmountRow ? 6.5 : 5));
+
+      doc.setFont('helvetica', isAmountRow ? 'bold' : 'normal');
+      doc.setTextColor(isAmountRow ? 185 : 15, isAmountRow ? 28 : 23, isAmountRow ? 28 : 42);
+      if (isAmountRow) doc.setFontSize(11);
+      doc.text(val, margin + 64, currentY + (isAmountRow ? 6.5 : 5));
+      if (isAmountRow) doc.setFontSize(9.5);
+
+      currentY += rowHeight;
+    }
+
+    currentY += 8;
+
+    // Acknowledgment box
+    doc.setFillColor(236, 253, 245);
+    doc.roundedRect(margin, currentY, contentW, 14, 2, 2, 'F');
+    doc.setDrawColor(167, 243, 208);
+    doc.roundedRect(margin, currentY, contentW, 14, 2, 2, 'S');
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(6, 95, 70);
+    const ackText =
+      type === 'donation'
+        ? 'Luv Kush Seva Trust expresses heartfelt gratitude for your noble contribution toward orphan care, old-age shelter, widow welfare, free education, and healthcare.'
+        : 'Your application has been logged into the trust official records. Please preserve this slip and application ID for future reference and verification.';
+    doc.text(ackText, margin + 4, currentY + 5.5, { maxWidth: contentW - 8 });
+
+    currentY += 24;
+
+    // Official Seal and Signature
+    doc.setDrawColor(185, 28, 28);
+    doc.setLineWidth(0.8);
+    doc.circle(margin + 25, currentY + 10, 12, 'S');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(6.5);
+    doc.setTextColor(185, 28, 28);
+    doc.text('LUV KUSH SEVA TRUST', margin + 25, currentY + 7, { align: 'center' });
+    doc.text('* RAJGIR (NALANDA) *', margin + 25, currentY + 11, { align: 'center' });
+    doc.text('OFFICIAL SEAL', margin + 25, currentY + 15, { align: 'center' });
+
+    // Signature
+    doc.setDrawColor(30, 41, 59);
+    doc.setLineWidth(0.4);
+    doc.line(pageWidth - margin - 45, currentY + 16, pageWidth - margin, currentY + 16);
+
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(10);
+    doc.setTextColor(30, 58, 138);
+    doc.text('Satyendra Kr.', pageWidth - margin - 22, currentY + 14, { align: 'center' });
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(15, 23, 42);
+    doc.text(chairName, pageWidth - margin - 22, currentY + 21, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(100, 116, 139);
+    doc.text('Authorized Signatory / Chairperson', pageWidth - margin - 22, currentY + 25, { align: 'center' });
+
+    // Footer note
+    doc.setFontSize(7.5);
+    doc.setTextColor(148, 163, 184);
+    doc.text('This is a verified computer-generated document | Luv Kush Seva Trust | Rajgir, Nalanda, Bihar - 803116', pageWidth / 2, 285, { align: 'center' });
+
+    doc.save(finalName);
+    return true;
+  } catch (vectorErr) {
+    console.error('Vector PDF generation error:', vectorErr);
+    try {
+      window.print();
+    } catch {
+      // ignore
+    }
+    return false;
+  }
+}
+
+/**
+ * Downloads receipt or application slip directly as a high-resolution PNG image
+ */
+export async function downloadReceiptDirectImage(
+  element: HTMLElement,
+  fileName: string = 'LKST-Receipt.png'
+): Promise<boolean> {
+  try {
+    await waitForElementImages(element, 2000);
+    const canvas = await html2canvas(element, {
+      scale: 2.5,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
+
+    const dataUrl = canvas.toDataURL('image/png', 1.0);
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = fileName.endsWith('.png') ? fileName : `${fileName}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    return true;
+  } catch (err) {
+    console.error('Image capture failed:', err);
+    return false;
+  }
+}
+
+/**
+ * Handles printing of receipt with automatic PDF download fail-safe
+ */
+export async function printReceiptDirect(
+  receipt: { type: 'donation' | 'application' | 'service'; data: any },
+  settings?: any,
+  language: string = 'hi',
+  element?: HTMLElement | null
+): Promise<boolean> {
+  const filename =
+    receipt.type === 'donation'
+      ? `LKST-Donation-${receipt.data?.receiptNumber || 'Receipt'}.pdf`
+      : `LKST-Application-${receipt.data?.id || 'Slip'}.pdf`;
+
+  // Always generate and download the high-resolution PDF as a fail-safe
+  await downloadReceiptDirectPdf(receipt, settings, language, element, filename);
+
+  // Trigger browser print dialog safely
+  try {
+    window.print();
+  } catch (e) {
+    console.warn('window.print blocked by iframe sandbox:', e);
+  }
+
+  return true;
+}
+

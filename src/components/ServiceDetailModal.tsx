@@ -84,7 +84,7 @@ export const ServiceDetailModal: React.FC<ServiceDetailModalProps> = ({
         {/* Header Visual Hero */}
         <div className="relative h-52 sm:h-64 md:h-72 w-full bg-slate-950 overflow-hidden shrink-0">
           <SafeImage
-            src={resolveAssetUrl(service.imageUrl) || ORPHANAGE_CARE}
+            src={settings.serviceImages?.[service.id] || resolveAssetUrl(service.imageUrl) || ORPHANAGE_CARE}
             alt={title}
             className="w-full h-full object-cover opacity-75 transform scale-100 hover:scale-105 transition-transform duration-700"
           />

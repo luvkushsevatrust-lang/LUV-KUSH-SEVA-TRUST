@@ -50,11 +50,22 @@ import {
   IdCardStatus,
   IdCardCategory,
 } from '../types';
-import { ID_CARD_CATEGORY_CONFIG } from '../data/mockData';
+import { ID_CARD_CATEGORY_CONFIG, CORE_SERVICES_DATA } from '../data/mockData';
 import { AadhaarCardView } from '../components/AadhaarCardView';
 import { PrintableCandidateForm } from '../components/PrintableCandidateForm';
 import { SUPABASE_SQL_SCHEMA, SupabaseService } from '../lib/supabaseService';
-import { resolveAssetUrl, CHAIRPERSON_PHOTO, TRUST_EMBLEM_LOGO } from '../assets';
+import {
+  resolveAssetUrl,
+  CHAIRPERSON_PHOTO,
+  TRUST_EMBLEM_LOGO,
+  TRUST_OFFICE_BUILDING,
+  ORPHANAGE_CARE,
+  OLD_AGE_CARE,
+  HERO_TRUST_SEVA,
+  FREE_EDUCATION,
+  MEDICAL_CAMP,
+  COMMUNITY_WELFARE,
+} from '../assets';
 import { SUPABASE_PROJECT_ID, SUPABASE_URL, SUPABASE_ANON_KEY } from '../lib/supabase';
 import { compressImageFile } from '../utils/imageCompressor';
 
@@ -97,7 +108,7 @@ export const AdminDashboardPage: React.FC = () => {
   } = useTrust();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'applications' | 'students' | 'id_cards' | 'donations' | 'volunteers' | 'announcements' | 'settings' | 'supabase'
+    'overview' | 'applications' | 'students' | 'id_cards' | 'donations' | 'volunteers' | 'announcements' | 'settings' | 'service_images' | 'supabase'
   >('overview');
 
   const [copiedSql, setCopiedSql] = useState(false);
@@ -699,6 +710,18 @@ export const AdminDashboardPage: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-3">
           <button
+            onClick={() => setActiveTab('service_images')}
+            className={`px-4 py-2 text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'service_images'
+                ? 'bg-amber-400 text-slate-950 ring-2 ring-white'
+                : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            }`}
+          >
+            <ImageIcon className="w-4 h-4 text-amber-300" />
+            <span>{language === 'en' ? '6 Project Images' : '6 सेवा फोटो बदलें'}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('id_cards')}
             className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer"
           >
@@ -733,6 +756,7 @@ export const AdminDashboardPage: React.FC = () => {
           { id: 'volunteers', label: `${t.admin.tabVolunteers} (${totalVolunteers})`, icon: UserCheck },
           { id: 'donations', label: t.admin.tabDonations, icon: Heart },
           { id: 'announcements', label: t.admin.tabAnnouncements, icon: Bell },
+          { id: 'service_images', label: language === 'en' ? '6 Project Images' : 'सेवा छवियां (Images)', icon: ImageIcon, isImages: true },
           { id: 'settings', label: t.admin.tabSettings, icon: Settings },
           { id: 'supabase', label: 'Supabase Cloud DB', icon: Database, isSupabase: true },
         ].map((tab) => {
@@ -817,6 +841,35 @@ export const AdminDashboardPage: React.FC = () => {
                 {donations.length} {language === 'en' ? 'Receipts' : 'रसीदें'}
               </span>
             </div>
+          </div>
+
+          {/* Quick 6 Projects Visual Media Card */}
+          <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-indigo-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow">
+                <ImageIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="text-[10px] font-black uppercase text-amber-300 tracking-wider">
+                  {language === 'en' ? 'Visual Media Management' : 'फोटो एवं मीडिया प्रबंधन'}
+                </div>
+                <h3 className="text-base sm:text-lg font-black">
+                  {language === 'en' ? 'Manage 6 Service Project Images' : '6 प्रमुख सेवा प्रकल्पों की तस्वीरें बदलें'}
+                </h3>
+                <p className="text-xs text-slate-300">
+                  {language === 'en'
+                    ? 'Easily customize photos for Orphanage, Old Age Home, Widow Welfare, Free Education, Medical Camp & Social Welfare.'
+                    : 'होमपेज पर दिखने वाले सभी 6 प्रकल्पों (अनाथ आश्रम, वृद्ध आश्रम, विधवा कल्याण, शिक्षा, चिकित्सा, समाज सेवा) की तस्वीरें 1-क्लिक में बदलें।'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveTab('service_images')}
+              className="px-5 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-transform hover:scale-105 shrink-0 flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Upload className="w-4 h-4 text-slate-950" />
+              <span>{language === 'en' ? 'Change Images Now →' : 'अभी फोटो बदलें →'}</span>
+            </button>
           </div>
 
           {/* Recent Applications & Pending ID Verification Grid */}
@@ -2254,6 +2307,104 @@ export const AdminDashboardPage: React.FC = () => {
                 </div>
               </div>
 
+              {/* Trust Office & Health Center Building Real Photo Upload */}
+              <div className="sm:col-span-2 p-4 bg-emerald-50/70 rounded-2xl border border-emerald-300 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <label className="block font-bold text-slate-900 text-sm">
+                      {language === 'en'
+                        ? 'Trust Head Office & Health Center Photo (Building & Premises)'
+                        : 'ट्रस्ट प्रधान कार्यालय एवं चिकित्सा केंद्र भवन की असली फ़ोटो'}
+                    </label>
+                    <p className="text-xs text-slate-600">
+                      {language === 'en'
+                        ? 'Upload your official building photo (e.g. WhatsApp Image / Camera Photo) displayed on the main hero banner'
+                        : 'वेबसाइट के मुख्य बैनर पर लव कुश चिकित्सा केंद्र एवं ट्रस्ट कार्यालय की असली तस्वीर सेट करें'}
+                    </p>
+                  </div>
+                  {tempSettings.officeBuildingPhotoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setTempSettings({ ...tempSettings, officeBuildingPhotoUrl: '' })}
+                      className="self-start sm:self-auto px-2.5 py-1 text-xs text-red-600 bg-red-50 hover:bg-red-100 rounded-lg border border-red-200 font-semibold cursor-pointer"
+                    >
+                      {language === 'en' ? 'Reset to Default' : 'डिफ़ॉल्ट पर रीसेट करें'}
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                  <div className="w-40 sm:w-48 aspect-video rounded-xl border-2 border-emerald-400 overflow-hidden bg-white shadow-sm shrink-0">
+                    <img
+                      src={tempSettings.officeBuildingPhotoUrl || TRUST_OFFICE_BUILDING}
+                      alt="Building Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-800 hover:bg-emerald-900 text-white rounded-xl text-xs font-bold shadow-md transition-colors">
+                      <Upload className="w-4 h-4 text-amber-300" />
+                      <span>{language === 'en' ? 'Choose Image File' : 'भवन की फ़ोटो चुनें (Upload Building Photo)'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const compressed = await compressImageFile(file, 1400, 1400, 0.85);
+                              setTempSettings({ ...tempSettings, officeBuildingPhotoUrl: compressed });
+                            } catch {
+                              const r = new FileReader();
+                              r.onloadend = () => {
+                                setTempSettings({ ...tempSettings, officeBuildingPhotoUrl: r.result as string });
+                              };
+                              r.readAsDataURL(file);
+                            }
+                          }
+                        }}
+                      />
+                    </label>
+                    <p className="text-[11px] text-slate-500">
+                      {language === 'en'
+                        ? 'Supported: JPG, PNG, WEBP (Instant high-res preview on homepage)'
+                        : 'समर्थित: JPG, PNG, WEBP (चुनते ही तुरंत सुरक्षित सेव होगी)'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 6 Services Images Quick Jump Card */}
+              <div className="sm:col-span-2 p-4 bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 rounded-2xl text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-md border border-blue-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center shrink-0">
+                    <ImageIcon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-sm">
+                      {language === 'en'
+                        ? 'Manage 6 Social Welfare Project Images'
+                        : 'प्रमुख 6 सेवा प्रकल्प छवियां प्रबंधन'}
+                    </h3>
+                    <p className="text-xs text-slate-300">
+                      {language === 'en'
+                        ? 'Customize photos for Orphanage, Old Age Home, Widow Welfare, Education, Medical & Relief work'
+                        : 'अनाथ आश्रम, वृद्ध आश्रम, विधवा कल्याण, शिक्षा, चिकित्सा व समाज सेवा की फोटो बदलें'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('service_images')}
+                  className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-xl transition-colors cursor-pointer self-start sm:self-auto shrink-0 shadow flex items-center gap-1.5"
+                >
+                  <span>{language === 'en' ? 'Manage 6 Images' : '6 छवियां प्रबंधित करें'}</span>
+                  <span>➔</span>
+                </button>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">
                   {language === 'en' ? 'Official Phone / WhatsApp' : 'आधिकारिक फोन / WhatsApp'}
@@ -2497,6 +2648,203 @@ export const AdminDashboardPage: React.FC = () => {
               )}
             </div>
           </form>
+        </div>
+      )}
+
+      {/* TAB: 6 SOCIAL WELFARE SERVICES IMAGES */}
+      {activeTab === 'service_images' && (
+        <div className="space-y-6">
+          {/* Header Card */}
+          <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl border border-white/10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-400/20 border border-amber-300/40 text-amber-300 text-xs font-bold">
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span>
+                  {language === 'en'
+                    ? 'Official 6 Core Projects Visual Media'
+                    : 'प्रमुख 6 सेवा प्रकल्प फोटो प्रबंधन'}
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black">
+                {language === 'en' ? 'Manage 6 Service Project Images' : 'सेवा प्रकल्पों की छवियां बदलें'}
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-300 max-w-2xl leading-relaxed">
+                {language === 'en'
+                  ? 'Update and customize photographs displayed across the homepage, about page, and service details modals for all 6 welfare missions of Luv Kush Seva Trust.'
+                  : 'यहाँ से आप होमपेज और पूरी वेबसाइट पर दिखने वाले 6 प्रमुख सेवा प्रकल्पों (अनाथ आश्रम, वृद्ध आश्रम, विधवा कल्याण, निःशुल्क शिक्षा, निःशुल्क चिकित्सा, समाज सेवा) की तस्वीरें 1-क्लिक में बदल या अपडेट कर सकते हैं।'}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setCurrentPage('home')}
+                className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold border border-white/20 transition-colors flex items-center gap-2 cursor-pointer"
+              >
+                <Eye className="w-4 h-4 text-amber-300" />
+                <span>{language === 'en' ? 'View Live on Homepage' : 'होमपेज पर देखें'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* 6 Services Image Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {CORE_SERVICES_DATA.map((srv, idx) => {
+              const defaultMap: Record<string, string> = {
+                orphanage: ORPHANAGE_CARE,
+                old_age: OLD_AGE_CARE,
+                widow: HERO_TRUST_SEVA,
+                education: FREE_EDUCATION,
+                medical: MEDICAL_CAMP,
+                social_welfare: COMMUNITY_WELFARE,
+              };
+
+              const defaultImg = defaultMap[srv.id] || srv.imageUrl;
+              const hasCustomImg = !!tempSettings.serviceImages?.[srv.id];
+              const displayImg = tempSettings.serviceImages?.[srv.id] || defaultImg;
+              const title = language === 'en' ? srv.titleEn : srv.titleHi;
+              const tagline = language === 'en' ? srv.taglineEn : srv.taglineHi;
+
+              return (
+                <div
+                  key={srv.id}
+                  className="bg-white rounded-2xl border border-slate-200 shadow-md hover:shadow-lg transition-all overflow-hidden flex flex-col justify-between"
+                >
+                  {/* Card Header Strip */}
+                  <div
+                    className={`px-4 py-3 text-white flex items-center justify-between ${
+                      idx === 0
+                        ? 'bg-emerald-700'
+                        : idx === 1
+                        ? 'bg-blue-800'
+                        : idx === 2
+                        ? 'bg-rose-700'
+                        : idx === 3
+                        ? 'bg-teal-700'
+                        : idx === 4
+                        ? 'bg-sky-700'
+                        : 'bg-red-700'
+                    }`}
+                  >
+                    <div>
+                      <div className="text-[10px] font-bold text-amber-200 uppercase tracking-wider">
+                        0{idx + 1} • {srv.id.toUpperCase()}
+                      </div>
+                      <h3 className="font-black text-sm tracking-wide">{title}</h3>
+                    </div>
+                    {hasCustomImg ? (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-400 text-slate-950 shadow-xs flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" />
+                        <span>{language === 'en' ? 'Custom Active' : 'कस्टम फ़ोटो सक्रिय'}</span>
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-white/20 text-white backdrop-blur-xs">
+                        {language === 'en' ? 'Default' : 'मूल फ़ोटो'}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Image Display Container */}
+                  <div className="relative aspect-video w-full bg-slate-900 overflow-hidden group">
+                    <img
+                      src={displayImg}
+                      alt={title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent flex items-end p-3">
+                      <p className="text-white text-xs font-semibold drop-shadow line-clamp-1">
+                        "{tagline}"
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="p-4 bg-slate-50/80 border-t border-slate-200 space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="flex-1 cursor-pointer inline-flex items-center justify-center gap-2 px-3 py-2 bg-blue-900 hover:bg-blue-950 text-white rounded-xl text-xs font-bold shadow transition-colors text-center">
+                        <Upload className="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                        <span>{language === 'en' ? 'Upload New Image' : 'नई फ़ोटो लगाएं'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              try {
+                                const compressed = await compressImageFile(file, 1200, 1200, 0.85);
+                                const updatedMap = {
+                                  ...(tempSettings.serviceImages || {}),
+                                  [srv.id]: compressed,
+                                };
+                                setTempSettings({ ...tempSettings, serviceImages: updatedMap });
+                                updateSettings({ serviceImages: updatedMap });
+                                setActionToast({
+                                  message:
+                                    language === 'en'
+                                      ? `${title} image updated successfully!`
+                                      : `${title} की फ़ोटो सफलतापूर्वक अपडेट हो गई!`,
+                                  type: 'success',
+                                });
+                              } catch {
+                                const r = new FileReader();
+                                r.onloadend = () => {
+                                  const updatedMap = {
+                                    ...(tempSettings.serviceImages || {}),
+                                    [srv.id]: r.result as string,
+                                  };
+                                  setTempSettings({ ...tempSettings, serviceImages: updatedMap });
+                                  updateSettings({ serviceImages: updatedMap });
+                                  setActionToast({
+                                    message:
+                                      language === 'en'
+                                        ? `${title} image updated successfully!`
+                                        : `${title} की फ़ोटो सफलतापूर्वक अपडेट हो गई!`,
+                                    type: 'success',
+                                  });
+                                };
+                                r.readAsDataURL(file);
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+
+                      {hasCustomImg && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedMap = { ...(tempSettings.serviceImages || {}) };
+                            delete updatedMap[srv.id];
+                            setTempSettings({ ...tempSettings, serviceImages: updatedMap });
+                            updateSettings({ serviceImages: updatedMap });
+                            setActionToast({
+                              message:
+                                language === 'en'
+                                  ? `${title} image reset to original default!`
+                                  : `${title} की फ़ोटो मूल डिफ़ॉल्ट पर रीसेट कर दी गई!`,
+                              type: 'info',
+                            });
+                          }}
+                          className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1"
+                          title={language === 'en' ? 'Reset to default image' : 'मूल फ़ोटो पर वापस लाएं'}
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>{language === 'en' ? 'Reset' : 'रीसेट'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <p className="text-[11px] text-slate-500 leading-tight">
+                      {language === 'en'
+                        ? 'Supported: JPG, PNG, WEBP (Instantly live on homepage)'
+                        : 'समर्थित: JPG, PNG, WEBP (अपलोड करते ही तुरंत लाइव होगा)'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -201,7 +201,7 @@ export const AboutPage: React.FC = () => {
 };
 
 export const ServicesPage: React.FC = () => {
-  const { setCurrentPage, language, t } = useTrust();
+  const { settings, setCurrentPage, language, t } = useTrust();
   const [selectedServiceForDetail, setSelectedServiceForDetail] = useState<any | null>(null);
 
   return (
@@ -290,7 +290,7 @@ export const ServicesPage: React.FC = () => {
                   className="rounded-2xl overflow-hidden aspect-video border border-slate-200 shadow-sm relative cursor-pointer group"
                 >
                   <SafeImage
-                    src={srv.imageUrl}
+                    src={settings.serviceImages?.[srv.id] || srv.imageUrl}
                     alt={title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
