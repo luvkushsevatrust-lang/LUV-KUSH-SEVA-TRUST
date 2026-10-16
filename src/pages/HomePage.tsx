@@ -136,35 +136,7 @@ export const HomePage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Direct 1-Click Upload Button for exact user photo */}
-                <label
-                  onClick={(e) => e.stopPropagation()}
-                  className="absolute top-2.5 right-2.5 bg-slate-900/90 hover:bg-slate-950 text-white text-[10.5px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl flex items-center gap-1.5 border border-amber-400/50 backdrop-blur-md cursor-pointer transition-transform hover:scale-105 z-20"
-                  title={language === 'en' ? 'Upload Exact WhatsApp / Real Image' : 'अपनी मूल फ़ोटो (WhatsApp Image) लगाएं'}
-                >
-                  <Camera className="w-3.5 h-3.5 text-amber-300" />
-                  <span>{language === 'en' ? 'Upload Real Photo' : 'असली फ़ोटो लगाएं'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        try {
-                          const compressed = await compressImageFile(file, 1400, 1400, 0.85);
-                          updateSettings({ officeBuildingPhotoUrl: compressed });
-                        } catch {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            updateSettings({ officeBuildingPhotoUrl: reader.result as string });
-                          };
-                          reader.readAsDataURL(file);
-                        }
-                      }
-                    }}
-                  />
-                </label>
+
               </div>
 
               {/* Fast Action Tiles */}
