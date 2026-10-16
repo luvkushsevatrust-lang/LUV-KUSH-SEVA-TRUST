@@ -292,63 +292,7 @@ export const HomePage: React.FC = () => {
                     </span>
                   </div>
 
-                  {/* Direct 1-Click Image Changer & Admin Link */}
-                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
-                    <label
-                      onClick={(e) => e.stopPropagation()}
-                      className="bg-slate-900/90 hover:bg-slate-950 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-lg flex items-center gap-1.5 border border-amber-400/50 backdrop-blur-md cursor-pointer transition-transform hover:scale-105"
-                      title={language === 'en' ? 'Change Image' : 'फोटो बदलें'}
-                    >
-                      <Camera className="w-3 h-3 text-amber-300" />
-                      <span>{language === 'en' ? 'Change' : 'फोटो बदलें'}</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            try {
-                              const compressed = await compressImageFile(file, 1200, 1200, 0.85);
-                              updateSettings({
-                                serviceImages: {
-                                  ...(settings.serviceImages || {}),
-                                  [service.id]: compressed,
-                                },
-                              });
-                            } catch {
-                              const r = new FileReader();
-                              r.onloadend = () => {
-                                updateSettings({
-                                  serviceImages: {
-                                    ...(settings.serviceImages || {}),
-                                    [service.id]: r.result as string,
-                                  },
-                                });
-                              };
-                              r.readAsDataURL(file);
-                            }
-                          }
-                        }}
-                      />
-                    </label>
 
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (isAdmin) {
-                          setCurrentPage('admin-dashboard');
-                        } else {
-                          setCurrentPage('admin-login');
-                        }
-                      }}
-                      className="bg-blue-900/90 hover:bg-blue-950 text-white p-1.5 rounded-lg shadow-lg border border-white/30 backdrop-blur-md cursor-pointer transition-transform hover:scale-105"
-                      title={language === 'en' ? 'Manage from Admin Page' : 'एडमिन पेज से बदलें'}
-                    >
-                      <Upload className="w-3 h-3 text-amber-300" />
-                    </button>
-                  </div>
                 </div>
 
                 {/* Card Body */}
