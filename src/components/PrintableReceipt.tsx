@@ -102,6 +102,13 @@ export const PrintableReceipt: React.FC = () => {
             ? 'PNG Receipt image downloaded successfully!'
             : 'रसीद फोटो (PNG) सफलतापूर्वक डाउनलोड हो गई!'
         );
+      } else {
+        await downloadReceiptDirectPdf(activeReceipt, settings, language, receiptRef.current);
+        setActionToast(
+          language === 'en'
+            ? 'Official PDF receipt downloaded successfully!'
+            : 'आधिकारिक रसीद PDF दस्तावेज सफलतापूर्वक डाउनलोड हो गया!'
+        );
       }
     } finally {
       setIsDownloadingImage(false);

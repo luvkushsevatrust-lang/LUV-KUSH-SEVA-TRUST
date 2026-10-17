@@ -843,35 +843,6 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Quick 6 Projects Visual Media Card */}
-          <div className="bg-gradient-to-r from-blue-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-indigo-800/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow">
-                <ImageIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="text-[10px] font-black uppercase text-amber-300 tracking-wider">
-                  {language === 'en' ? 'Visual Media Management' : 'फोटो एवं मीडिया प्रबंधन'}
-                </div>
-                <h3 className="text-base sm:text-lg font-black">
-                  {language === 'en' ? 'Manage 6 Service Project Images' : '6 प्रमुख सेवा प्रकल्पों की तस्वीरें बदलें'}
-                </h3>
-                <p className="text-xs text-slate-300">
-                  {language === 'en'
-                    ? 'Easily customize photos for Orphanage, Old Age Home, Widow Welfare, Free Education, Medical Camp & Social Welfare.'
-                    : 'होमपेज पर दिखने वाले सभी 6 प्रकल्पों (अनाथ आश्रम, वृद्ध आश्रम, विधवा कल्याण, शिक्षा, चिकित्सा, समाज सेवा) की तस्वीरें 1-क्लिक में बदलें।'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setActiveTab('service_images')}
-              className="px-5 py-2.5 bg-amber-400 hover:bg-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-transform hover:scale-105 shrink-0 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Upload className="w-4 h-4 text-slate-950" />
-              <span>{language === 'en' ? 'Change Images Now →' : 'अभी फोटो बदलें →'}</span>
-            </button>
-          </div>
-
           {/* Recent Applications & Pending ID Verification Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Pending Applications Box */}
@@ -1666,7 +1637,259 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* TAB 6: DONATIONS MANAGEMENT */}
       {activeTab === 'donations' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+        <div className="space-y-6">
+          {/* Dedicated UPI ID, QR Code & Payment Settings Editor */}
+          <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white rounded-3xl p-5 sm:p-6 shadow-xl border border-amber-400/30 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow-md">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30">
+                      {language === 'en' ? 'Payment Settings' : 'दान एवं भुगतान सेटिंग्स'}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {language === 'en' ? 'Live on Donation Page' : 'वेबसाइट दान पृष्ठ पर सक्रिय'}
+                    </span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-white mt-0.5">
+                    {language === 'en'
+                      ? 'Trust UPI ID, QR Code & Bank Account Editor'
+                      : 'ट्रस्ट UPI ID, QR कोड एवं बैंक खाता संपादन'}
+                  </h3>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage('donation')}
+                  className="px-3.5 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold rounded-xl border border-white/20 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Eye className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{language === 'en' ? 'View Donation Page' : 'दान पेज देखें'}</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 pt-1">
+              {/* UPI ID Field & Save */}
+              <div className="lg:col-span-6 bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-3">
+                <label className="block text-xs font-bold text-amber-300">
+                  {language === 'en' ? 'Trust UPI ID (VPA)' : 'ट्रस्ट UPI ID'} *
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={tempSettings.upiId}
+                    onChange={(e) => setTempSettings({ ...tempSettings, upiId: e.target.value })}
+                    className="flex-1 px-3.5 py-2 bg-slate-950 border border-slate-700 text-white rounded-xl text-xs font-mono font-bold focus:border-amber-400 focus:outline-hidden"
+                    placeholder="9570997162@sbi"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = tempSettings.upiId.trim();
+                      if (!trimmed) return;
+                      updateSettings({ upiId: trimmed });
+                      setActionToast({
+                        message: language === 'en' ? 'UPI ID updated successfully!' : 'UPI ID सफलतापूर्वक अपडेट हो गया!',
+                        type: 'success',
+                      });
+                    }}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <Save className="w-3.5 h-3.5 text-amber-300" />
+                    <span>{language === 'en' ? 'Save UPI' : 'UPI सुरक्षित करें'}</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  {language === 'en'
+                    ? 'All donation buttons and QR intents use this UPI ID.'
+                    : 'सभी दान बटन और क्यूआर कोड इसी UPI ID से जुड़े हैं।'}
+                </p>
+              </div>
+
+              {/* QR Code Upload & Preview */}
+              <div className="lg:col-span-6 bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-amber-300">
+                    {language === 'en' ? 'Official UPI QR Code' : 'वास्तविक दान QR कोड'}
+                  </label>
+                  {tempSettings.donationQrUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTempSettings((prev) => ({ ...prev, donationQrUrl: '' }));
+                        updateSettings({ donationQrUrl: '' });
+                        setActionToast({
+                          message: language === 'en' ? 'Reset to default QR!' : 'डिफ़ॉल्ट QR कोड रीसेट कर दिया गया!',
+                          type: 'info',
+                        });
+                      }}
+                      className="text-[10px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>{language === 'en' ? 'Reset QR' : 'हटाएं (डिफ़ॉल्ट)'}</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl border-2 border-amber-400 bg-white p-1 shrink-0 overflow-hidden flex items-center justify-center shadow-xs">
+                    {tempSettings.donationQrUrl ? (
+                      <img
+                        src={tempSettings.donationQrUrl}
+                        alt="QR Preview"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <QrCode className="w-8 h-8 text-slate-800" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 space-y-1.5">
+                    <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold rounded-xl text-xs shadow transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{language === 'en' ? 'Upload QR Photo' : 'नया QR फोटो लगाएं'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            try {
+                              const compressed = await compressImageFile(file, 800, 800, 0.85);
+                              setTempSettings((prev) => ({ ...prev, donationQrUrl: compressed }));
+                              updateSettings({ donationQrUrl: compressed });
+                              setActionToast({
+                                message: language === 'en' ? 'QR Code updated & saved!' : 'QR कोड सफलतापूर्वक अपडेट हो गया!',
+                                type: 'success',
+                              });
+                            } catch {
+                              const r = new FileReader();
+                              r.onloadend = () => {
+                                const res = r.result as string;
+                                setTempSettings((prev) => ({ ...prev, donationQrUrl: res }));
+                                updateSettings({ donationQrUrl: res });
+                                setActionToast({
+                                  message: language === 'en' ? 'QR Code updated & saved!' : 'QR कोड सफलतापूर्वक अपडेट हो गया!',
+                                  type: 'success',
+                                });
+                              };
+                              r.readAsDataURL(file);
+                            }
+                          }
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="text-[10.5px] text-slate-400">
+                      {language === 'en' ? 'PhonePe / GPay / Bank QR screenshot.' : 'बैंक या UPI ऐप का वास्तविक QR स्क्रीनशॉट।'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Bank Details Row */}
+            <div className="bg-slate-900/90 rounded-2xl p-4 border border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                  <Building className="w-4 h-4 text-blue-400" />
+                  <span>{language === 'en' ? 'Bank Account Details for Direct Transfer' : 'बैंक खाता विवरण (सीधा बैंक ट्रांसफर)'}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    updateSettings({
+                      bankDetails: {
+                        ...(tempSettings?.bankDetails || {}),
+                      },
+                    });
+                    setActionToast({
+                      message: language === 'en' ? 'Bank account details saved!' : 'बैंक खाता विवरण सुरक्षित कर दिया गया!',
+                      type: 'success',
+                    });
+                  }}
+                  className="px-4 py-1.5 bg-blue-700 hover:bg-blue-800 text-white text-xs font-bold rounded-lg shadow transition-colors flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
+                >
+                  <Save className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{language === 'en' ? 'Save Bank Details' : 'बैंक विवरण सुरक्षित करें'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div>
+                  <span className="text-[10px] text-slate-400 block mb-1">{language === 'en' ? 'Bank Name' : 'बैंक का नाम'}</span>
+                  <input
+                    type="text"
+                    value={tempSettings?.bankDetails?.bankName || ''}
+                    onChange={(e) =>
+                      setTempSettings({
+                        ...tempSettings,
+                        bankDetails: { ...(tempSettings?.bankDetails || {}), bankName: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs"
+                    placeholder="State Bank of India"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-400 block mb-1">{language === 'en' ? 'Account Holder' : 'खाताधारक का नाम'}</span>
+                  <input
+                    type="text"
+                    value={tempSettings?.bankDetails?.accountHolderName || ''}
+                    onChange={(e) =>
+                      setTempSettings({
+                        ...tempSettings,
+                        bankDetails: { ...(tempSettings?.bankDetails || {}), accountHolderName: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs font-bold"
+                    placeholder="LUV KUSH SEVA TRUST"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-400 block mb-1">{language === 'en' ? 'Account Number' : 'खाता संख्या'}</span>
+                  <input
+                    type="text"
+                    value={tempSettings?.bankDetails?.accountNumber || ''}
+                    onChange={(e) =>
+                      setTempSettings({
+                        ...tempSettings,
+                        bankDetails: { ...(tempSettings?.bankDetails || {}), accountNumber: e.target.value },
+                      })
+                    }
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs font-mono font-bold"
+                    placeholder="42891029384"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-400 block mb-1">{language === 'en' ? 'IFSC Code' : 'IFSC कोड'}</span>
+                  <input
+                    type="text"
+                    value={tempSettings?.bankDetails?.ifscCode || ''}
+                    onChange={(e) =>
+                      setTempSettings({
+                        ...tempSettings,
+                        bankDetails: { ...(tempSettings?.bankDetails || {}), ifscCode: e.target.value.toUpperCase() },
+                      })
+                    }
+                    className="w-full px-3 py-1.5 bg-slate-950 border border-slate-700 text-white rounded-lg text-xs font-mono uppercase"
+                    placeholder="SBIN0003598"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900">
@@ -1735,6 +1958,7 @@ export const AdminDashboardPage: React.FC = () => {
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       )}
 

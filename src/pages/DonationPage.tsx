@@ -13,12 +13,31 @@ import {
   CheckCircle,
   AlertCircle,
   ArrowRight,
+  Edit3,
+  Save,
+  ExternalLink,
+  X,
+  Smartphone,
+  Laptop,
+  Lock,
+  ShieldCheck,
+  CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 import { Donation } from '../types';
 import { compressImageFile } from '../utils/imageCompressor';
 
 export const DonationPage: React.FC = () => {
-  const { settings, addDonation, setActiveReceipt, language, t } = useTrust();
+  const {
+    settings,
+    updateSettings,
+    addDonation,
+    setActiveReceipt,
+    language,
+    t,
+    isAdmin,
+    setCurrentPage,
+  } = useTrust();
 
   const [selectedAmount, setSelectedAmount] = useState<number>(1000);
   const [customAmount, setCustomAmount] = useState<string>('');
@@ -31,6 +50,11 @@ export const DonationPage: React.FC = () => {
   const [screenshotPreview, setScreenshotPreview] = useState<string>('');
   const [copiedUpi, setCopiedUpi] = useState(false);
   const [copiedBank, setCopiedBank] = useState(false);
+
+  // UPI Payment Assist Modal State (Works reliably on mobile & desktop)
+  const [showUpiModal, setShowUpiModal] = useState(false);
+  const [copiedModalUpi, setCopiedModalUpi] = useState(false);
+  const [copiedModalAmount, setCopiedModalAmount] = useState(false);
 
   const [submittedDonation, setSubmittedDonation] = useState<Donation | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
@@ -109,6 +133,53 @@ export const DonationPage: React.FC = () => {
   const upiPayUrl = `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(
     settings.name
   )}&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent('Seva Donation')}`;
+
+  // Direct app URIs
+  const phonePeUrl = `phonepe://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(
+    settings.name
+  )}&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent('Seva Donation')}`;
+
+  const gPayUrl = `tez://upi/pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(
+    settings.name
+  )}&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent('Seva Donation')}`;
+
+  const paytmUrl = `paytmmp://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(
+    settings.name
+  )}&am=${effectiveAmount}&cu=INR&tn=${encodeURIComponent('Seva Donation')}`;
+
+  const isMobileDevice = () => {
+    return (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+        navigator.userAgent
+      ) || window.innerWidth < 768
+    );
+  };
+
+  const handleUpiPayClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isMobileDevice()) {
+      try {
+        window.location.href = upiPayUrl;
+      } catch (err) {
+        console.warn('Direct UPI URI navigation error:', err);
+      }
+    }
+    // Always open assistant modal for clear options, QR code, copy buttons, and next steps
+    setShowUpiModal(true);
+  };
+
+
+  const copyModalUpi = () => {
+    navigator.clipboard.writeText(settings.upiId);
+    setCopiedModalUpi(true);
+    setTimeout(() => setCopiedModalUpi(false), 2000);
+  };
+
+  const copyModalAmount = () => {
+    navigator.clipboard.writeText(String(effectiveAmount));
+    setCopiedModalAmount(true);
+    setTimeout(() => setCopiedModalAmount(false), 2000);
+  };
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-12">
@@ -195,8 +266,11 @@ export const DonationPage: React.FC = () => {
             
             {/* UPI QR Code Card */}
             <div className="bg-white rounded-3xl border-2 border-amber-400 p-6 shadow-xl text-center space-y-4 relative overflow-hidden">
-              <div className="bg-gradient-to-r from-red-600 to-amber-600 text-white font-bold text-xs py-1 px-4 -mx-6 -mt-6 mb-4 uppercase tracking-wider">
-                {language === 'en' ? 'Trust UPI QR Code' : 'ट्रस्ट UPI क्यूआर कोड'}
+              <div className="bg-gradient-to-r from-red-600 to-amber-600 text-white font-bold text-xs py-1 px-4 -mx-6 -mt-6 mb-3 uppercase tracking-wider flex items-center justify-between">
+                <span>{language === 'en' ? 'Trust UPI QR Code' : 'ट्रस्ट UPI क्यूआर कोड'}</span>
+                <span className="text-[10px] text-amber-200">
+                  {language === 'en' ? 'Verified Official' : 'अधिकृत'}
+                </span>
               </div>
 
               <div className="w-56 h-56 mx-auto bg-slate-50 border-2 border-slate-300 rounded-2xl p-3 flex flex-col items-center justify-center relative shadow-inner">
@@ -225,12 +299,12 @@ export const DonationPage: React.FC = () => {
                   {t.donation.upiIdLabel}
                 </span>
                 <div className="flex items-center justify-center gap-2">
-                  <span className="font-mono font-black text-sm text-blue-950 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                  <span className="font-mono font-black text-sm text-blue-950 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 select-all">
                     {settings.upiId}
                   </span>
                   <button
                     onClick={handleCopyUpi}
-                    className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs flex items-center gap-1 font-bold cursor-pointer"
+                    className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs flex items-center gap-1 font-bold cursor-pointer transition-colors"
                     title={language === 'en' ? 'Copy UPI' : 'कॉपी करें'}
                   >
                     {copiedUpi ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
@@ -239,15 +313,26 @@ export const DonationPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Mobile Quick Pay Intent */}
+              {/* Smart UPI Payment Intent Button (Selector 2 target) */}
               <div className="pt-2">
-                <a
-                  href={upiPayUrl}
-                  className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow transition-colors"
+                <button
+                  type="button"
+                  onClick={handleUpiPayClick}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer"
                 >
-                  <CreditCard className="w-4 h-4" />
-                  <span>{language === 'en' ? `Pay via UPI App (₹${effectiveAmount})` : `UPI ऐप से भुगतान करें (₹${effectiveAmount})`}</span>
-                </a>
+                  <CreditCard className="w-4 h-4 text-amber-300" />
+                  <span>
+                    {language === 'en'
+                      ? `Pay via UPI App (₹${effectiveAmount.toLocaleString('en-IN')})`
+                      : `UPI ऐप से भुगतान करें (₹${effectiveAmount.toLocaleString('en-IN')})`}
+                  </span>
+                  <ExternalLink className="w-3.5 h-3.5 text-emerald-200" />
+                </button>
+                <p className="text-[10px] text-slate-500 mt-1.5 text-center font-medium">
+                  {language === 'en'
+                    ? 'PhonePe • Google Pay • Paytm • BHIM • QR Scan'
+                    : 'फोनपे • गूगल पे • पेटीएम • भीम • क्यूआर स्कैन'}
+                </p>
               </div>
             </div>
 
@@ -478,6 +563,159 @@ export const DonationPage: React.FC = () => {
 
           </div>
 
+        </div>
+      )}
+
+      {/* SMART UPI PAYMENT ASSIST MODAL */}
+      {showUpiModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden my-auto flex flex-col max-h-[94vh]">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-emerald-800 via-teal-900 to-slate-900 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-black">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-tight">
+                    {language === 'en' ? 'UPI Direct Payment Portal' : 'UPI त्वरित भुगतान पोर्टल'}
+                  </h3>
+                  <span className="text-xs text-amber-300 font-medium">
+                    {settings.nameHi || settings.name}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowUpiModal(false)}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto text-center">
+              {/* Amount Display */}
+              <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 text-center">
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide block">
+                  {language === 'en' ? 'Amount to Contribute:' : 'सहयोग दान राशि:'}
+                </span>
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">
+                  ₹ {effectiveAmount.toLocaleString('en-IN')} /-
+                </div>
+                <button
+                  type="button"
+                  onClick={copyModalAmount}
+                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 hover:text-amber-950 cursor-pointer"
+                >
+                  {copiedModalAmount ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedModalAmount ? (language === 'en' ? 'Amount Copied!' : 'राशि कॉपी हो गई!') : (language === 'en' ? 'Copy Amount' : 'राशि कॉपी करें')}</span>
+                </button>
+              </div>
+
+              {/* QR Code Display */}
+              <div className="w-48 h-48 mx-auto bg-slate-50 border-2 border-slate-300 rounded-2xl p-2.5 flex items-center justify-center shadow-inner">
+                {settings.donationQrUrl ? (
+                  <SafeImage
+                    src={settings.donationQrUrl}
+                    alt="Trust UPI QR Code"
+                    className="w-full h-full object-contain rounded-xl"
+                  />
+                ) : (
+                  <QrCode className="w-28 h-28 text-slate-800" />
+                )}
+              </div>
+
+              {/* UPI ID with 1-click Copy */}
+              <div className="space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-500 uppercase block">
+                  {t.donation.upiIdLabel}
+                </span>
+                <div className="flex items-center justify-center gap-2">
+                  <span className="font-mono font-black text-sm text-blue-950 bg-slate-100 px-3 py-2 rounded-xl border border-slate-200 select-all">
+                    {settings.upiId}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={copyModalUpi}
+                    className="px-3 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 rounded-xl text-xs flex items-center gap-1 font-bold cursor-pointer shadow-xs transition-colors"
+                  >
+                    {copiedModalUpi ? <Check className="w-4 h-4 text-emerald-800" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedModalUpi ? t.donation.copied : t.donation.copyUpi}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Mobile Quick UPI App Buttons */}
+              <div className="space-y-2 pt-1">
+                <span className="text-xs font-bold text-slate-700 block">
+                  {language === 'en' ? 'Open Directly in Installed App:' : 'अपने फोन में सीधे खोलें:'}
+                </span>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <a
+                    href={phonePeUrl}
+                    className="py-2.5 px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-xs transition-colors"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>PhonePe</span>
+                  </a>
+
+                  <a
+                    href={gPayUrl}
+                    className="py-2.5 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-xs transition-colors"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Google Pay</span>
+                  </a>
+
+                  <a
+                    href={paytmUrl}
+                    className="py-2.5 px-3 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-xs transition-colors"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>Paytm</span>
+                  </a>
+
+                  <a
+                    href={upiPayUrl}
+                    className="py-2.5 px-3 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 shadow-xs transition-colors"
+                  >
+                    <Smartphone className="w-4 h-4" />
+                    <span>BHIM / All</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Device Hint */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[11px] text-slate-600 text-left leading-relaxed">
+                <strong>{language === 'en' ? 'Instructions:' : 'भुगतान निर्देश:'}</strong>
+                <ol className="list-decimal pl-4 mt-1 space-y-0.5">
+                  <li>{language === 'en' ? 'Scan the QR code above or pay using UPI ID.' : 'उपरोक्त QR कोड स्कैन करें या UPI ID पर भुगतान करें।'}</li>
+                  <li>{language === 'en' ? 'Note the 12-digit UTR / Transaction ID from your payment app.' : 'भुगतान के बाद 12 अंकों का UTR या Transaction ID नोट करें।'}</li>
+                  <li>{language === 'en' ? 'Enter it below in the donation form to receive official verified receipt.' : 'नीचे फॉर्म में Transaction ID दर्ज कर आधिकारिक रसीद प्राप्त करें।'}</li>
+                </ol>
+              </div>
+
+              {/* Bottom Done CTA */}
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUpiModal(false);
+                  const formEl = document.querySelector('form');
+                  if (formEl) {
+                    formEl.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-colors cursor-pointer"
+              >
+                {language === 'en'
+                  ? 'I Have Paid / Enter Transaction ID'
+                  : 'मैंने भुगतान कर दिया है / UTR दर्ज करें'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
