@@ -716,7 +716,11 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteApplication = (id: string) => {
-    setApplications((prev) => prev.filter((app) => app.id !== id));
+    setApplications((prev) => {
+      const updated = prev.filter((app) => app.id !== id);
+      safeSetItem('lkst_applications', JSON.stringify(updated));
+      return updated;
+    });
     SupabaseService.deleteApplication(id);
   };
 
@@ -895,7 +899,11 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteStudent = (id: string) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id));
+    setStudents((prev) => {
+      const updated = prev.filter((s) => s.id !== id);
+      safeSetItem('lkst_students', JSON.stringify(updated));
+      return updated;
+    });
     SupabaseService.deleteStudent(id);
   };
 
@@ -1021,7 +1029,11 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteVolunteer = (id: string) => {
-    setVolunteers((prev) => prev.filter((v) => v.id !== id));
+    setVolunteers((prev) => {
+      const updated = prev.filter((v) => v.id !== id);
+      safeSetItem('lkst_volunteers', JSON.stringify(updated));
+      return updated;
+    });
     SupabaseService.deleteVolunteer(id);
   };
 
@@ -1109,7 +1121,11 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteDonation = (id: string) => {
-    setDonations((prev) => prev.filter((d) => d.id !== id));
+    setDonations((prev) => {
+      const updated = prev.filter((d) => d.id !== id && d.receiptNumber !== id);
+      safeSetItem('lkst_donations', JSON.stringify(updated));
+      return updated;
+    });
     SupabaseService.deleteDonation(id);
   };
 
@@ -1123,7 +1139,11 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const deleteAnnouncement = (id: string) => {
-    setAnnouncements((prev) => prev.filter((a) => a.id !== id));
+    setAnnouncements((prev) => {
+      const updated = prev.filter((a) => a.id !== id);
+      safeSetItem('lkst_announcements', JSON.stringify(updated));
+      return updated;
+    });
     SupabaseService.deleteAnnouncement(id);
   };
 

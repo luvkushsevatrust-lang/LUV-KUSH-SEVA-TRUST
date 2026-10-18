@@ -140,7 +140,7 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Safe Deletion Confirmation Modal State (replaces native window.confirm blocked in iframes)
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<{
-    type: 'id_card' | 'application' | 'student' | 'volunteer';
+    type: 'id_card' | 'application' | 'student' | 'volunteer' | 'donation' | 'announcement';
     id: string;
     title: string;
     details?: string;
@@ -525,6 +525,24 @@ export const AdminDashboardPage: React.FC = () => {
           language === 'en'
             ? `Volunteer (${title}) deleted successfully.`
             : `स्वयंसेवक रिकॉर्ड (${title}) सफलतापूर्वक हटा दिया गया।`,
+        type: 'success',
+      });
+    } else if (type === 'donation') {
+      deleteDonation(id);
+      setActionToast({
+        message:
+          language === 'en'
+            ? `Donation receipt (${title}) deleted successfully.`
+            : `दान रसीद (${title}) सफलतापूर्वक हटा दी गई।`,
+        type: 'success',
+      });
+    } else if (type === 'announcement') {
+      deleteAnnouncement(id);
+      setActionToast({
+        message:
+          language === 'en'
+            ? `Announcement (${title}) deleted successfully.`
+            : `सूचना (${title}) सफलतापूर्वक हटा दी गई।`,
         type: 'success',
       });
     }
@@ -2316,16 +2334,15 @@ export const AdminDashboardPage: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => {
-                                  if (confirm(language === 'en' ? `Delete donation receipt ${don.receiptNumber}?` : `क्या आप रसीद संख्या ${don.receiptNumber} को हटाना चाहते हैं?`)) {
-                                    deleteDonation(don.id);
-                                    setActionToast({
-                                      message: language === 'en' ? 'Donation deleted.' : 'दान रिकॉर्ड हटा दिया गया।',
-                                      type: 'info',
-                                    });
-                                  }
+                                  setDeleteConfirmItem({
+                                    type: 'donation',
+                                    id: don.id,
+                                    title: don.receiptNumber,
+                                    details: `${don.donorName} • ₹${Number(don.amount || 0).toLocaleString('en-IN')} • ${don.mobile}`,
+                                  });
                                 }}
                                 className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                                title={language === 'en' ? 'Delete' : 'हटाएं'}
+                                title={language === 'en' ? 'Delete Donation' : 'दान रिकॉर्ड हटाएं'}
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
@@ -2512,9 +2529,17 @@ export const AdminDashboardPage: React.FC = () => {
                     )}
                   </div>
                   <button
-                    onClick={() => deleteAnnouncement(ann.id)}
-                    className="p-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-xl cursor-pointer self-start shrink-0"
-                    title={language === 'en' ? 'Delete' : 'हटाएं'}
+                    type="button"
+                    onClick={() => {
+                      setDeleteConfirmItem({
+                        type: 'announcement',
+                        id: ann.id,
+                        title: ann.title,
+                        details: ann.content,
+                      });
+                    }}
+                    className="p-2 bg-red-50 text-red-700 hover:bg-red-100 rounded-xl cursor-pointer self-start shrink-0 transition-colors"
+                    title={language === 'en' ? 'Delete Announcement' : 'सूचना हटाएं'}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -3885,7 +3910,7 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* Safe In-App Delete Confirmation Modal (Avoids window.confirm blocked by iframes) */}
       {deleteConfirmItem && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-6 space-y-4 border border-slate-200 animate-in zoom-in-95 duration-150">
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
@@ -3899,6 +3924,10 @@ export const AdminDashboardPage: React.FC = () => {
                     ? (language === 'en' ? 'Delete Application' : 'आवेदन हटाएं')
                     : deleteConfirmItem.type === 'student'
                     ? (language === 'en' ? 'Delete Student Record' : 'विद्यार्थी रिकॉर्ड हटाएं')
+                    : deleteConfirmItem.type === 'donation'
+                    ? (language === 'en' ? 'Delete Donation Record' : 'दान रिकॉर्ड हटाएं')
+                    : deleteConfirmItem.type === 'announcement'
+                    ? (language === 'en' ? 'Delete Announcement' : 'सूचना हटाएं')
                     : (language === 'en' ? 'Delete Volunteer' : 'स्वयंसेवक रिकॉर्ड हटाएं')}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
