@@ -543,10 +543,19 @@ export const SupabaseService = {
         transaction_id: d.transactionId,
         purpose: d.message,
         is_verified: d.isVerified,
+        status: d.status || (d.isVerified ? 'Approved' : 'Pending'),
         donated_at: d.donatedAt || new Date().toISOString(),
         raw_data: d,
       };
       const { error } = await supabase.from('donations').upsert(payload);
+      return !error;
+    });
+    return Boolean(res);
+  },
+
+  async deleteDonation(id: string): Promise<boolean> {
+    const res = await safeQuery(async () => {
+      const { error } = await supabase.from('donations').delete().eq('id', id);
       return !error;
     });
     return Boolean(res);

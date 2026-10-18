@@ -85,9 +85,16 @@ interface TrustContextType {
 
   donations: Donation[];
   addDonation: (
-    data: Omit<Donation, 'id' | 'receiptNumber' | 'isVerified' | 'donatedAt'>
+    data: Omit<Donation, 'id' | 'receiptNumber' | 'isVerified' | 'donatedAt'> & { status?: 'Pending' | 'Approved' | 'Rejected' }
   ) => Donation;
   verifyDonation: (id: string, verified: boolean) => void;
+  updateDonation: (id: string, updatedData: Partial<Donation>) => void;
+  updateDonationStatus: (
+    id: string,
+    status: 'Pending' | 'Approved' | 'Rejected',
+    remarks?: string
+  ) => void;
+  deleteDonation: (id: string) => void;
 
   announcements: Announcement[];
   addAnnouncement: (item: Omit<Announcement, 'id'>) => void;
@@ -1019,13 +1026,17 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const addDonation = (
-    data: Omit<Donation, 'id' | 'receiptNumber' | 'isVerified' | 'donatedAt'>
+    data: Omit<Donation, 'id' | 'receiptNumber' | 'isVerified' | 'donatedAt'> & { status?: 'Pending' | 'Approved' | 'Rejected' }
   ): Donation => {
+    const isApproved = data.status === 'Approved' || (!data.status && Boolean(data.transactionId));
     const newDon: Donation = {
       ...data,
       id: `don-${Date.now()}`,
       receiptNumber: `LKST-REC-2026-${Math.floor(600 + Math.random() * 400)}`,
-      isVerified: true,
+      isVerified: isApproved,
+      status: data.status || (isApproved ? 'Approved' : 'Pending'),
+      approvedAt: isApproved ? new Date().toISOString() : undefined,
+      approvedBy: isApproved ? 'Admin (Auto-Verified)' : undefined,
       donatedAt: new Date().toISOString(),
     };
     setDonations((prev) => [newDon, ...prev]);
@@ -1037,13 +1048,69 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setDonations((prev) =>
       prev.map((d) => {
         if (d.id === id) {
-          const updated = { ...d, isVerified: verified };
+          const updated: Donation = {
+            ...d,
+            isVerified: verified,
+            status: verified ? 'Approved' : 'Pending',
+            approvedAt: verified ? new Date().toISOString() : undefined,
+            approvedBy: verified ? 'Admin' : undefined,
+          };
           SupabaseService.saveDonation(updated);
           return updated;
         }
         return d;
       })
     );
+  };
+
+  const updateDonation = (id: string, updatedData: Partial<Donation>) => {
+    setDonations((prev) =>
+      prev.map((d) => {
+        if (d.id === id) {
+          const isAppr = updatedData.status === 'Approved' || (updatedData.status === undefined && (updatedData.isVerified ?? d.isVerified));
+          const updated: Donation = {
+            ...d,
+            ...updatedData,
+            isVerified: isAppr,
+            status: updatedData.status || (isAppr ? 'Approved' : (d.status || 'Pending')),
+            approvedAt: isAppr ? (d.approvedAt || new Date().toISOString()) : undefined,
+          };
+          SupabaseService.saveDonation(updated);
+          return updated;
+        }
+        return d;
+      })
+    );
+  };
+
+  const updateDonationStatus = (
+    id: string,
+    status: 'Pending' | 'Approved' | 'Rejected',
+    remarks?: string
+  ) => {
+    setDonations((prev) =>
+      prev.map((d) => {
+        if (d.id === id) {
+          const isAppr = status === 'Approved';
+          const updated: Donation = {
+            ...d,
+            status,
+            isVerified: isAppr,
+            approvalRemarks: remarks !== undefined ? remarks : d.approvalRemarks,
+            approvedAt: isAppr ? new Date().toISOString() : undefined,
+            approvedBy: isAppr ? 'Admin' : undefined,
+          };
+          SupabaseService.saveDonation(updated);
+          return updated;
+        }
+        return d;
+      })
+    );
+  };
+
+  const deleteDonation = (id: string) => {
+    setDonations((prev) => prev.filter((d) => d.id !== id));
+    SupabaseService.deleteDonation(id);
   };
 
   const addAnnouncement = (item: Omit<Announcement, 'id'>) => {
@@ -1228,6 +1295,9 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         donations,
         addDonation,
         verifyDonation,
+        updateDonation,
+        updateDonationStatus,
+        deleteDonation,
         announcements,
         addAnnouncement,
         deleteAnnouncement,

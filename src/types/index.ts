@@ -169,6 +169,10 @@ export interface Donation {
   screenshotUrl?: string;
   message?: string;
   isVerified: boolean;
+  status?: 'Pending' | 'Approved' | 'Rejected';
+  approvalRemarks?: string;
+  approvedAt?: string;
+  approvedBy?: string;
   donatedAt: string;
 }
 

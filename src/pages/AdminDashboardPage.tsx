@@ -14,6 +14,7 @@ import {
   Bell,
   Trash2,
   Edit,
+  Edit3,
   Plus,
   Printer,
   LogOut,
@@ -22,6 +23,7 @@ import {
   Upload,
   Eye,
   Shield,
+  ShieldCheck,
   CreditCard,
   BadgeCheck,
   ShieldAlert,
@@ -46,6 +48,7 @@ import {
   ServiceApplication,
   Student,
   Volunteer,
+  Donation,
   IdCard,
   IdCardStatus,
   IdCardCategory,
@@ -93,7 +96,11 @@ export const AdminDashboardPage: React.FC = () => {
     updateVolunteerStatus,
     deleteVolunteer,
     donations,
+    addDonation,
     verifyDonation,
+    updateDonation,
+    updateDonationStatus,
+    deleteDonation,
     announcements,
     addAnnouncement,
     deleteAnnouncement,
@@ -253,6 +260,31 @@ export const AdminDashboardPage: React.FC = () => {
     type: 'application' | 'student';
   } | null>(null);
 
+  // Donations Management State (Edit & Approval)
+  const [donationFilter, setDonationFilter] = useState<'all' | 'Approved' | 'Pending' | 'Rejected'>('all');
+  const [donationSearchQuery, setDonationSearchQuery] = useState('');
+  const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
+  const [editDonDonorName, setEditDonDonorName] = useState('');
+  const [editDonMobile, setEditDonMobile] = useState('');
+  const [editDonEmail, setEditDonEmail] = useState('');
+  const [editDonAmount, setEditDonAmount] = useState<number>(0);
+  const [editDonPaymentMethod, setEditDonPaymentMethod] = useState<'UPI' | 'QR Code' | 'Bank Transfer'>('UPI');
+  const [editDonTransactionId, setEditDonTransactionId] = useState('');
+  const [editDonStatus, setEditDonStatus] = useState<'Approved' | 'Pending' | 'Rejected'>('Approved');
+  const [editDonRemarks, setEditDonRemarks] = useState('');
+  const [editDonReceiptNumber, setEditDonReceiptNumber] = useState('');
+
+  // Add Manual Donation Modal State
+  const [showAddDonationModal, setShowAddDonationModal] = useState(false);
+  const [newDonDonorName, setNewDonDonorName] = useState('');
+  const [newDonMobile, setNewDonMobile] = useState('');
+  const [newDonEmail, setNewDonEmail] = useState('');
+  const [newDonAmount, setNewDonAmount] = useState<number>(1000);
+  const [newDonPaymentMethod, setNewDonPaymentMethod] = useState<'UPI' | 'QR Code' | 'Bank Transfer'>('UPI');
+  const [newDonTransactionId, setNewDonTransactionId] = useState('');
+  const [newDonStatus, setNewDonStatus] = useState<'Approved' | 'Pending'>('Approved');
+  const [newDonRemarks, setNewDonRemarks] = useState('');
+
   // Settings State
   const [tempSettings, setTempSettings] = useState(settings);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -318,9 +350,134 @@ export const AdminDashboardPage: React.FC = () => {
   const rejectedApps = applications.filter((a) => a.status === 'Rejected').length;
   const totalStudents = students.length;
   const totalVolunteers = volunteers.length;
-  const totalDonationsAmount = donations.reduce((sum, d) => sum + d.amount, 0);
+  // ONLY APPROVED DONATIONS COUNT FOR TOTAL AMOUNT (User Requirement)
+  const approvedDonationsList = donations.filter(
+    (d) => d.status === 'Approved' || (d.isVerified && d.status !== 'Rejected' && d.status !== 'Pending')
+  );
+  const pendingDonationsList = donations.filter(
+    (d) => d.status === 'Pending' || (!d.isVerified && d.status !== 'Approved' && d.status !== 'Rejected')
+  );
+  const rejectedDonationsList = donations.filter((d) => d.status === 'Rejected');
+
+  const totalDonationsAmount = approvedDonationsList.reduce((sum, d) => sum + Number(d.amount || 0), 0);
+  const totalPendingDonationsAmount = pendingDonationsList.reduce((sum, d) => sum + Number(d.amount || 0), 0);
   const totalIdCards = idCards.length;
   const activeIdCards = idCards.filter((c) => c.status === 'Active' || c.status === 'Approved').length;
+
+  // Filtered donations
+  const filteredDonations = donations.filter((don) => {
+    const isAppr = don.status === 'Approved' || (don.isVerified && don.status !== 'Rejected' && don.status !== 'Pending');
+    const isPend = don.status === 'Pending' || (!don.isVerified && don.status !== 'Approved' && don.status !== 'Rejected');
+    const isRej = don.status === 'Rejected';
+
+    if (donationFilter === 'Approved' && !isAppr) return false;
+    if (donationFilter === 'Pending' && !isPend) return false;
+    if (donationFilter === 'Rejected' && !isRej) return false;
+
+    if (donationSearchQuery.trim()) {
+      const q = donationSearchQuery.toLowerCase().trim();
+      const match =
+        don.donorName.toLowerCase().includes(q) ||
+        don.receiptNumber.toLowerCase().includes(q) ||
+        don.mobile.includes(q) ||
+        (don.transactionId && don.transactionId.toLowerCase().includes(q)) ||
+        (don.email && don.email.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  const openEditDonation = (don: Donation) => {
+    setEditingDonation(don);
+    setEditDonDonorName(don.donorName);
+    setEditDonMobile(don.mobile);
+    setEditDonEmail(don.email || '');
+    setEditDonAmount(don.amount);
+    setEditDonPaymentMethod(don.paymentMethod);
+    setEditDonTransactionId(don.transactionId || '');
+    setEditDonStatus(don.status || (don.isVerified ? 'Approved' : 'Pending'));
+    setEditDonRemarks(don.approvalRemarks || '');
+    setEditDonReceiptNumber(don.receiptNumber);
+  };
+
+  const handleSaveDonationEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDonation) return;
+    updateDonation(editingDonation.id, {
+      donorName: editDonDonorName.trim(),
+      mobile: editDonMobile.trim(),
+      email: editDonEmail.trim() || undefined,
+      amount: Number(editDonAmount),
+      paymentMethod: editDonPaymentMethod,
+      transactionId: editDonTransactionId.trim() || undefined,
+      status: editDonStatus,
+      isVerified: editDonStatus === 'Approved',
+      approvalRemarks: editDonRemarks.trim() || undefined,
+      receiptNumber: editDonReceiptNumber.trim() || editingDonation.receiptNumber,
+    });
+    setEditingDonation(null);
+    setActionToast({
+      message: language === 'en' ? 'Donation record updated successfully!' : 'दान रिकॉर्ड सफलतापूर्वक संशोधित हुआ!',
+      type: 'success',
+    });
+  };
+
+  const handleQuickApproveDonation = (don: Donation) => {
+    updateDonationStatus(don.id, 'Approved', 'Approved by Admin');
+    setActionToast({
+      message: language === 'en' ? `Donation ${don.receiptNumber} approved! Amount counted in total.` : `दान ${don.receiptNumber} स्वीकृत! राशि कुल योग में जोड़ी गई।`,
+      type: 'success',
+    });
+  };
+
+  const handleQuickRejectDonation = (don: Donation) => {
+    updateDonationStatus(don.id, 'Rejected', 'Rejected by Admin');
+    setActionToast({
+      message: language === 'en' ? `Donation ${don.receiptNumber} marked as rejected.` : `दान ${don.receiptNumber} अस्वीकृत किया गया।`,
+      type: 'info',
+    });
+  };
+
+  const handleApproveAndPrint = (don: Donation) => {
+    if (don.status !== 'Approved' && !don.isVerified) {
+      updateDonationStatus(don.id, 'Approved', 'Approved and Printed by Admin');
+    }
+    setActiveReceipt({
+      type: 'donation',
+      data: {
+        ...don,
+        status: 'Approved',
+        isVerified: true,
+        approvedAt: new Date().toISOString(),
+      },
+    });
+  };
+
+  const handleCreateManualDonation = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDonDonorName.trim() || !newDonMobile.trim() || !newDonAmount) return;
+    addDonation({
+      donorName: newDonDonorName.trim(),
+      mobile: newDonMobile.trim(),
+      email: newDonEmail.trim() || undefined,
+      amount: Number(newDonAmount),
+      paymentMethod: newDonPaymentMethod,
+      transactionId: newDonTransactionId.trim() || `OFFLINE-${Date.now().toString().slice(-6)}`,
+      status: newDonStatus,
+      message: newDonRemarks.trim() || undefined,
+    });
+    setShowAddDonationModal(false);
+    setNewDonDonorName('');
+    setNewDonMobile('');
+    setNewDonEmail('');
+    setNewDonAmount(1000);
+    setNewDonTransactionId('');
+    setNewDonRemarks('');
+    setActionToast({
+      message: language === 'en' ? 'New donation recorded & approved!' : 'नया दान सफलतापूर्वक दर्ज एवं स्वीकृत हुआ!',
+      type: 'success',
+    });
+  };
 
   const handleUpdateStatus = () => {
     if (selectedApp) {
@@ -1890,75 +2047,298 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
 
           <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                {language === 'en' ? 'Donations & Receipts Verification' : 'सहयोग राशि एवं दान सत्यापन'}
-              </h2>
-              <p className="text-xs text-slate-500">
-                {language === 'en'
-                  ? 'Verification of donations received via UPI, QR code, and bank transfers.'
-                  : 'UPI, QR कोड एवं बैंक ट्रांसफर के माध्यम से प्राप्त दान राशि का सत्यापन।'}
-              </p>
-            </div>
-            <div className="text-sm font-bold text-slate-900 bg-amber-50 px-4 py-2 rounded-xl border border-amber-200">
-              {language === 'en' ? 'Total Contributions: ' : 'कुल सहयोग: '}
-              <strong className="text-red-700 text-base font-black">₹{totalDonationsAmount.toLocaleString('en-IN')}</strong>
-            </div>
-          </div>
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  <span>{language === 'en' ? 'Donations Management & Approval' : 'सहयोग राशि एवं दान सत्यापन प्रबंधन'}</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {language === 'en'
+                    ? 'Only officially approved donations are counted in trust total and eligible for verified receipts.'
+                    : 'केवल स्वीकृत (Approved) दान राशि ही कुल योग में गिनी जाती है और प्रमाणित रसीद हेतु मान्य है।'}
+                </p>
+              </div>
 
-          <div className="overflow-x-auto border border-slate-200 rounded-2xl">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold">
-                <tr>
-                  <th className="py-3 px-3">{language === 'en' ? 'Receipt No.' : 'रसीद संख्या'}</th>
-                  <th className="py-3 px-3">{language === 'en' ? 'Donor Name' : 'दानदाता का नाम'}</th>
-                  <th className="py-3 px-3">{language === 'en' ? 'Amount' : 'राशि'}</th>
-                  <th className="py-3 px-3">{language === 'en' ? 'Method / Ref' : 'माध्यम / Ref'}</th>
-                  <th className="py-3 px-3">{language === 'en' ? 'Mobile' : 'मोबाइल'}</th>
-                  <th className="py-3 px-3">{language === 'en' ? 'Verification' : 'सत्यापन स्थिति'}</th>
-                  <th className="py-3 px-3 text-right">{language === 'en' ? 'Receipt' : 'रसीद'}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {donations.map((don, idx) => (
-                  <tr key={`${don.id}-${don.receiptNumber || ''}-${idx}`} className="hover:bg-slate-50/70">
-                    <td className="py-3 px-3 font-mono font-bold text-blue-900">{don.receiptNumber}</td>
-                    <td className="py-3 px-3 font-bold text-slate-900">{don.donorName}</td>
-                    <td className="py-3 px-3 font-bold text-red-700 text-sm">₹{don.amount.toLocaleString('en-IN')}</td>
-                    <td className="py-3 px-3">
-                      <div>{don.paymentMethod}</div>
-                      <span className="font-mono text-[10px] text-slate-400">{don.transactionId}</span>
-                    </td>
-                    <td className="py-3 px-3 font-mono">{don.mobile}</td>
-                    <td className="py-3 px-3">
-                      {don.isVerified ? (
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                          {language === 'en' ? 'Verified' : 'सत्यापित'}
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => verifyDonation(don.id, true)}
-                          className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 hover:bg-amber-200 cursor-pointer"
-                        >
-                          {language === 'en' ? 'Verify Now' : 'सत्यापित करें'}
-                        </button>
-                      )}
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={() => setActiveReceipt({ type: 'donation', data: don })}
-                        className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded font-bold cursor-pointer"
-                      >
-                        {language === 'en' ? 'View Receipt' : 'रसीद देखें'}
-                      </button>
-                    </td>
+              {/* Statistics & Quick Add */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="text-xs font-bold bg-emerald-50 text-emerald-900 px-4 py-2 rounded-2xl border border-emerald-200 shadow-2xs">
+                  <span className="block text-[10px] text-emerald-700 uppercase font-extrabold tracking-wider">
+                    {language === 'en' ? 'Total Approved Amount' : 'कुल स्वीकृत दान राशि'}
+                  </span>
+                  <strong className="text-emerald-700 text-lg font-black font-mono">
+                    ₹{totalDonationsAmount.toLocaleString('en-IN')}
+                  </strong>
+                  <span className="text-[10px] text-emerald-600 font-medium ml-1.5">
+                    ({approvedDonationsList.length} {language === 'en' ? 'approved' : 'स्वीकृत'})
+                  </span>
+                </div>
+
+                {pendingDonationsList.length > 0 && (
+                  <div className="text-xs font-bold bg-amber-50 text-amber-900 px-3.5 py-2 rounded-2xl border border-amber-200 shadow-2xs">
+                    <span className="block text-[10px] text-amber-700 uppercase font-extrabold tracking-wider">
+                      {language === 'en' ? 'Pending Approval' : 'सत्यापन हेतु लंबित'}
+                    </span>
+                    <strong className="text-amber-800 text-base font-black font-mono">
+                      ₹{totalPendingDonationsAmount.toLocaleString('en-IN')}
+                    </strong>
+                    <span className="text-[10px] text-amber-700 font-medium ml-1">
+                      ({pendingDonationsList.length})
+                    </span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowAddDonationModal(true)}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>{language === 'en' ? 'Record New Donation' : 'नया दान दर्ज करें'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Tabs & Search Bar */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl overflow-x-auto">
+                <button
+                  type="button"
+                  onClick={() => setDonationFilter('all')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                    donationFilter === 'all'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {language === 'en' ? 'All' : 'सभी'} ({donations.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDonationFilter('Approved')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                    donationFilter === 'Approved'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-emerald-700 hover:bg-emerald-50'
+                  }`}
+                >
+                  {language === 'en' ? 'Approved' : 'स्वीकृत'} ({approvedDonationsList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDonationFilter('Pending')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                    donationFilter === 'Pending'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'text-amber-700 hover:bg-amber-50'
+                  }`}
+                >
+                  {language === 'en' ? 'Pending' : 'लंबित'} ({pendingDonationsList.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDonationFilter('Rejected')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                    donationFilter === 'Rejected'
+                      ? 'bg-red-600 text-white shadow-xs'
+                      : 'text-red-700 hover:bg-red-50'
+                  }`}
+                >
+                  {language === 'en' ? 'Rejected' : 'अस्वीकृत'} ({rejectedDonationsList.length})
+                </button>
+              </div>
+
+              <div className="relative sm:w-72">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  value={donationSearchQuery}
+                  onChange={(e) => setDonationSearchQuery(e.target.value)}
+                  placeholder={
+                    language === 'en'
+                      ? 'Search by donor, receipt, UTR...'
+                      : 'दानदाता, रसीद सं., UTR से खोजें...'
+                  }
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-red-500"
+                />
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold">
+                  <tr>
+                    <th className="py-3 px-3">{language === 'en' ? 'Receipt No.' : 'रसीद संख्या'}</th>
+                    <th className="py-3 px-3">{language === 'en' ? 'Donor / Contact' : 'दानदाता / संपर्क'}</th>
+                    <th className="py-3 px-3">{language === 'en' ? 'Amount (₹)' : 'राशि (₹)'}</th>
+                    <th className="py-3 px-3">{language === 'en' ? 'Method / Ref UTR' : 'माध्यम / UTR'}</th>
+                    <th className="py-3 px-3">{language === 'en' ? 'Approval Status' : 'स्वीकृति स्थिति'}</th>
+                    <th className="py-3 px-3 text-right">{language === 'en' ? 'Actions' : 'कार्य'}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredDonations.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 text-xs">
+                        {language === 'en' ? 'No donations match this filter.' : 'कोई दान रिकॉर्ड उपलब्ध नहीं है।'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredDonations.map((don, idx) => {
+                      const isApproved =
+                        don.status === 'Approved' ||
+                        (don.isVerified && don.status !== 'Rejected' && don.status !== 'Pending');
+                      const isRejected = don.status === 'Rejected';
+
+                      return (
+                        <tr
+                          key={`${don.id}-${don.receiptNumber || ''}-${idx}`}
+                          className={`hover:bg-slate-50/80 transition-colors ${
+                            !isApproved && !isRejected ? 'bg-amber-50/20' : ''
+                          }`}
+                        >
+                          <td className="py-3 px-3 font-mono font-bold text-blue-900">
+                            <div>{don.receiptNumber}</div>
+                            <span className="text-[10px] text-slate-400 font-normal">
+                              {new Date(don.donatedAt || Date.now()).toLocaleDateString()}
+                            </span>
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <div className="font-bold text-slate-900">{don.donorName}</div>
+                            <div className="font-mono text-[11px] text-slate-500">{don.mobile}</div>
+                            {don.email && <div className="text-[10px] text-slate-400">{don.email}</div>}
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <div className="font-black text-sm text-red-700 font-mono">
+                              ₹{Number(don.amount || 0).toLocaleString('en-IN')}
+                            </div>
+                            {isApproved ? (
+                              <span className="text-[9.5px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                                {language === 'en' ? 'Counted in Total' : 'योग में शामिल'}
+                              </span>
+                            ) : (
+                              <span className="text-[9.5px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                                {language === 'en' ? 'Not Counted' : 'योग से बाहर'}
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold text-[11px]">
+                              {don.paymentMethod}
+                            </span>
+                            {don.transactionId ? (
+                              <div className="font-mono text-[10.5px] text-blue-900 mt-1 font-bold select-all">
+                                {don.transactionId}
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-slate-400 italic mt-0.5">
+                                {language === 'en' ? 'No UTR' : 'UTR नहीं'}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-3 px-3">
+                            <div className="flex flex-col gap-1.5">
+                              {isApproved ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300 w-fit">
+                                  <CheckCircle className="w-3 h-3 text-emerald-600" />
+                                  <span>{language === 'en' ? 'Approved' : 'स्वीकृत'}</span>
+                                </span>
+                              ) : isRejected ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-red-100 text-red-800 border border-red-300 w-fit">
+                                  <X className="w-3 h-3 text-red-600" />
+                                  <span>{language === 'en' ? 'Rejected' : 'अस्वीकृत'}</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-100 text-amber-800 border border-amber-300 w-fit">
+                                  <AlertCircle className="w-3 h-3 text-amber-600" />
+                                  <span>{language === 'en' ? 'Pending' : 'लंबित'}</span>
+                                </span>
+                              )}
+
+                              {/* Quick Approval Toggle Buttons */}
+                              <div className="flex items-center gap-1 pt-0.5">
+                                {!isApproved && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickApproveDonation(don)}
+                                    className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold flex items-center gap-0.5 shadow-2xs cursor-pointer transition-colors"
+                                    title={language === 'en' ? 'Approve Donation' : 'स्वीकृत करें'}
+                                  >
+                                    <Check className="w-3 h-3" />
+                                    <span>{language === 'en' ? 'Approve' : 'स्वीकृत'}</span>
+                                  </button>
+                                )}
+                                {!isRejected && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickRejectDonation(don)}
+                                    className="px-2 py-0.5 bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer transition-colors"
+                                    title={language === 'en' ? 'Reject Donation' : 'अस्वीकृत करें'}
+                                  >
+                                    <X className="w-3 h-3" />
+                                    <span>{language === 'en' ? 'Reject' : 'रद्द'}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* Edit Option (Selector 1 requirement) */}
+                              <button
+                                type="button"
+                                onClick={() => openEditDonation(don)}
+                                className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                                title={language === 'en' ? 'Edit Donation Record' : 'दान रिकॉर्ड संशोधित करें'}
+                              >
+                                <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                                <span className="hidden sm:inline">{language === 'en' ? 'Edit' : 'एडिट'}</span>
+                              </button>
+
+                              {/* Print / Approve & Print (Selector 2 requirement) */}
+                              <button
+                                type="button"
+                                onClick={() => handleApproveAndPrint(don)}
+                                className="px-2.5 py-1.5 bg-blue-900 hover:bg-blue-950 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                                title={language === 'en' ? 'Approve & Print Receipt' : 'स्वीकृत करें और रसीद प्रिंट निकालें'}
+                              >
+                                <Printer className="w-3.5 h-3.5 text-amber-300" />
+                                <span>{language === 'en' ? 'Print' : 'प्रिंट'}</span>
+                              </button>
+
+                              {/* Delete */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(language === 'en' ? `Delete donation receipt ${don.receiptNumber}?` : `क्या आप रसीद संख्या ${don.receiptNumber} को हटाना चाहते हैं?`)) {
+                                    deleteDonation(don.id);
+                                    setActionToast({
+                                      message: language === 'en' ? 'Donation deleted.' : 'दान रिकॉर्ड हटा दिया गया।',
+                                      type: 'info',
+                                    });
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                title={language === 'en' ? 'Delete' : 'हटाएं'}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
         </div>
       )}
 
@@ -5353,6 +5733,381 @@ export const AdminDashboardPage: React.FC = () => {
                 >
                   <CheckCircle className="w-4 h-4" />
                   <span>{language === 'en' ? 'Save Volunteer Changes' : 'स्वयंसेवक बदलाव सुरक्षित करें'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          EDIT DONATION RECORD MODAL
+      ======================================================== */}
+      {editingDonation && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 sm:p-7 space-y-5 border border-slate-200 animate-fadeIn my-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-black text-base sm:text-lg text-slate-900 flex items-center gap-2">
+                  <Edit3 className="w-5 h-5 text-amber-600" />
+                  <span>
+                    {language === 'en'
+                      ? `Edit Donation: ${editingDonation.receiptNumber}`
+                      : `दान रिकॉर्ड संशोधन: ${editingDonation.receiptNumber}`}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {language === 'en'
+                    ? 'Modify donor details, transaction amount, and official approval status.'
+                    : 'दानदाता विवरण, सहयोग राशि एवं आधिकारिक स्वीकृति स्थिति संशोधित करें।'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingDonation(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveDonationEdit} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Donor Name */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Donor Full Name *' : 'दानदाता का पूरा नाम *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editDonDonorName}
+                    onChange={(e) => setEditDonDonorName(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                {/* Mobile */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Mobile Number *' : 'मोबाइल नंबर *'}
+                  </label>
+                  <input
+                    type="tel"
+                    required
+                    value={editDonMobile}
+                    onChange={(e) => setEditDonMobile(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                {/* Amount */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Donation Amount (₹) *' : 'दान राशि (₹) *'}
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-slate-400 font-bold">₹</span>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={editDonAmount}
+                      onChange={(e) => setEditDonAmount(Number(e.target.value))}
+                      className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-black text-red-700 focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                  <span className="text-[10px] text-emerald-700 block mt-0.5 font-semibold">
+                    {editDonStatus === 'Approved'
+                      ? (language === 'en' ? '✓ Will be counted in total amount' : '✓ कुल स्वीकृत योग में गिनी जाएगी')
+                      : (language === 'en' ? '⚠ Not counted until marked Approved' : '⚠ स्वीकृत करने तक योग में नहीं जोड़ी जाएगी')}
+                  </span>
+                </div>
+
+                {/* Payment Method */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Payment Method' : 'भुगतान माध्यम'}
+                  </label>
+                  <select
+                    value={editDonPaymentMethod}
+                    onChange={(e) => setEditDonPaymentMethod(e.target.value as any)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="UPI">UPI App (PhonePe, GPay, Paytm)</option>
+                    <option value="QR Code">Official QR Code</option>
+                    <option value="Bank Transfer">Bank Transfer (NEFT/IMPS)</option>
+                  </select>
+                </div>
+
+                {/* Transaction ID / UTR */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Transaction ID / UTR Ref' : 'ट्रांजेक्शन ID / UTR संख्या'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editDonTransactionId}
+                    onChange={(e) => setEditDonTransactionId(e.target.value)}
+                    placeholder="e.g. 428912389102"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-blue-950 font-bold focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                {/* Receipt Number */}
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Receipt Number' : 'रसीद संख्या'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editDonReceiptNumber}
+                    onChange={(e) => setEditDonReceiptNumber(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                {/* Approval Status (Selector 1 requirement) */}
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-900 mb-1 text-xs">
+                    {language === 'en' ? 'Official Approval Status *' : 'आधिकारिक स्वीकृति स्थिति *'}
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditDonStatus('Approved')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                        editDonStatus === 'Approved'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-102'
+                          : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      <span>{language === 'en' ? 'Approved (Counted)' : 'स्वीकृत (योग में शामिल)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditDonStatus('Pending')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                        editDonStatus === 'Pending'
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-md scale-102'
+                          : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                      }`}
+                    >
+                      <AlertCircle className="w-4 h-4" />
+                      <span>{language === 'en' ? 'Pending (Under Review)' : 'लंबित (प्रक्रियाधीन)'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditDonStatus('Rejected')}
+                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                        editDonStatus === 'Rejected'
+                          ? 'bg-red-600 text-white border-red-600 shadow-md scale-102'
+                          : 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100'
+                      }`}
+                    >
+                      <X className="w-4 h-4" />
+                      <span>{language === 'en' ? 'Rejected' : 'अस्वीकृत'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Remarks */}
+                <div className="sm:col-span-2">
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Approval Remarks / Office Note' : 'कार्यालय टिप्पणी / स्वीकृति विवरण'}
+                  </label>
+                  <input
+                    type="text"
+                    value={editDonRemarks}
+                    onChange={(e) => setEditDonRemarks(e.target.value)}
+                    placeholder={language === 'en' ? 'e.g. Verified with bank statement...' : 'उदा. बैंक खाते में प्राप्त राशि का सत्यापन किया गया...'}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setEditingDonation(null)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer font-bold"
+                >
+                  {language === 'en' ? 'Cancel' : 'रद्द करें'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{language === 'en' ? 'Save Changes' : 'बदलाव सुरक्षित करें'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          ADD MANUAL DONATION MODAL
+      ======================================================== */}
+      {showAddDonationModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 border border-slate-200 animate-fadeIn my-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-black text-base sm:text-lg text-slate-900 flex items-center gap-2">
+                  <Plus className="w-5 h-5 text-red-600" />
+                  <span>{language === 'en' ? 'Record New Donation' : 'नया दान दर्ज करें'}</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {language === 'en'
+                    ? 'Record offline donations, cash contributions, or manual entries.'
+                    : 'ऑफ़लाइन, नकद अथवा बैंक ट्रांसफर द्वारा प्राप्त दान दर्ज करें।'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddDonationModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateManualDonation} className="space-y-4 text-xs">
+              <div className="space-y-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Donor Full Name *' : 'दानदाता का पूरा नाम *'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newDonDonorName}
+                    onChange={(e) => setNewDonDonorName(e.target.value)}
+                    placeholder="उदा. रमेश कुमार"
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-red-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {language === 'en' ? 'Mobile Number *' : 'मोबाइल नंबर *'}
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={newDonMobile}
+                      onChange={(e) => setNewDonMobile(e.target.value)}
+                      placeholder="98XXXXXXXX"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {language === 'en' ? 'Donation Amount (₹) *' : 'दान राशि (₹) *'}
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      value={newDonAmount}
+                      onChange={(e) => setNewDonAmount(Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-black text-red-700 focus:ring-2 focus:ring-red-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {language === 'en' ? 'Payment Method' : 'भुगतान माध्यम'}
+                    </label>
+                    <select
+                      value={newDonPaymentMethod}
+                      onChange={(e) => setNewDonPaymentMethod(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold"
+                    >
+                      <option value="UPI">UPI App</option>
+                      <option value="QR Code">QR Code</option>
+                      <option value="Bank Transfer">Bank Transfer / Cash</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">
+                      {language === 'en' ? 'Transaction ID / Receipt Ref' : 'ट्रांजेक्शन ID / रसीद Ref'}
+                    </label>
+                    <input
+                      type="text"
+                      value={newDonTransactionId}
+                      onChange={(e) => setNewDonTransactionId(e.target.value)}
+                      placeholder="e.g. CASH-101 / UTR"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Initial Status' : 'स्वीकृति स्थिति'}
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-emerald-800">
+                      <input
+                        type="radio"
+                        name="manualStatus"
+                        checked={newDonStatus === 'Approved'}
+                        onChange={() => setNewDonStatus('Approved')}
+                      />
+                      <span>{language === 'en' ? 'Approved (Count in Total)' : 'स्वीकृत (योग में जोड़ें)'}</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer font-bold text-amber-800">
+                      <input
+                        type="radio"
+                        name="manualStatus"
+                        checked={newDonStatus === 'Pending'}
+                        onChange={() => setNewDonStatus('Pending')}
+                      />
+                      <span>{language === 'en' ? 'Pending' : 'लंबित'}</span>
+                    </label>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Purpose / Remarks' : 'उद्देश्य / टिप्पणी'}
+                  </label>
+                  <input
+                    type="text"
+                    value={newDonRemarks}
+                    onChange={(e) => setNewDonRemarks(e.target.value)}
+                    placeholder={language === 'en' ? 'e.g. For Orphanage Care, Annadanam...' : 'उदा. अनाथ आश्रम सेवा, भोजन सहयोग...'}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setShowAddDonationModal(false)}
+                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer font-bold"
+                >
+                  {language === 'en' ? 'Cancel' : 'रद्द करें'}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>{language === 'en' ? 'Save & Record' : 'दर्ज करें'}</span>
                 </button>
               </div>
             </form>
