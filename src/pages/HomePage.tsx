@@ -187,52 +187,6 @@ export const HomePage: React.FC = () => {
           </p>
         </div>
 
-        {/* Admin Image Control Bar for 6 Projects */}
-        <div className="bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 text-white rounded-2xl p-4 sm:p-5 mb-8 shadow-lg border border-amber-400/30 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-amber-400 text-slate-950 flex items-center justify-center font-bold shrink-0 shadow">
-              <Camera className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-black uppercase tracking-wider text-amber-300 bg-amber-400/20 px-2 py-0.5 rounded-full border border-amber-400/30">
-                  {language === 'en' ? 'Admin Photo Manager' : 'एडमिन फोटो प्रबंधन'}
-                </span>
-                <span className="text-xs text-slate-400 font-semibold">
-                  {language === 'en' ? '6 Core Welfare Projects' : '6 प्रमुख सेवा प्रकल्प'}
-                </span>
-              </div>
-              <h3 className="text-sm sm:text-base font-extrabold text-white mt-0.5">
-                {language === 'en'
-                  ? 'Change & Customize All 6 Service Project Images'
-                  : 'इन सभी 6 सेवा प्रकल्पों की तस्वीरें एडमिन पेज से बदलें'}
-              </h3>
-              <p className="text-[11px] sm:text-xs text-slate-300 leading-snug">
-                {language === 'en'
-                  ? 'Easily change photos for Orphanage, Old Age Care, Widow Relief, Free Education, Medical Camp, and Social Welfare.'
-                  : 'अनाथ आश्रम, वृद्ध आश्रम, विधवा कल्याण, निःशुल्क शिक्षा, निःशुल्क चिकित्सा एवं समाज सेवा की फ़ोटो एडमिन से बदल सकते हैं।'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto">
-            <button
-              onClick={() => {
-                if (isAdmin) {
-                  setCurrentPage('admin-dashboard');
-                } else {
-                  setCurrentPage('admin-login');
-                }
-              }}
-              className="flex-1 md:flex-none px-4 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-md transition-transform hover:scale-105 flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <Upload className="w-4 h-4 text-slate-950" />
-              <span>{language === 'en' ? 'Change Images in Admin Page' : 'एडमिन पेज से फोटो बदलें'}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </div>
-
         {/* 6 Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {CORE_SERVICES_DATA.map((service, idx) => {
