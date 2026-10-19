@@ -212,6 +212,26 @@ export const DonationPage: React.FC = () => {
     settings.name
   )}&cu=INR&tn=${encodeURIComponent('Seva Donation')}`;
 
+  const [upiToast, setUpiToast] = useState(false);
+
+  const handleDirectUpiPay = () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(settings.upiId).catch(() => {});
+      }
+    } catch {
+      // ignore
+    }
+    setUpiToast(true);
+    setTimeout(() => setUpiToast(false), 5000);
+
+    try {
+      window.location.href = upiPayUrl;
+    } catch (err) {
+      console.warn('UPI navigation error:', err);
+    }
+  };
+
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-12">
@@ -503,10 +523,11 @@ export const DonationPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Direct UPI Payment Section (Direct 1-click launch, flexible voluntary amount, no popup modal) */}
+              {/* Direct UPI Payment Section (Direct 1-click launch, flexible voluntary amount, guaranteed feedback) */}
               <div className="space-y-2 pt-1.5">
                 <a
                   href={upiPayUrl}
+                  onClick={handleDirectUpiPay}
                   className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer"
                 >
                   <CreditCard className="w-4 h-4 text-amber-300" />
@@ -514,6 +535,20 @@ export const DonationPage: React.FC = () => {
                   <ExternalLink className="w-3.5 h-3.5 text-emerald-200" />
                 </a>
 
+                {upiToast && (
+                  <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-2.5 text-xs text-emerald-900 text-center font-bold animate-fadeIn space-y-1">
+                    <div className="flex items-center justify-center gap-1.5 text-emerald-800">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      <span>{language === 'en' ? 'UPI App Opened & UPI ID Copied!' : 'UPI ऐप खोला जा रहा है एवं UPI ID कॉपी हो गई!'}</span>
+                    </div>
+                    <p className="text-[10.5px] text-slate-600 font-normal">
+                      {language === 'en'
+                        ? 'If UPI app did not open, you can pay directly to UPI ID: '
+                        : 'यदि ऐप स्वतः न खुले, तो PhonePe / GPay खोलकर इस UPI ID पर भुगतान करें: '}
+                      <span className="font-mono font-bold text-blue-900 select-all">{settings.upiId}</span>
+                    </p>
+                  </div>
+                )}
 
                 <p className="text-[10px] text-slate-500 text-center font-medium">
                   {language === 'en'
