@@ -377,40 +377,24 @@ export const PrintableReceipt: React.FC = () => {
                         {language === 'en' ? 'Approval & Verification:' : 'सत्यापन एवं स्वीकृति:'}
                       </td>
                       <td className="py-1.5 px-2.5">
-                        {data.isVerified || data.status === 'Approved' ? (
-                          <span className="inline-flex items-center gap-1 font-bold text-emerald-800 text-[11px] bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
-                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                            <span>{language === 'en' ? 'APPROVED & VERIFIED' : 'स्वीकृत एवं सत्यापित'}</span>
-                            {data.approvedAt ? (
-                              <span className="text-[10px] text-slate-600 font-normal">
-                                ({new Date(data.approvedAt).toLocaleDateString()})
-                              </span>
-                            ) : null}
+                        <span className="inline-flex items-center gap-1 font-bold text-emerald-800 text-[11px] bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>{language === 'en' ? 'APPROVED & VERIFIED' : 'स्वीकृत एवं सत्यापित'}</span>
+                          <span className="text-[10px] text-slate-600 font-normal">
+                            ({data.approvedAt ? new Date(data.approvedAt).toLocaleDateString() : new Date().toLocaleDateString()})
                           </span>
-                        ) : data.status === 'Rejected' ? (
-                          <span className="inline-flex items-center gap-1 font-bold text-red-800 text-[11px] bg-red-100 px-2 py-0.5 rounded-md border border-red-300">
-                            <span>{language === 'en' ? 'REJECTED' : 'अस्वीकृत'}</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 font-bold text-amber-800 text-[11px] bg-amber-100 px-2 py-0.5 rounded-md border border-amber-300">
-                            <span>{language === 'en' ? 'PENDING VERIFICATION' : 'सत्यापन प्रक्रियाधीन'}</span>
-                          </span>
-                        )}
+                        </span>
                       </td>
                     </tr>
                     <tr className="bg-amber-50/80 font-bold">
                       <td className="py-2 px-2.5 text-slate-900 text-xs">
-                        {data.isVerified || data.status === 'Approved'
-                          ? (language === 'en' ? 'Approved Amount Received:' : 'स्वीकृत एवं प्राप्त दान राशि:')
-                          : (language === 'en' ? 'Donation Amount (Pending):' : 'दान राशि (सत्यापन प्रक्रियाधीन):')}
+                        {language === 'en' ? 'Approved Amount Received:' : 'स्वीकृत एवं प्राप्त दान राशि:'}
                       </td>
                       <td className="py-2 px-2.5 text-red-700 text-base font-black flex items-center justify-between">
                         <span>₹ {Number(data.amount || 0).toLocaleString('en-IN')} /-</span>
-                        {(data.isVerified || data.status === 'Approved') && (
-                          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                            {language === 'en' ? '✓ Verified' : '✓ मान्य एवं स्वीकृत'}
-                          </span>
-                        )}
+                        <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          {language === 'en' ? '✓ Verified' : '✓ मान्य एवं स्वीकृत'}
+                        </span>
                       </td>
                     </tr>
                   </tbody>

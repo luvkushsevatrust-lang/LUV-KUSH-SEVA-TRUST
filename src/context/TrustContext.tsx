@@ -1040,15 +1040,15 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addDonation = (
     data: Omit<Donation, 'id' | 'receiptNumber' | 'isVerified' | 'donatedAt'> & { status?: 'Pending' | 'Approved' | 'Rejected' }
   ): Donation => {
-    const isApproved = data.status === 'Approved' || (!data.status && Boolean(data.transactionId));
+    const isApproved = data.status === 'Approved';
     const newDon: Donation = {
       ...data,
       id: `don-${Date.now()}`,
       receiptNumber: `LKST-REC-2026-${Math.floor(600 + Math.random() * 400)}`,
       isVerified: isApproved,
-      status: data.status || (isApproved ? 'Approved' : 'Pending'),
+      status: data.status || 'Pending',
       approvedAt: isApproved ? new Date().toISOString() : undefined,
-      approvedBy: isApproved ? 'Admin (Auto-Verified)' : undefined,
+      approvedBy: isApproved ? 'Admin' : undefined,
       donatedAt: new Date().toISOString(),
     };
     setDonations((prev) => [newDon, ...prev]);

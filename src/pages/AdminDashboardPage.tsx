@@ -439,16 +439,28 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   const handleApproveAndPrint = (don: Donation) => {
-    if (don.status !== 'Approved' && !don.isVerified) {
-      updateDonationStatus(don.id, 'Approved', 'Approved and Printed by Admin');
+    const isAppr =
+      don.status === 'Approved' ||
+      (don.isVerified && don.status !== 'Rejected' && don.status !== 'Pending');
+
+    if (!isAppr) {
+      setActionToast({
+        message:
+          language === 'en'
+            ? `Cannot print: ${don.receiptNumber} is pending! Please click 'Edit' to approve first.`
+            : `लंबित दान (${don.receiptNumber}) प्रिंट नहीं हो सकता! कृपया पहले 'एडिट' में जाकर इसे स्वीकृत (Approve) करें।`,
+        type: 'info',
+      });
+      return;
     }
+
     setActiveReceipt({
       type: 'donation',
       data: {
         ...don,
         status: 'Approved',
         isVerified: true,
-        approvedAt: new Date().toISOString(),
+        approvedAt: don.approvedAt || new Date().toISOString(),
       },
     });
   };
@@ -2278,31 +2290,6 @@ export const AdminDashboardPage: React.FC = () => {
                                 </span>
                               )}
 
-                              {/* Quick Approval Toggle Buttons */}
-                              <div className="flex items-center gap-1 pt-0.5">
-                                {!isApproved && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickApproveDonation(don)}
-                                    className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold flex items-center gap-0.5 shadow-2xs cursor-pointer transition-colors"
-                                    title={language === 'en' ? 'Approve Donation' : 'स्वीकृत करें'}
-                                  >
-                                    <Check className="w-3 h-3" />
-                                    <span>{language === 'en' ? 'Approve' : 'स्वीकृत'}</span>
-                                  </button>
-                                )}
-                                {!isRejected && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleQuickRejectDonation(don)}
-                                    className="px-2 py-0.5 bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 rounded text-[10px] font-semibold flex items-center gap-0.5 cursor-pointer transition-colors"
-                                    title={language === 'en' ? 'Reject Donation' : 'अस्वीकृत करें'}
-                                  >
-                                    <X className="w-3 h-3" />
-                                    <span>{language === 'en' ? 'Reject' : 'रद्द'}</span>
-                                  </button>
-                                )}
-                              </div>
                             </div>
                           </td>
 
@@ -2319,16 +2306,40 @@ export const AdminDashboardPage: React.FC = () => {
                                 <span className="hidden sm:inline">{language === 'en' ? 'Edit' : 'एडिट'}</span>
                               </button>
 
-                              {/* Print / Approve & Print (Selector 2 requirement) */}
-                              <button
-                                type="button"
-                                onClick={() => handleApproveAndPrint(don)}
-                                className="px-2.5 py-1.5 bg-blue-900 hover:bg-blue-950 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
-                                title={language === 'en' ? 'Approve & Print Receipt' : 'स्वीकृत करें और रसीद प्रिंट निकालें'}
-                              >
-                                <Printer className="w-3.5 h-3.5 text-amber-300" />
-                                <span>{language === 'en' ? 'Print' : 'प्रिंट'}</span>
-                              </button>
+                              {/* Print Button: Only enabled for Approved Donations */}
+                              {isApproved ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleApproveAndPrint(don)}
+                                  className="px-2.5 py-1.5 bg-blue-900 hover:bg-blue-950 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs cursor-pointer transition-colors"
+                                  title={language === 'en' ? 'Print Approved Receipt' : 'स्वीकृत रसीद प्रिंट निकालें'}
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-amber-300" />
+                                  <span>{language === 'en' ? 'Print' : 'प्रिंट'}</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActionToast({
+                                      message:
+                                        language === 'en'
+                                          ? `Cannot print pending donation (${don.receiptNumber}). Please click 'Edit' to approve first.`
+                                          : `लंबित दान (${don.receiptNumber}) प्रिंट नहीं हो सकता! कृपया पहले 'एडिट' में जाकर इसे स्वीकृत (Approve) करें।`,
+                                      type: 'info',
+                                    });
+                                  }}
+                                  className="px-2.5 py-1.5 bg-slate-100 text-slate-400 border border-slate-200 rounded-lg text-xs font-semibold flex items-center gap-1 cursor-not-allowed opacity-60"
+                                  title={
+                                    language === 'en'
+                                      ? 'Pending: Cannot print until approved via Edit'
+                                      : 'लंबित: प्रिंट करने से पहले एडिट में जाकर स्वीकृत करना आवश्यक है'
+                                  }
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-slate-400" />
+                                  <span>{language === 'en' ? 'Print' : 'प्रिंट'}</span>
+                                </button>
+                              )}
 
                               {/* Delete */}
                               <button
