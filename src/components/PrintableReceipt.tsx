@@ -11,6 +11,8 @@ import {
   Image as ImageIcon,
   Loader2,
   FileText,
+  Clock,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   downloadReceiptDirectPdf,
@@ -39,8 +41,18 @@ export const PrintableReceipt: React.FC = () => {
   if (!activeReceipt) return null;
 
   const { type, data } = activeReceipt;
+  const isDonation = type === 'donation';
+  const isApproved = isDonation ? data?.status === 'Approved' : true;
 
   const handlePrint = async () => {
+    if (isDonation && !isApproved) {
+      setActionToast(
+        language === 'en'
+          ? 'Cannot print: This donation is pending approval! Print/Download is only enabled after admin approval.'
+          : 'प्रिंट नहीं हो सकता: यह दान अभी अप्रूवल प्रतीक्षारत (Pending) है! व्यवस्थापक द्वारा स्वीकृत (Approve) होने के बाद ही प्रिंट या डाउनलोड संभव है।'
+      );
+      return;
+    }
     setIsPrinting(true);
     try {
       await printReceiptDirect(activeReceipt, settings, language, receiptRef.current);
@@ -62,6 +74,14 @@ export const PrintableReceipt: React.FC = () => {
   };
 
   const handleDownloadPdf = async () => {
+    if (isDonation && !isApproved) {
+      setActionToast(
+        language === 'en'
+          ? 'Cannot download: This donation is pending approval! It will be available after admin approval.'
+          : 'डाउनलोड नहीं हो सकता: यह दान अभी अप्रूवल प्रतीक्षारत (Pending) है! व्यवस्थापक द्वारा स्वीकृत होने के बाद ही डाउनलोड संभव है।'
+      );
+      return;
+    }
     setIsDownloadingPdf(true);
     try {
       const filename =
@@ -88,6 +108,14 @@ export const PrintableReceipt: React.FC = () => {
   };
 
   const handleDownloadImage = async () => {
+    if (isDonation && !isApproved) {
+      setActionToast(
+        language === 'en'
+          ? 'Cannot download: Pending admin approval.'
+          : 'डाउनलोड नहीं हो सकता: व्यवस्थापक अप्रूवल लंबित है।'
+      );
+      return;
+    }
     if (!receiptRef.current) return;
     setIsDownloadingImage(true);
     try {
@@ -169,9 +197,21 @@ export const PrintableReceipt: React.FC = () => {
             {/* Direct PDF Download Button */}
             <button
               onClick={handleDownloadPdf}
-              disabled={isDownloadingPdf || isPrinting || isDownloadingImage}
-              className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer active:scale-95"
-              title={language === 'en' ? 'Download Official PDF' : 'आधिकारिक PDF डाउनलोड करें'}
+              disabled={isDownloadingPdf || isPrinting || isDownloadingImage || (!isApproved && isDonation)}
+              className={`flex items-center gap-1 px-3 py-1 ${
+                !isApproved && isDonation
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                  : 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white cursor-pointer active:scale-95'
+              } text-[11px] font-bold rounded-lg shadow-xs transition-colors`}
+              title={
+                !isApproved && isDonation
+                  ? language === 'en'
+                    ? 'Disabled: Pending Admin Approval'
+                    : 'अक्षम: व्यवस्थापक अप्रूवल लंबित'
+                  : language === 'en'
+                  ? 'Download Official PDF'
+                  : 'आधिकारिक PDF डाउनलोड करें'
+              }
             >
               {isDownloadingPdf ? (
                 <>
@@ -181,7 +221,7 @@ export const PrintableReceipt: React.FC = () => {
               ) : (
                 <>
                   <FileText className="w-3 h-3 text-amber-300" />
-                  <span>PDF</span>
+                  <span>PDF {!isApproved && isDonation ? (language === 'en' ? '(Pending)' : '(लंबित)') : ''}</span>
                 </>
               )}
             </button>
@@ -189,29 +229,44 @@ export const PrintableReceipt: React.FC = () => {
             {/* Direct PNG Image Download Button */}
             <button
               onClick={handleDownloadImage}
-              disabled={isDownloadingPdf || isPrinting || isDownloadingImage}
-              className="flex items-center gap-1 px-2.5 py-1 bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer active:scale-95"
-              title={language === 'en' ? 'Download as Image (PNG)' : 'फोटो डाउनलोड करें (PNG)'}
+              disabled={isDownloadingPdf || isPrinting || isDownloadingImage || (!isApproved && isDonation)}
+              className={`flex items-center gap-1 px-2.5 py-1 ${
+                !isApproved && isDonation
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                  : 'bg-teal-600 hover:bg-teal-700 disabled:bg-teal-800 text-white cursor-pointer active:scale-95'
+              } text-[11px] font-bold rounded-lg shadow-xs transition-colors`}
+              title={
+                !isApproved && isDonation
+                  ? language === 'en'
+                    ? 'Disabled: Pending Admin Approval'
+                    : 'अक्षम: व्यवस्थापक अप्रूवल लंबित'
+                  : language === 'en'
+                  ? 'Download as Image (PNG)'
+                  : 'फोटो डाउनलोड करें (PNG)'
+              }
             >
-              {isDownloadingImage ? (
-                <>
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>PNG...</span>
-                </>
-              ) : (
-                <>
-                  <ImageIcon className="w-3 h-3 text-teal-200" />
-                  <span>PNG</span>
-                </>
-              )}
+              <ImageIcon className="w-3 h-3 text-teal-200" />
+              <span>PNG</span>
             </button>
 
             {/* Print Button */}
             <button
               onClick={handlePrint}
-              disabled={isPrinting || isDownloadingPdf}
-              className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white text-[11px] font-bold rounded-lg shadow-xs transition-colors cursor-pointer active:scale-95"
-              title={language === 'en' ? 'Print Document' : 'प्रिंट करें'}
+              disabled={isPrinting || isDownloadingPdf || (!isApproved && isDonation)}
+              className={`flex items-center gap-1 px-3 py-1 ${
+                !isApproved && isDonation
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                  : 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 text-white cursor-pointer active:scale-95'
+              } text-[11px] font-bold rounded-lg shadow-xs transition-colors`}
+              title={
+                !isApproved && isDonation
+                  ? language === 'en'
+                    ? 'Disabled: Pending Admin Approval'
+                    : 'अक्षम: व्यवस्थापक अप्रूवल लंबित'
+                  : language === 'en'
+                  ? 'Print Document'
+                  : 'प्रिंट करें'
+              }
             >
               {isPrinting ? (
                 <>
@@ -221,7 +276,7 @@ export const PrintableReceipt: React.FC = () => {
               ) : (
                 <>
                   <Printer className="w-3 h-3 text-yellow-300" />
-                  <span>{language === 'en' ? 'Print' : 'प्रिंट'}</span>
+                  <span>{language === 'en' ? 'Print' : 'प्रिंट'} {!isApproved && isDonation ? (language === 'en' ? '(Pending)' : '(लंबित)') : ''}</span>
                 </>
               )}
             </button>
@@ -236,6 +291,20 @@ export const PrintableReceipt: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* Warning bar if unapproved donation */}
+        {isDonation && !isApproved && (
+          <div className="no-print bg-amber-500 text-slate-950 font-black text-xs px-4 py-2.5 flex items-center justify-between border-b border-amber-600 shadow-sm">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-slate-950 shrink-0 animate-pulse" />
+              <span>
+                {language === 'en'
+                  ? 'APPROVAL PENDING: Official verified receipt can ONLY be printed or downloaded after Admin Approval.'
+                  : 'अप्रूवल प्रतीक्षारत (PENDING): आधिकारिक रसीद केवल व्यवस्थापक द्वारा स्वीकृत (Approve) होने के बाद ही प्रिंट या डाउनलोड की जा सकती है।'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Action Status Feedback Toast Bar */}
         {actionToast && (
@@ -377,24 +446,39 @@ export const PrintableReceipt: React.FC = () => {
                         {language === 'en' ? 'Approval & Verification:' : 'सत्यापन एवं स्वीकृति:'}
                       </td>
                       <td className="py-1.5 px-2.5">
-                        <span className="inline-flex items-center gap-1 font-bold text-emerald-800 text-[11px] bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
-                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>{language === 'en' ? 'APPROVED & VERIFIED' : 'स्वीकृत एवं सत्यापित'}</span>
-                          <span className="text-[10px] text-slate-600 font-normal">
-                            ({data.approvedAt ? new Date(data.approvedAt).toLocaleDateString() : new Date().toLocaleDateString()})
+                        {isApproved ? (
+                          <span className="inline-flex items-center gap-1 font-bold text-emerald-800 text-[11px] bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
+                            <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>{language === 'en' ? 'APPROVED & VERIFIED' : 'स्वीकृत एवं सत्यापित'}</span>
+                            <span className="text-[10px] text-slate-600 font-normal">
+                              ({data.approvedAt ? new Date(data.approvedAt).toLocaleDateString() : new Date().toLocaleDateString()})
+                            </span>
                           </span>
-                        </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 font-bold text-amber-950 text-[11px] bg-amber-100 px-2 py-0.5 rounded-md border border-amber-400">
+                            <Clock className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
+                            <span>{language === 'en' ? 'PENDING APPROVAL (UNVERIFIED)' : 'अप्रूवल प्रतीक्षारत (अपुष्ट - सत्यापन लंबित)'}</span>
+                          </span>
+                        )}
                       </td>
                     </tr>
                     <tr className="bg-amber-50/80 font-bold">
                       <td className="py-2 px-2.5 text-slate-900 text-xs">
-                        {language === 'en' ? 'Approved Amount Received:' : 'स्वीकृत एवं प्राप्त दान राशि:'}
+                        {isApproved
+                          ? (language === 'en' ? 'Approved Amount Received:' : 'स्वीकृत एवं प्राप्त दान राशि:')
+                          : (language === 'en' ? 'Donation Amount (Under Review):' : 'दान राशि (सत्यापन प्रक्रियाधीन):')}
                       </td>
                       <td className="py-2 px-2.5 text-red-700 text-base font-black flex items-center justify-between">
                         <span>₹ {Number(data.amount || 0).toLocaleString('en-IN')} /-</span>
-                        <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          {language === 'en' ? '✓ Verified' : '✓ मान्य एवं स्वीकृत'}
-                        </span>
+                        {isApproved ? (
+                          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {language === 'en' ? '✓ Verified' : '✓ मान्य एवं स्वीकृत'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                            {language === 'en' ? '⏳ Pending Approval' : '⏳ व्यवस्थापक अप्रूवल प्रतीक्षारत'}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   </tbody>

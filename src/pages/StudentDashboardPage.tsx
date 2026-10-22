@@ -117,10 +117,19 @@ export const StudentDashboardPage: React.FC = () => {
           {studentCard && (
             <button
               onClick={() => setActiveIdCard(studentCard)}
-              className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer"
+              className={`px-4 py-2 font-bold text-xs rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer ${
+                studentCard.status === 'Active'
+                  ? 'bg-amber-400 hover:bg-amber-500 text-slate-950'
+                  : 'bg-amber-100 text-amber-900 border border-amber-300'
+              }`}
             >
               <CreditCard className="w-4 h-4" />
               <span>{t.student.downloadIdCard}</span>
+              {studentCard.status !== 'Active' && (
+                <span className="text-[10px] bg-amber-400 text-slate-950 px-1 rounded font-black">
+                  {studentCard.status === 'Pending' ? (language === 'en' ? 'Pending' : 'लंबित') : studentCard.status}
+                </span>
+              )}
             </button>
           )}
           <button
@@ -300,10 +309,15 @@ export const StudentDashboardPage: React.FC = () => {
                 <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                   <button
                     onClick={() => setActiveIdCard(studentCard)}
-                    className="px-5 py-2.5 bg-blue-900 hover:bg-blue-950 text-white font-bold text-xs rounded-xl shadow flex items-center gap-2 transition-colors cursor-pointer"
+                    className={`px-5 py-2.5 font-bold text-xs rounded-xl shadow flex items-center gap-2 transition-colors cursor-pointer ${
+                      studentCard.status === 'Active'
+                        ? 'bg-blue-900 hover:bg-blue-950 text-white'
+                        : 'bg-slate-700 text-slate-300'
+                    }`}
                   >
                     <Printer className="w-4 h-4" />
                     <span>{t.idCard.printCard}</span>
+                    {studentCard.status !== 'Active' && <span className="text-[10px] bg-slate-900 px-1 py-0.5 rounded text-amber-300 font-mono">🔒</span>}
                   </button>
 
                   <button

@@ -786,6 +786,10 @@ export async function downloadIdCardDirectImage(
   fallbackElement?: HTMLElement | null,
   fileName?: string
 ): Promise<boolean> {
+  if (card.status !== 'Active') {
+    console.warn('downloadIdCardDirectImage blocked: Card is not active.', card.cardNumber, card.status);
+    return false;
+  }
   try {
     const canvas = await generateCombinedIdCardCanvas(card, viewSide, settings, language);
     const dataUrl = canvas.toDataURL('image/png', 1.0);
@@ -818,6 +822,10 @@ export async function downloadIdCardDirectPdf(
   fallbackElement?: HTMLElement | null,
   fileName?: string
 ): Promise<boolean> {
+  if (card.status !== 'Active') {
+    console.warn('downloadIdCardDirectPdf blocked: Card is not active.', card.cardNumber, card.status);
+    return false;
+  }
   try {
     const frontCanvas = (viewSide === 'both' || viewSide === 'front')
       ? await renderIdCardSideToCanvas(card, 'front', settings, language)
@@ -955,6 +963,10 @@ export async function printIdCardDirect(
   language: string = 'hi',
   fallbackElement?: HTMLElement | null
 ): Promise<void> {
+  if (card.status !== 'Active') {
+    console.warn('printIdCardDirect blocked: Card is not active.', card.cardNumber, card.status);
+    return;
+  }
   try {
     const frontCanvas = (viewSide === 'both' || viewSide === 'front')
       ? await renderIdCardSideToCanvas(card, 'front', settings, language)

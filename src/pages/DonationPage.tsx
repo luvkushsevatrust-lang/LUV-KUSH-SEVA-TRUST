@@ -269,12 +269,10 @@ export const DonationPage: React.FC = () => {
           </div>
         </div>
       </div>
-
       {submittedDonation ? (() => {
         const liveDonation = donations.find((d) => d.id === submittedDonation.id) || submittedDonation;
-        const isApproved =
-          liveDonation.status === 'Approved' ||
-          (liveDonation.isVerified && liveDonation.status !== 'Rejected' && liveDonation.status !== 'Pending');
+        // Strictly only approved if status is 'Approved' (never while Pending)
+        const isApproved = liveDonation.status === 'Approved';
 
         return (
           // Donation Success Card (Target element of selector 1)
@@ -878,10 +876,7 @@ export const DonationPage: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 block">{language === 'en' ? 'Status:' : 'स्थिति:'}</span>
-                    {searchedDonation.status === 'Approved' ||
-                    (searchedDonation.isVerified &&
-                      searchedDonation.status !== 'Rejected' &&
-                      searchedDonation.status !== 'Pending') ? (
+                    {searchedDonation.status === 'Approved' ? (
                       <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]">
                         <CheckCircle className="w-3 h-3 text-emerald-600" />
                         {language === 'en' ? 'Approved' : 'स्वीकृत'}
@@ -895,11 +890,8 @@ export const DonationPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Download Button if Approved */}
-                {searchedDonation.status === 'Approved' ||
-                (searchedDonation.isVerified &&
-                  searchedDonation.status !== 'Rejected' &&
-                  searchedDonation.status !== 'Pending') ? (
+                {/* Download Button if Approved ONLY */}
+                {searchedDonation.status === 'Approved' ? (
                   <button
                     type="button"
                     onClick={() => {

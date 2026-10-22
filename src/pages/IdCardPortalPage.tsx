@@ -60,8 +60,8 @@ export const IdCardPortalPage: React.FC = () => {
     }
   };
 
-  const isApproved =
-    foundCard && (foundCard.status === 'Active' || foundCard.status === 'Approved');
+  const isActive = Boolean(foundCard && foundCard.status === 'Active');
+  const isApproved = isActive;
 
   const categoryTitle =
     foundCard &&
@@ -251,21 +251,41 @@ export const IdCardPortalPage: React.FC = () => {
               {/* Primary Action Buttons per prompt: पहचान पत्र डाउनलोड करें, प्रिंट करें, सत्यापन स्थिति */}
               <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
                 <button
-                  onClick={() => setActiveIdCard(foundCard)}
-                  className="px-6 py-3 font-bold text-sm rounded-xl shadow-lg flex items-center gap-2 transition-all bg-red-600 hover:bg-red-700 text-white cursor-pointer hover:scale-105 active:scale-95"
-                  title={language === 'en' ? 'Download ID Card (with Photo)' : 'फोटो सहित पहचान पत्र डाउनलोड करें'}
+                  onClick={() => isActive && setActiveIdCard(foundCard)}
+                  disabled={!isActive}
+                  className={`px-6 py-3 font-bold text-sm rounded-xl shadow flex items-center gap-2 transition-all ${
+                    isActive
+                      ? 'bg-red-600 hover:bg-red-700 text-white cursor-pointer hover:scale-105 active:scale-95'
+                      : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none'
+                  }`}
+                  title={
+                    !isActive
+                      ? (language === 'en' ? 'ID Card is Pending / Not Active — Download locked' : 'पहचान पत्र सक्रिय नहीं है — डाउनलोड लॉक है')
+                      : (language === 'en' ? 'Download ID Card (with Photo)' : 'फोटो सहित पहचान पत्र डाउनलोड करें')
+                  }
                 >
                   <Download className="w-4 h-4" />
                   <span>{language === 'en' ? 'Download ID Card (with Photo)' : 'फोटो सहित पहचान पत्र डाउनलोड करें'}</span>
+                  {!isActive && <span className="text-xs bg-slate-300 px-1.5 py-0.5 rounded text-slate-600 font-mono">🔒</span>}
                 </button>
 
                 <button
-                  onClick={() => setActiveIdCard(foundCard)}
-                  className="px-5 py-3 font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-2 bg-blue-900 hover:bg-blue-950 text-white cursor-pointer active:scale-95"
-                  title={language === 'en' ? 'Print ID Card' : 'आईडी कार्ड प्रिंट करें'}
+                  onClick={() => isActive && setActiveIdCard(foundCard)}
+                  disabled={!isActive}
+                  className={`px-5 py-3 font-bold text-sm rounded-xl shadow transition-colors flex items-center gap-2 ${
+                    isActive
+                      ? 'bg-blue-900 hover:bg-blue-950 text-white cursor-pointer active:scale-95'
+                      : 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none'
+                  }`}
+                  title={
+                    !isActive
+                      ? (language === 'en' ? 'ID Card is Pending / Not Active — Print locked' : 'पहचान पत्र सक्रिय नहीं है — प्रिंट लॉक है')
+                      : (language === 'en' ? 'Print ID Card' : 'आईडी कार्ड प्रिंट करें')
+                  }
                 >
                   <Printer className="w-4 h-4" />
                   <span>{t.idCard.printCard}</span>
+                  {!isActive && <span className="text-xs bg-slate-300 px-1.5 py-0.5 rounded text-slate-600 font-mono">🔒</span>}
                 </button>
 
                 <button

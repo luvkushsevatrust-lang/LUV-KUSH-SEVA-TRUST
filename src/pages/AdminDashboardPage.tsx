@@ -351,12 +351,8 @@ export const AdminDashboardPage: React.FC = () => {
   const totalStudents = students.length;
   const totalVolunteers = volunteers.length;
   // ONLY APPROVED DONATIONS COUNT FOR TOTAL AMOUNT (User Requirement)
-  const approvedDonationsList = donations.filter(
-    (d) => d.status === 'Approved' || (d.isVerified && d.status !== 'Rejected' && d.status !== 'Pending')
-  );
-  const pendingDonationsList = donations.filter(
-    (d) => d.status === 'Pending' || (!d.isVerified && d.status !== 'Approved' && d.status !== 'Rejected')
-  );
+  const approvedDonationsList = donations.filter((d) => d.status === 'Approved');
+  const pendingDonationsList = donations.filter((d) => d.status === 'Pending' || (!d.status && !d.isVerified));
   const rejectedDonationsList = donations.filter((d) => d.status === 'Rejected');
 
   const totalDonationsAmount = approvedDonationsList.reduce((sum, d) => sum + Number(d.amount || 0), 0);
@@ -366,8 +362,8 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Filtered donations
   const filteredDonations = donations.filter((don) => {
-    const isAppr = don.status === 'Approved' || (don.isVerified && don.status !== 'Rejected' && don.status !== 'Pending');
-    const isPend = don.status === 'Pending' || (!don.isVerified && don.status !== 'Approved' && don.status !== 'Rejected');
+    const isAppr = don.status === 'Approved';
+    const isPend = don.status === 'Pending' || (!don.status && !don.isVerified);
     const isRej = don.status === 'Rejected';
 
     if (donationFilter === 'Approved' && !isAppr) return false;
@@ -439,9 +435,7 @@ export const AdminDashboardPage: React.FC = () => {
   };
 
   const handleApproveAndPrint = (don: Donation) => {
-    const isAppr =
-      don.status === 'Approved' ||
-      (don.isVerified && don.status !== 'Rejected' && don.status !== 'Pending');
+    const isAppr = don.status === 'Approved';
 
     if (!isAppr) {
       setActionToast({
@@ -2216,9 +2210,7 @@ export const AdminDashboardPage: React.FC = () => {
                     </tr>
                   ) : (
                     filteredDonations.map((don, idx) => {
-                      const isApproved =
-                        don.status === 'Approved' ||
-                        (don.isVerified && don.status !== 'Rejected' && don.status !== 'Pending');
+                      const isApproved = don.status === 'Approved';
                       const isRejected = don.status === 'Rejected';
 
                       return (
@@ -5785,18 +5777,18 @@ export const AdminDashboardPage: React.FC = () => {
       ======================================================== */}
       {editingDonation && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-xl w-full p-6 sm:p-7 space-y-5 border border-slate-200 animate-fadeIn my-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-4 sm:p-5 space-y-3.5 border border-slate-200 animate-fadeIn my-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
               <div>
-                <h3 className="font-black text-base sm:text-lg text-slate-900 flex items-center gap-2">
-                  <Edit3 className="w-5 h-5 text-amber-600" />
+                <h3 className="font-black text-sm sm:text-base text-slate-900 flex items-center gap-1.5">
+                  <Edit3 className="w-4 h-4 text-amber-600 shrink-0" />
                   <span>
                     {language === 'en'
                       ? `Edit Donation: ${editingDonation.receiptNumber}`
                       : `दान रिकॉर्ड संशोधन: ${editingDonation.receiptNumber}`}
                   </span>
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-[11px] text-slate-500">
                   {language === 'en'
                     ? 'Modify donor details, transaction amount, and official approval status.'
                     : 'दानदाता विवरण, सहयोग राशि एवं आधिकारिक स्वीकृति स्थिति संशोधित करें।'}
@@ -5805,17 +5797,17 @@ export const AdminDashboardPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setEditingDonation(null)}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <form onSubmit={handleSaveDonationEdit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <form onSubmit={handleSaveDonationEdit} className="space-y-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Donor Name */}
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[11px]">
                     {language === 'en' ? 'Donor Full Name *' : 'दानदाता का पूरा नाम *'}
                   </label>
                   <input
@@ -5823,13 +5815,13 @@ export const AdminDashboardPage: React.FC = () => {
                     required
                     value={editDonDonorName}
                     onChange={(e) => setEditDonDonorName(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-bold focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-bold text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 {/* Mobile */}
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[11px]">
                     {language === 'en' ? 'Mobile Number *' : 'मोबाइल नंबर *'}
                   </label>
                   <input
@@ -5837,24 +5829,24 @@ export const AdminDashboardPage: React.FC = () => {
                     required
                     value={editDonMobile}
                     onChange={(e) => setEditDonMobile(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 {/* Amount */}
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[11px]">
                     {language === 'en' ? 'Donation Amount (₹) *' : 'दान राशि (₹) *'}
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-slate-400 font-bold">₹</span>
+                    <span className="absolute left-2.5 top-1.5 text-slate-400 font-bold text-xs">₹</span>
                     <input
                       type="number"
                       required
                       min="1"
                       value={editDonAmount}
                       onChange={(e) => setEditDonAmount(Number(e.target.value))}
-                      className="w-full pl-7 pr-3 py-2 border border-slate-300 rounded-xl font-mono text-sm font-black text-red-700 focus:ring-2 focus:ring-amber-500"
+                      className="w-full pl-6 pr-2.5 py-1.5 border border-slate-300 rounded-lg font-mono text-xs font-black text-red-700 focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
                   <span className="text-[10px] text-emerald-700 block mt-0.5 font-semibold">
@@ -5866,13 +5858,13 @@ export const AdminDashboardPage: React.FC = () => {
 
                 {/* Payment Method */}
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[11px]">
                     {language === 'en' ? 'Payment Method' : 'भुगतान माध्यम'}
                   </label>
                   <select
                     value={editDonPaymentMethod}
                     onChange={(e) => setEditDonPaymentMethod(e.target.value as any)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-semibold focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-semibold text-xs focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="UPI">UPI App (PhonePe, GPay, Paytm)</option>
                     <option value="QR Code">Official QR Code</option>
@@ -5882,7 +5874,7 @@ export const AdminDashboardPage: React.FC = () => {
 
                 {/* Transaction ID / UTR */}
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[11px]">
                     {language === 'en' ? 'Transaction ID / UTR Ref' : 'ट्रांजेक्शन ID / UTR संख्या'}
                   </label>
                   <input
@@ -5890,73 +5882,73 @@ export const AdminDashboardPage: React.FC = () => {
                     value={editDonTransactionId}
                     onChange={(e) => setEditDonTransactionId(e.target.value)}
                     placeholder="e.g. 428912389102"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono text-blue-950 font-bold focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono text-blue-950 font-bold text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
                 {/* Receipt Number */}
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[11px]">
                     {language === 'en' ? 'Receipt Number' : 'रसीद संख्या'}
                   </label>
                   <input
                     type="text"
                     value={editDonReceiptNumber}
                     onChange={(e) => setEditDonReceiptNumber(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl font-mono font-bold focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg font-mono font-bold text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
 
-                {/* Approval Status (Selector 1 requirement) */}
+                {/* Approval Status */}
                 <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-900 mb-1 text-xs">
+                  <label className="block font-bold text-slate-900 mb-1 text-[11px]">
                     {language === 'en' ? 'Official Approval Status *' : 'आधिकारिक स्वीकृति स्थिति *'}
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-1.5">
                     <button
                       type="button"
                       onClick={() => setEditDonStatus('Approved')}
-                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                      className={`py-1.5 px-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${
                         editDonStatus === 'Approved'
-                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-md scale-102'
+                          ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
                           : 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100'
                       }`}
                     >
-                      <CheckCircle className="w-4 h-4" />
-                      <span>{language === 'en' ? 'Approved (Counted)' : 'स्वीकृत (योग में शामिल)'}</span>
+                      <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{language === 'en' ? 'Approved (Counted)' : 'स्वीकृत (योग शामिल)'}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setEditDonStatus('Pending')}
-                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                      className={`py-1.5 px-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${
                         editDonStatus === 'Pending'
-                          ? 'bg-amber-500 text-white border-amber-500 shadow-md scale-102'
+                          ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
                           : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
                       }`}
                     >
-                      <AlertCircle className="w-4 h-4" />
-                      <span>{language === 'en' ? 'Pending (Under Review)' : 'लंबित (प्रक्रियाधीन)'}</span>
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{language === 'en' ? 'Pending' : 'लंबित (समीक्षा)'}</span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setEditDonStatus('Rejected')}
-                      className={`p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center gap-1 cursor-pointer transition-all ${
+                      className={`py-1.5 px-2 rounded-lg border text-[11px] font-bold flex items-center justify-center gap-1 cursor-pointer transition-all ${
                         editDonStatus === 'Rejected'
-                          ? 'bg-red-600 text-white border-red-600 shadow-md scale-102'
+                          ? 'bg-red-600 text-white border-red-600 shadow-sm'
                           : 'bg-red-50 text-red-800 border-red-200 hover:bg-red-100'
                       }`}
                     >
-                      <X className="w-4 h-4" />
-                      <span>{language === 'en' ? 'Rejected' : 'अस्वीकृत'}</span>
+                      <X className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{language === 'en' ? 'Rejected' : 'अस्वीकृत'}</span>
                     </button>
                   </div>
                 </div>
 
                 {/* Remarks */}
                 <div className="sm:col-span-2">
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-bold text-slate-700 mb-0.5 text-[11px]">
                     {language === 'en' ? 'Approval Remarks / Office Note' : 'कार्यालय टिप्पणी / स्वीकृति विवरण'}
                   </label>
                   <input
@@ -5964,25 +5956,25 @@ export const AdminDashboardPage: React.FC = () => {
                     value={editDonRemarks}
                     onChange={(e) => setEditDonRemarks(e.target.value)}
                     placeholder={language === 'en' ? 'e.g. Verified with bank statement...' : 'उदा. बैंक खाते में प्राप्त राशि का सत्यापन किया गया...'}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500"
+                    className="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-amber-500"
                   />
                 </div>
               </div>
 
               {/* Form Buttons */}
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-2 pt-2.5 border-t border-slate-200">
                 <button
                   type="button"
                   onClick={() => setEditingDonation(null)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer font-bold"
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 rounded-lg cursor-pointer font-bold"
                 >
                   {language === 'en' ? 'Cancel' : 'रद्द करें'}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md cursor-pointer flex items-center gap-1.5 transition-all active:scale-95"
+                  className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-lg shadow-sm cursor-pointer flex items-center gap-1.5 transition-all active:scale-95"
                 >
-                  <Save className="w-4 h-4" />
+                  <Save className="w-3.5 h-3.5" />
                   <span>{language === 'en' ? 'Save Changes' : 'बदलाव सुरक्षित करें'}</span>
                 </button>
               </div>

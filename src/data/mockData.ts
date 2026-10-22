@@ -559,7 +559,10 @@ export const INITIAL_DONATIONS: Donation[] = [
     paymentMethod: 'UPI',
     transactionId: 'UPI/2026/894719238',
     message: 'अनाथ बच्चों की शिक्षा एवं पौष्टिक भोजन हेतु विनम्र सहयोग।',
+    status: 'Approved',
     isVerified: true,
+    approvedAt: '2026-09-15T12:00:00Z',
+    approvedBy: 'Admin',
     donatedAt: '2026-09-15T11:20:00Z',
   },
   {
@@ -572,7 +575,10 @@ export const INITIAL_DONATIONS: Donation[] = [
     paymentMethod: 'Bank Transfer',
     transactionId: 'NEFT-SBIN-9284719',
     message: 'वृद्ध आश्रम के बुजुर्गों की दवाओं एवं चिकित्सा सेवा हेतु।',
+    status: 'Approved',
     isVerified: true,
+    approvedAt: '2026-09-18T15:00:00Z',
+    approvedBy: 'Admin',
     donatedAt: '2026-09-18T14:40:00Z',
   },
   {
@@ -584,7 +590,8 @@ export const INITIAL_DONATIONS: Donation[] = [
     paymentMethod: 'QR Code',
     transactionId: 'PAYTM-99887711',
     message: 'लव कुश सेवा ट्रस्ट के पवित्र सेवा संकल्प को नमन।',
-    isVerified: true,
+    status: 'Pending',
+    isVerified: false,
     donatedAt: '2026-09-24T16:10:00Z',
   },
 ];
