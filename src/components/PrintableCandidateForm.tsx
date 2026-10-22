@@ -59,6 +59,8 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
     ? (candidate as Student).registrationNumber || candidate.id
     : candidate.id;
   const status = candidate.status || 'Pending';
+  const isApproved = status === 'Approved' || status === 'Active';
+  const [warningMsg, setWarningMsg] = useState<string | null>(null);
 
   const avatar = getCardPhotoUrl({
     photoUrl,
@@ -67,10 +69,26 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
   });
 
   const handlePrint = () => {
+    if (!isApproved) {
+      setWarningMsg(
+        language === 'en'
+          ? 'Cannot print: This form is pending approval! Print & download are only available after admin approval.'
+          : 'प्रिंट नहीं हो सकता: यह फॉर्म अभी अनुमोदन प्रतीक्षारत (Pending) है! व्यवस्थापक (Admin) द्वारा स्वीकृति के बाद ही प्रिंट व डाउनलोड संभव है।'
+      );
+      return;
+    }
     window.print();
   };
 
   const handleDownloadPdf = async () => {
+    if (!isApproved) {
+      setWarningMsg(
+        language === 'en'
+          ? 'Cannot download PDF: Pending admin approval! Available after approval.'
+          : 'PDF डाउनलोड नहीं हो सकता: यह प्रपत्र अभी अनुमोदन प्रतीक्षारत (Pending) है! व्यवस्थापक द्वारा स्वीकृति के बाद ही डाउनलोड संभव है।'
+      );
+      return;
+    }
     if (!formRef.current) return;
     try {
       setIsDownloadingPdf(true);
@@ -88,7 +106,7 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
         {/* Actions Bar (Hidden during print) */}
         <div className="no-print bg-slate-900 px-6 py-3.5 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-700">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+            <span className={`w-2.5 h-2.5 rounded-full ${isApproved ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`}></span>
             <span className="font-bold text-sm text-amber-300">
               {isStudent
                 ? (language === 'en' ? 'Student Enrollment & Aadhaar Dossier' : 'विद्यार्थी नामांकन व आधार प्रपत्र')
@@ -97,20 +115,33 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
             <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
               {regId}
             </span>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isApproved ? 'bg-emerald-900/70 text-emerald-300 border border-emerald-500/40' : 'bg-amber-900/70 text-amber-300 border border-amber-500/40'}`}>
+              {isApproved ? (language === 'en' ? 'Approved' : 'स्वीकृत') : (language === 'en' ? 'Pending' : 'प्रतीक्षारत')}
+            </span>
           </div>
 
           <div className="flex items-center gap-2">
             {/* Direct PDF Download */}
             <button
               onClick={handleDownloadPdf}
-              disabled={isDownloadingPdf}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white text-xs font-bold rounded-lg shadow transition-colors cursor-pointer"
-              title={language === 'en' ? 'Download PDF' : 'PDF डाउनलोड करें'}
+              disabled={isDownloadingPdf || !isApproved}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 ${
+                !isApproved
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                  : 'bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-800 text-white cursor-pointer'
+              } text-xs font-bold rounded-lg shadow transition-colors`}
+              title={
+                !isApproved
+                  ? (language === 'en' ? 'Approval required before saving PDF' : 'PDF डाउनलोड हेतु स्वीकृति आवश्यक')
+                  : (language === 'en' ? 'Download PDF' : 'PDF डाउनलोड करें')
+              }
             >
               <Download className="w-3.5 h-3.5" />
               <span>
                 {isDownloadingPdf
                   ? (language === 'en' ? 'Creating PDF...' : 'PDF तैयार हो रहा है...')
+                  : !isApproved
+                  ? (language === 'en' ? 'Save as PDF 🔒' : 'PDF सहेजें 🔒')
                   : (language === 'en' ? 'Save as PDF' : 'PDF डाउनलोड करें')}
               </span>
             </button>
@@ -118,11 +149,24 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
             {/* Print Button */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg shadow transition-colors cursor-pointer"
-              title={language === 'en' ? 'Print Document' : 'प्रिंट करें'}
+              disabled={!isApproved}
+              className={`flex items-center gap-1.5 px-3.5 py-1.5 ${
+                !isApproved
+                  ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-60'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+              } text-xs font-bold rounded-lg shadow transition-colors`}
+              title={
+                !isApproved
+                  ? (language === 'en' ? 'Approval required before printing' : 'प्रिंट करने हेतु व्यवस्थापक स्वीकृति आवश्यक')
+                  : (language === 'en' ? 'Print Document' : 'प्रिंट करें')
+              }
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>{language === 'en' ? 'Print Form' : 'प्रिंट करें'}</span>
+              <span>
+                {!isApproved
+                  ? (language === 'en' ? 'Print Form 🔒' : 'प्रिंट 🔒 (लंबित)')
+                  : (language === 'en' ? 'Print Form' : 'प्रिंट करें')}
+              </span>
             </button>
 
             <button
@@ -134,11 +178,45 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
           </div>
         </div>
 
+        {/* Warning bar if unapproved */}
+        {!isApproved && (
+          <div className="no-print bg-amber-500 text-slate-950 font-black text-xs px-6 py-2.5 flex items-center justify-between border-b border-amber-600 shadow-sm">
+            <span>
+              {language === 'en'
+                ? '⚠️ APPROVAL PENDING: This record is waiting for admin verification. Printing or saving as PDF is enabled only AFTER approval.'
+                : '⚠️ अनुमोदन प्रतीक्षारत (Pending): यह प्रपत्र अभी व्यवस्थापक के सत्यापन हेतु लंबित है। स्वीकृति (Approval) के बाद ही प्रिंट अथवा PDF संभव होगा।'}
+            </span>
+          </div>
+        )}
+
+        {warningMsg && (
+          <div className="no-print bg-rose-600 text-white font-bold text-xs px-6 py-2 flex items-center justify-between">
+            <span>{warningMsg}</span>
+            <button onClick={() => setWarningMsg(null)} className="text-white hover:underline text-[11px] cursor-pointer">
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Printable Official Sheet */}
         <div
           ref={formRef}
           className="p-6 sm:p-8 bg-white text-slate-800 space-y-6 border-4 border-amber-600/30 m-2 sm:m-4 rounded-xl relative"
         >
+          {/* Watermark when unapproved */}
+          {!isApproved && (
+            <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none select-none">
+              <div className="transform -rotate-25 border-4 border-amber-600/60 bg-amber-100/90 backdrop-blur-xs px-8 py-4 rounded-2xl shadow-2xl text-center">
+                <span className="text-2xl sm:text-3xl font-black text-amber-800 uppercase tracking-widest block font-mono">
+                  ⚠️ PENDING APPROVAL
+                </span>
+                <span className="text-xs sm:text-sm font-black text-amber-950 block mt-1">
+                  अनुमोदन प्रतीक्षारत — प्रिंट अमान्य
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Subtle Watermark Emblem Background */}
           <div className="absolute inset-0 flex items-center justify-center opacity-[0.03] pointer-events-none">
             <SafeImage

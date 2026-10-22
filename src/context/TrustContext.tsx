@@ -58,6 +58,11 @@ interface TrustContextType {
     data: Omit<Student, 'id' | 'registrationNumber' | 'status' | 'registeredAt'>
   ) => Student;
   updateStudent: (id: string, data: Partial<Student>) => void;
+  updateStudentStatus: (
+    id: string,
+    status: ApplicationStatus,
+    remarks?: string
+  ) => void;
   deleteStudent: (id: string) => void;
 
   // ID Cards
@@ -641,16 +646,20 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
           SupabaseService.saveApplication(updated);
 
-          // If approved, ensure an ID card is generated or activated
+          // Synchronize associated ID card
+          const existingCard = idCards.find(
+            (c) => c.sourceId === id || c.registrationNumber === id
+          );
           if (status === 'Approved') {
-            const existingCard = idCards.find(
-              (c) => c.sourceId === id || c.registrationNumber === id
-            );
             if (existingCard) {
               updateIdCard(existingCard.id, { status: 'Active' });
             } else {
               generateIdCardForRecord('application', updated, 'Active');
             }
+          } else if (existingCard) {
+            updateIdCard(existingCard.id, {
+              status: status === 'Rejected' ? 'Rejected' : 'Pending',
+            });
           }
 
           return updated;
@@ -870,7 +879,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ...data,
       id: newId,
       registrationNumber: newRegNum,
-      status: 'Approved',
+      status: 'Pending',
       registeredAt: new Date().toISOString(),
       password: data.password || 'password123',
     };
@@ -878,8 +887,8 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setStudents((prev) => [newStudent, ...prev]);
     SupabaseService.saveStudent(newStudent);
 
-    // Automatically generate an approved Student ID Card
-    const createdCard = generateIdCardForRecord('student', newStudent, 'Active');
+    // Automatically generate a Student ID Card in Pending status (requires admin approval to print/activate)
+    const createdCard = generateIdCardForRecord('student', newStudent, 'Pending');
     newStudent.idCardNumber = createdCard.cardNumber;
 
     return newStudent;
@@ -891,6 +900,60 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (s.id === id) {
           const updated = { ...s, ...data };
           SupabaseService.saveStudent(updated);
+
+          if (data.status) {
+            const existingCard = idCards.find(
+              (c) => c.sourceId === id || c.registrationNumber === s.registrationNumber
+            );
+            if (data.status === 'Approved') {
+              if (existingCard) {
+                updateIdCard(existingCard.id, { status: 'Active' });
+              } else {
+                generateIdCardForRecord('student', updated, 'Active');
+              }
+            } else if (existingCard) {
+              updateIdCard(existingCard.id, {
+                status: data.status === 'Rejected' ? 'Rejected' : 'Pending',
+              });
+            }
+          }
+          return updated;
+        }
+        return s;
+      })
+    );
+  };
+
+  const updateStudentStatus = (
+    id: string,
+    status: ApplicationStatus,
+    remarks?: string
+  ) => {
+    setStudents((prev) =>
+      prev.map((s) => {
+        if (s.id === id) {
+          const updated = {
+            ...s,
+            status,
+            statusRemarks: remarks !== undefined ? remarks : s.statusRemarks,
+          };
+          SupabaseService.saveStudent(updated);
+
+          const existingCard = idCards.find(
+            (c) => c.sourceId === id || c.registrationNumber === s.registrationNumber
+          );
+          if (status === 'Approved') {
+            if (existingCard) {
+              updateIdCard(existingCard.id, { status: 'Active' });
+            } else {
+              generateIdCardForRecord('student', updated, 'Active');
+            }
+          } else if (existingCard) {
+            updateIdCard(existingCard.id, {
+              status: status === 'Rejected' ? 'Rejected' : 'Pending',
+            });
+          }
+
           return updated;
         }
         return s;
@@ -951,14 +1014,14 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const newVol: Volunteer = {
       ...data,
       id: newId,
-      status: 'Active',
+      status: 'Pending',
       registeredAt: new Date().toISOString(),
     };
     setVolunteers((prev) => [newVol, ...prev]);
     SupabaseService.saveVolunteer(newVol);
 
-    // Automatically generate a Volunteer ID Card
-    generateIdCardForRecord('volunteer', newVol, 'Active');
+    // Automatically generate a Volunteer ID Card in Pending status (requires admin approval to print/activate)
+    generateIdCardForRecord('volunteer', newVol, 'Pending');
 
     return newVol;
   };
@@ -1011,15 +1074,17 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (v.id === id) {
           const updated = { ...v, status };
           SupabaseService.saveVolunteer(updated);
+          const existingCard = idCards.find(
+            (c) => c.sourceId === id || c.registrationNumber === id
+          );
           if (status === 'Active' || status === 'Approved') {
-            const existingCard = idCards.find(
-              (c) => c.sourceId === id || c.registrationNumber === id
-            );
             if (existingCard) {
               updateIdCard(existingCard.id, { status: 'Active' });
             } else {
               generateIdCardForRecord('volunteer', updated, 'Active');
             }
+          } else if (existingCard) {
+            updateIdCard(existingCard.id, { status: 'Pending' });
           }
           return updated;
         }
@@ -1300,6 +1365,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         students,
         addStudent,
         updateStudent,
+        updateStudentStatus,
         deleteStudent,
         idCards,
         addIdCard,
