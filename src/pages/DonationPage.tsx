@@ -208,7 +208,7 @@ export const DonationPage: React.FC = () => {
     setSubmittedDonation(newDon);
   };
 
-  // Dynamic UPI payment URL generator (supports voluntary amount or selected amount)
+  // Open UPI payment URL generator (without fixed amount: donor can pay any manual voluntary amount of their choice)
   const getUpiUrl = (appScheme: 'generic' | 'phonepe' | 'gpay' | 'paytm' | 'bhim' = 'generic') => {
     const params = new URLSearchParams({
       pa: settings.upiId,
@@ -216,9 +216,7 @@ export const DonationPage: React.FC = () => {
       cu: 'INR',
       tn: 'Luv Kush Seva Trust Donation',
     });
-    if (effectiveAmount && effectiveAmount > 0) {
-      params.append('am', effectiveAmount.toString());
-    }
+    // Intentionally no 'am' parameter added: allows the donor to manually enter ANY amount (₹10, ₹50, ₹100, etc.) in their UPI app
     const query = params.toString();
 
     switch (appScheme) {
@@ -580,21 +578,21 @@ export const DonationPage: React.FC = () => {
                   className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 active:from-emerald-800 active:to-teal-950 text-white font-black text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer border border-emerald-500/20"
                 >
                   <Smartphone className="w-4 h-4 text-amber-300" />
-                  <span>{language === 'en' ? 'Open UPI App & Pay Directly' : 'UPI ऐप खोलें और सीधे भुगतान करें'}</span>
+                  <span>{language === 'en' ? 'Open Any UPI App (Pay Any Amount Manually)' : 'UPI ऐप खोलें (इच्छानुसार कोई भी राशि भरें)'}</span>
                   <ExternalLink className="w-3.5 h-3.5 text-emerald-200" />
                 </a>
 
                 {/* Direct 1-Click Specific App Launchers for Maximum Compatibility */}
                 <div className="space-y-1">
-                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block text-center">
-                    {language === 'en' ? 'Or choose your specific app directly:' : 'या सीधे अपने पसंदीदा ऐप पर क्लिक करें:'}
+                  <span className="text-[10px] text-emerald-800 font-extrabold uppercase tracking-wider block text-center bg-emerald-50 py-0.5 px-2 rounded-lg border border-emerald-200/70">
+                    {language === 'en' ? '✨ No fixed amount • Enter any amount in app:' : '✨ कोई फिक्स राशि नहीं • ऐप में अपनी मर्जी से कोई भी राशि भरें:'}
                   </span>
                   <div className="grid grid-cols-4 gap-1.5">
                     <button
                       type="button"
                       onClick={() => launchUpiApp('phonepe')}
                       className="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 hover:bg-purple-100 active:bg-purple-200 border border-purple-200 text-purple-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title="Open PhonePe"
+                      title={language === 'en' ? 'Open PhonePe (Pay any voluntary amount)' : 'PhonePe खोलें (अपनी मर्जी से राशि भरें)'}
                     >
                       <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">पे</span>
                       <span>PhonePe</span>
@@ -603,7 +601,7 @@ export const DonationPage: React.FC = () => {
                       type="button"
                       onClick={() => launchUpiApp('gpay')}
                       className="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title="Open Google Pay"
+                      title={language === 'en' ? 'Open Google Pay (Pay any voluntary amount)' : 'Google Pay खोलें (अपनी मर्जी से राशि भरें)'}
                     >
                       <span className="w-6 h-6 rounded-full bg-white border border-blue-300 text-blue-600 flex items-center justify-center text-xs font-black mb-1 shadow-xs">G</span>
                       <span>GPay</span>
@@ -612,7 +610,7 @@ export const DonationPage: React.FC = () => {
                       type="button"
                       onClick={() => launchUpiApp('paytm')}
                       className="flex flex-col items-center justify-center p-2 rounded-xl bg-sky-50 hover:bg-sky-100 active:bg-sky-200 border border-sky-200 text-sky-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title="Open Paytm"
+                      title={language === 'en' ? 'Open Paytm (Pay any voluntary amount)' : 'Paytm खोलें (अपनी मर्जी से राशि भरें)'}
                     >
                       <span className="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">P</span>
                       <span>Paytm</span>
@@ -621,7 +619,7 @@ export const DonationPage: React.FC = () => {
                       type="button"
                       onClick={() => launchUpiApp('bhim')}
                       className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 text-emerald-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title="Open BHIM"
+                      title={language === 'en' ? 'Open BHIM (Pay any voluntary amount)' : 'BHIM खोलें (अपनी मर्जी से राशि भरें)'}
                     >
                       <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">B</span>
                       <span>BHIM</span>
@@ -635,10 +633,10 @@ export const DonationPage: React.FC = () => {
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 animate-bounce" />
                       <span>{language === 'en' ? `Opening ${launchedAppName}...` : `${launchedAppName} ऐप खोला जा रहा है...`}</span>
                     </div>
-                    <p className="text-[11px] text-slate-600 font-normal">
+                    <p className="text-[11px] text-slate-700 font-medium">
                       {language === 'en'
-                        ? 'If your app does not open automatically (e.g. on computer), please scan the QR code above or pay directly to UPI ID:'
-                        : 'यदि ऐप स्वतः न खुले (जैसे कि कंप्यूटर पर), तो कृपया ऊपर दिया गया QR कोड स्कैन करें या सीधे इस UPI ID पर भेजें:'}
+                        ? 'App will open with blank amount: enter any amount you wish to donate.'
+                        : 'ऐप बिना किसी फिक्स राशि के खुलेगा: अपनी इच्छानुसार जो भी राशि देनी हो, दर्ज करके भुगतान करें।'}
                     </p>
                     <div className="font-mono font-black text-sm text-blue-900 bg-white py-1 px-3 rounded-lg border border-emerald-200 inline-block shadow-2xs select-all">
                       {settings.upiId}
@@ -648,17 +646,12 @@ export const DonationPage: React.FC = () => {
 
                 <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-[10.5px] text-slate-600 text-center space-y-0.5">
                   <div className="font-bold text-slate-800">
-                    💡 {language === 'en' ? 'How it works:' : 'भुगतान कैसे करें:'}
+                    💡 {language === 'en' ? 'Voluntary Contribution:' : 'स्वैच्छिक दान:'}
                   </div>
                   <div>
                     {language === 'en'
-                      ? '• Mobile: Tapping any button above opens PhonePe / GPay / Paytm directly on your phone.'
-                      : '• मोबाइल पर: ऊपर दिए गए किसी भी बटन को दबाते ही आपके फोन में PhonePe / GPay / Paytm सीधे खुल जाएगा।'}
-                  </div>
-                  <div>
-                    {language === 'en'
-                      ? '• Computer: Scan the official QR code above using your mobile camera or UPI app.'
-                      : '• कंप्यूटर पर: ऊपर दिए गए आधिकारिक QR कोड को अपने मोबाइल के UPI ऐप से स्कैन करें।'}
+                      ? '• No amount is locked or fixed. You can pay ₹10, ₹50, ₹100, ₹500 or any custom amount in PhonePe/GPay/Paytm.'
+                      : '• कोई राशि लॉक या फिक्स नहीं है। आप PhonePe, GPay या Paytm में ₹10, ₹50, ₹100, ₹500 या अपनी मर्जी से कोई भी राशि डालकर सीधे भुगतान कर सकते हैं।'}
                   </div>
                 </div>
               </div>
