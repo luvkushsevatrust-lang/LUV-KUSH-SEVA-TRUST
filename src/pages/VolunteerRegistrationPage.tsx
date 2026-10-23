@@ -169,17 +169,27 @@ export const VolunteerRegistrationPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="bg-emerald-50/80 border border-emerald-300 rounded-2xl p-5 max-w-md mx-auto space-y-3">
-            <span className="text-xs text-emerald-800 font-bold block uppercase tracking-wider">
-              {t.form.applicationId}:
-            </span>
-            <div className="text-2xl sm:text-3xl font-black font-mono text-blue-950 bg-white py-2 px-4 rounded-xl border border-emerald-200 shadow-sm">
+          <div className="bg-amber-50/80 border border-amber-300 rounded-2xl p-5 max-w-md mx-auto space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-amber-900 font-bold block uppercase tracking-wider">
+                {t.form.applicationId}:
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-200 text-amber-900 border border-amber-400">
+                ⏳ {language === 'en' ? 'Pending Approval' : 'प्रतीक्षारत (स्वीकृति आवश्यक)'}
+              </span>
+            </div>
+            <div className="text-2xl sm:text-3xl font-black font-mono text-blue-950 bg-white py-2 px-4 rounded-xl border border-amber-200 shadow-sm">
               {registeredVol.id}
             </div>
-            <div className="text-xs text-slate-600 text-left space-y-1 pt-2 border-t border-emerald-200">
+            <div className="text-xs text-slate-700 text-left space-y-1 pt-2 border-t border-amber-200">
               <div><strong>{t.form.fullName}:</strong> {registeredVol.name}</div>
               <div><strong>{t.form.preferredService}:</strong> {registeredVol.preferredService}</div>
               <div><strong>{t.form.mobile}:</strong> {registeredVol.mobile}</div>
+            </div>
+            <div className="pt-2 border-t border-amber-200 text-[11px] text-amber-950 bg-amber-100/70 p-2.5 rounded-xl text-left">
+              ℹ️ {language === 'en'
+                ? 'Your volunteer application is currently pending admin approval. Sevadar ID Card and certificate will be activated once verified by the office.'
+                : 'आपका स्वयंसेवक आवेदन "प्रतीक्षारत" (Pending) में दर्ज हो गया है। कार्यालय द्वारा सत्यापन व स्वीकृति के बाद आधिकारिक सेवादार पहचान पत्र सक्रिय होगा।'}
             </div>
           </div>
 

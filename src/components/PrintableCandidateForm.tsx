@@ -59,7 +59,7 @@ export const PrintableCandidateForm: React.FC<PrintableCandidateFormProps> = ({
     ? (candidate as Student).registrationNumber || candidate.id
     : candidate.id;
   const status = candidate.status || 'Pending';
-  const isApproved = status === 'Approved' || status === 'Active';
+  const isApproved = (status as string) === 'Approved' || (status as string) === 'Active';
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
 
   const avatar = getCardPhotoUrl({

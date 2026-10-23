@@ -186,6 +186,14 @@ export const StudentRegistrationPage: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto bg-amber-50/70 border border-amber-200 p-5 rounded-2xl text-left">
+            <div className="sm:col-span-2 flex items-center justify-between pb-2 border-b border-amber-200/60">
+              <span className="text-[11px] font-bold text-amber-900 uppercase">
+                {language === 'en' ? 'Admission Status:' : 'प्रवेश स्थिति:'}
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-200 text-amber-900 border border-amber-400">
+                ⏳ {language === 'en' ? 'Pending Approval' : 'प्रतीक्षारत (स्वीकृति आवश्यक)'}
+              </span>
+            </div>
             <div>
               <span className="text-[11px] font-bold text-slate-500 uppercase block">{t.student.rollNumberLabel}</span>
               <strong className="text-lg font-mono text-red-700 font-extrabold">{registeredStudent.registrationNumber}</strong>
@@ -205,6 +213,11 @@ export const StudentRegistrationPage: React.FC = () => {
             <div className="sm:col-span-2 pt-2 border-t border-amber-200/60 text-xs text-slate-600">
               {language === 'en' ? 'Default Login Password:' : 'लॉगिन पासवर्ड:'}{' '}
               <strong className="font-mono text-slate-800">{registeredStudent.password || 'password123'}</strong>
+            </div>
+            <div className="sm:col-span-2 pt-2 border-t border-amber-200/60 text-[11px] text-amber-950 bg-amber-100/70 p-2.5 rounded-xl">
+              ℹ️ {language === 'en'
+                ? 'Your student registration has been submitted in Pending status. Identification card and printing will be activated after verification by the Trust Office.'
+                : 'छात्र पंजीकरण "प्रतीक्षारत" (Pending) में दर्ज हो गया है। कार्यालय द्वारा सत्यापन व स्वीकृति के बाद आधिकारिक पहचान पत्र व प्रिंटिंग सक्रिय होगी।'}
             </div>
           </div>
 

@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   Trash2,
+  Smartphone,
 } from 'lucide-react';
 import { Donation } from '../types';
 import { compressImageFile } from '../utils/imageCompressor';
@@ -207,28 +208,76 @@ export const DonationPage: React.FC = () => {
     setSubmittedDonation(newDon);
   };
 
-  // Universal UPI payment URL without fixed amount (allows donor to pay any amount of their choice)
-  const upiPayUrl = `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(
-    settings.name
-  )}&cu=INR&tn=${encodeURIComponent('Seva Donation')}`;
+  // Dynamic UPI payment URL generator (supports voluntary amount or selected amount)
+  const getUpiUrl = (appScheme: 'generic' | 'phonepe' | 'gpay' | 'paytm' | 'bhim' = 'generic') => {
+    const params = new URLSearchParams({
+      pa: settings.upiId,
+      pn: settings.name,
+      cu: 'INR',
+      tn: 'Luv Kush Seva Trust Donation',
+    });
+    if (effectiveAmount && effectiveAmount > 0) {
+      params.append('am', effectiveAmount.toString());
+    }
+    const query = params.toString();
 
-  const [upiToast, setUpiToast] = useState(false);
+    switch (appScheme) {
+      case 'phonepe':
+        return `phonepe://pay?${query}`;
+      case 'gpay':
+        return `tez://upi/pay?${query}`;
+      case 'paytm':
+        return `paytmmp://pay?${query}`;
+      case 'bhim':
+        return `bhim://pay?${query}`;
+      default:
+        return `upi://pay?${query}`;
+    }
+  };
 
-  const handleDirectUpiPay = () => {
+  const upiPayUrl = getUpiUrl('generic');
+  const [launchedAppName, setLaunchedAppName] = useState<string | null>(null);
+
+  const launchUpiApp = (appScheme: 'generic' | 'phonepe' | 'gpay' | 'paytm' | 'bhim' = 'generic') => {
+    const url = getUpiUrl(appScheme);
+    const appLabel =
+      appScheme === 'phonepe'
+        ? 'PhonePe'
+        : appScheme === 'gpay'
+        ? 'Google Pay (GPay)'
+        : appScheme === 'paytm'
+        ? 'Paytm'
+        : appScheme === 'bhim'
+        ? 'BHIM UPI'
+        : language === 'en'
+        ? 'UPI App'
+        : 'UPI ऐप';
+
+    setLaunchedAppName(appLabel);
+    setTimeout(() => setLaunchedAppName(null), 7000);
+
+    // 1. Try navigating top-level window directly (essential inside iframes/preview)
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(settings.upiId).catch(() => {});
+      if (window.top && window.top !== window) {
+        window.top.location.href = url;
+      } else {
+        window.location.href = url;
       }
     } catch {
-      // ignore
+      window.location.href = url;
     }
-    setUpiToast(true);
-    setTimeout(() => setUpiToast(false), 5000);
 
+    // 2. Also trigger a native anchor with target="_top" for mobile browser protocol handler
     try {
-      window.location.href = upiPayUrl;
-    } catch (err) {
-      console.warn('UPI navigation error:', err);
+      const a = document.createElement('a');
+      a.href = url;
+      a.target = '_top';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch {
+      // ignore
     }
   };
 
@@ -521,38 +570,97 @@ export const DonationPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Direct UPI Payment Section (Direct 1-click launch, flexible voluntary amount, guaranteed feedback) */}
-              <div className="space-y-2 pt-1.5">
+              {/* Direct UPI Payment Section (Target element of selector 1: a:nth-of-type(1)) */}
+              <div className="space-y-2.5 pt-1.5">
                 <a
                   href={upiPayUrl}
-                  onClick={handleDirectUpiPay}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-extrabold text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer"
+                  target="_top"
+                  rel="noopener noreferrer"
+                  onClick={() => launchUpiApp('generic')}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 active:from-emerald-800 active:to-teal-950 text-white font-black text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer border border-emerald-500/20"
                 >
-                  <CreditCard className="w-4 h-4 text-amber-300" />
-                  <span>{language === 'en' ? 'Pay Directly via Any UPI App' : 'सीधे किसी भी UPI ऐप से भुगतान करें'}</span>
+                  <Smartphone className="w-4 h-4 text-amber-300" />
+                  <span>{language === 'en' ? 'Open UPI App & Pay Directly' : 'UPI ऐप खोलें और सीधे भुगतान करें'}</span>
                   <ExternalLink className="w-3.5 h-3.5 text-emerald-200" />
                 </a>
 
-                {upiToast && (
-                  <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-2.5 text-xs text-emerald-900 text-center font-bold animate-fadeIn space-y-1">
+                {/* Direct 1-Click Specific App Launchers for Maximum Compatibility */}
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block text-center">
+                    {language === 'en' ? 'Or choose your specific app directly:' : 'या सीधे अपने पसंदीदा ऐप पर क्लिक करें:'}
+                  </span>
+                  <div className="grid grid-cols-4 gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => launchUpiApp('phonepe')}
+                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 hover:bg-purple-100 active:bg-purple-200 border border-purple-200 text-purple-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
+                      title="Open PhonePe"
+                    >
+                      <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">पे</span>
+                      <span>PhonePe</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => launchUpiApp('gpay')}
+                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
+                      title="Open Google Pay"
+                    >
+                      <span className="w-6 h-6 rounded-full bg-white border border-blue-300 text-blue-600 flex items-center justify-center text-xs font-black mb-1 shadow-xs">G</span>
+                      <span>GPay</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => launchUpiApp('paytm')}
+                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-sky-50 hover:bg-sky-100 active:bg-sky-200 border border-sky-200 text-sky-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
+                      title="Open Paytm"
+                    >
+                      <span className="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">P</span>
+                      <span>Paytm</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => launchUpiApp('bhim')}
+                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 text-emerald-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
+                      title="Open BHIM"
+                    >
+                      <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">B</span>
+                      <span>BHIM</span>
+                    </button>
+                  </div>
+                </div>
+
+                {launchedAppName && (
+                  <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 text-xs text-emerald-950 text-center font-bold animate-fadeIn space-y-1">
                     <div className="flex items-center justify-center gap-1.5 text-emerald-800">
-                      <Check className="w-4 h-4 text-emerald-600" />
-                      <span>{language === 'en' ? 'UPI App Opened & UPI ID Copied!' : 'UPI ऐप खोला जा रहा है एवं UPI ID कॉपी हो गई!'}</span>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 animate-bounce" />
+                      <span>{language === 'en' ? `Opening ${launchedAppName}...` : `${launchedAppName} ऐप खोला जा रहा है...`}</span>
                     </div>
-                    <p className="text-[10.5px] text-slate-600 font-normal">
+                    <p className="text-[11px] text-slate-600 font-normal">
                       {language === 'en'
-                        ? 'If UPI app did not open, you can pay directly to UPI ID: '
-                        : 'यदि ऐप स्वतः न खुले, तो PhonePe / GPay खोलकर इस UPI ID पर भुगतान करें: '}
-                      <span className="font-mono font-bold text-blue-900 select-all">{settings.upiId}</span>
+                        ? 'If your app does not open automatically (e.g. on computer), please scan the QR code above or pay directly to UPI ID:'
+                        : 'यदि ऐप स्वतः न खुले (जैसे कि कंप्यूटर पर), तो कृपया ऊपर दिया गया QR कोड स्कैन करें या सीधे इस UPI ID पर भेजें:'}
                     </p>
+                    <div className="font-mono font-black text-sm text-blue-900 bg-white py-1 px-3 rounded-lg border border-emerald-200 inline-block shadow-2xs select-all">
+                      {settings.upiId}
+                    </div>
                   </div>
                 )}
 
-                <p className="text-[10px] text-slate-500 text-center font-medium">
-                  {language === 'en'
-                    ? 'No fixed amount • Pay any voluntary contribution amount directly in your app'
-                    : 'राशि फिक्स नहीं है • ऐप में अपनी इच्छानुसार कोई भी सहयोग राशि भरकर सीधे भुगतान करें'}
-                </p>
+                <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-[10.5px] text-slate-600 text-center space-y-0.5">
+                  <div className="font-bold text-slate-800">
+                    💡 {language === 'en' ? 'How it works:' : 'भुगतान कैसे करें:'}
+                  </div>
+                  <div>
+                    {language === 'en'
+                      ? '• Mobile: Tapping any button above opens PhonePe / GPay / Paytm directly on your phone.'
+                      : '• मोबाइल पर: ऊपर दिए गए किसी भी बटन को दबाते ही आपके फोन में PhonePe / GPay / Paytm सीधे खुल जाएगा।'}
+                  </div>
+                  <div>
+                    {language === 'en'
+                      ? '• Computer: Scan the official QR code above using your mobile camera or UPI app.'
+                      : '• कंप्यूटर पर: ऊपर दिए गए आधिकारिक QR कोड को अपने मोबाइल के UPI ऐप से स्कैन करें।'}
+                  </div>
+                </div>
               </div>
 
             </div>

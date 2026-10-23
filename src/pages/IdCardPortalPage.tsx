@@ -324,33 +324,39 @@ export const IdCardPortalPage: React.FC = () => {
         </div>
       )}
 
-      {/* Trust ID Cards info */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1.5">
-          <CreditCard className="w-5 h-5 text-blue-700" />
-          <h4 className="font-bold text-slate-900">{language === 'en' ? 'Unique Card Number' : 'विशिष्ट पहचान संख्या'}</h4>
-          <p className="text-slate-500 text-[11px] leading-relaxed">
+      {/* Trust ID Cards info - compact & smaller */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+        <div className="bg-white/90 p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1 transition-all">
+          <div className="flex items-center gap-1.5">
+            <CreditCard className="w-4 h-4 text-blue-700 shrink-0" />
+            <h4 className="font-bold text-slate-900 text-[11px] leading-tight">{language === 'en' ? 'Unique Card Number' : 'विशिष्ट पहचान संख्या'}</h4>
+          </div>
+          <p className="text-slate-500 text-[10px] leading-snug">
             {language === 'en'
-              ? 'Every verified member is issued a unique card in LKST-2026-000001 format.'
-              : 'प्रत्येक स्वीकृत सदस्य को LKST-2026-000001 प्रारूप में विशिष्ट पहचान संख्या दी जाती है।'}
+              ? 'Unique official serial number in LKST-2026-000001 format.'
+              : 'प्रत्येक सदस्य को LKST-2026-000001 प्रारूप में विशिष्ट पहचान संख्या।'}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1.5">
-          <BadgeCheck className="w-5 h-5 text-emerald-700" />
-          <h4 className="font-bold text-slate-900">{language === 'en' ? 'Digital QR Verification' : 'डिजिटल सत्यापन'}</h4>
-          <p className="text-slate-500 text-[11px] leading-relaxed">
+        <div className="bg-white/90 p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1 transition-all">
+          <div className="flex items-center gap-1.5">
+            <BadgeCheck className="w-4 h-4 text-emerald-700 shrink-0" />
+            <h4 className="font-bold text-slate-900 text-[11px] leading-tight">{language === 'en' ? 'Digital QR Verification' : 'डिजिटल सत्यापन'}</h4>
+          </div>
+          <p className="text-slate-500 text-[10px] leading-snug">
             {language === 'en'
-              ? 'Scan the QR code on the back of the card with any camera for instant validity check.'
-              : 'कार्ड के पीछे मौजूद QR कोड से तुरंत ऑनलाइन प्रमाणिकता की जांच की जा सकती है।'}
+              ? 'Scan back QR code with any camera for instant validity.'
+              : 'कार्ड के पीछे मौजूद सुरक्षित QR कोड से तुरंत ऑनलाइन प्रमाणिकता जांच।'}
           </p>
         </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-1.5">
-          <ShieldCheck className="w-5 h-5 text-amber-600" />
-          <h4 className="font-bold text-slate-900">{language === 'en' ? 'Trust Recognition & Benefits' : 'मान्यता एवं सेवाएं'}</h4>
-          <p className="text-slate-500 text-[11px] leading-relaxed">
+        <div className="bg-white/90 p-2.5 sm:p-3 rounded-xl border border-slate-200 shadow-2xs space-y-1 transition-all">
+          <div className="flex items-center gap-1.5">
+            <ShieldCheck className="w-4 h-4 text-amber-600 shrink-0" />
+            <h4 className="font-bold text-slate-900 text-[11px] leading-tight">{language === 'en' ? 'Trust Recognition' : 'मान्यता एवं सेवाएं'}</h4>
+          </div>
+          <p className="text-slate-500 text-[10px] leading-snug">
             {language === 'en'
-              ? 'Valid across all orphanage, old age home, education coaching and medical camps run by the trust.'
-              : 'ट्रस्ट द्वारा संचालित अनाथ आश्रम, वृद्ध आश्रम, कोचिंग व चिकित्सा सहायता में यह कार्ड मान्य है।'}
+              ? 'Valid across all trust orphanage, old age, education & medical camps.'
+              : 'अनाथ आश्रम, वृद्ध आश्रम, कोचिंग व चिकित्सा में आधिकारिक मान्य कार्ड।'}
           </p>
         </div>
       </div>

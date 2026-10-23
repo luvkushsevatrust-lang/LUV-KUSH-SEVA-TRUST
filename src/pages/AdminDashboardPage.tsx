@@ -85,6 +85,7 @@ export const AdminDashboardPage: React.FC = () => {
     students,
     addStudent,
     updateStudent,
+    updateStudentStatus,
     deleteStudent,
     idCards,
     addIdCard,
@@ -137,6 +138,14 @@ export const AdminDashboardPage: React.FC = () => {
   const [idStatusFilter, setIdStatusFilter] = useState<string>('all');
   const [idSearchQuery, setIdSearchQuery] = useState('');
   const [selectedCardForEdit, setSelectedCardForEdit] = useState<IdCard | null>(null);
+
+  // Student filters
+  const [studentStatusFilter, setStudentStatusFilter] = useState<string>('all');
+  const [studentSearchQuery, setStudentSearchQuery] = useState('');
+
+  // Volunteer filters
+  const [volunteerStatusFilter, setVolunteerStatusFilter] = useState<string>('all');
+  const [volunteerSearchQuery, setVolunteerSearchQuery] = useState('');
 
   // Safe Deletion Confirmation Modal State (replaces native window.confirm blocked in iframes)
   const [deleteConfirmItem, setDeleteConfirmItem] = useState<{
@@ -349,16 +358,52 @@ export const AdminDashboardPage: React.FC = () => {
   const approvedApps = applications.filter((a) => a.status === 'Approved').length;
   const rejectedApps = applications.filter((a) => a.status === 'Rejected').length;
   const totalStudents = students.length;
+  const pendingStudents = students.filter((s) => s.status === 'Pending').length;
   const totalVolunteers = volunteers.length;
-  // ONLY APPROVED DONATIONS COUNT FOR TOTAL AMOUNT (User Requirement)
+  const pendingVolunteers = volunteers.filter((v) => v.status === 'Pending').length;
+  const totalIdCards = idCards.length;
+  const pendingIdCards = idCards.filter((c) => c.status === 'Pending').length;
+  const activeIdCards = idCards.filter((c) => c.status === 'Active' || c.status === 'Approved').length;
+
+  // Filtered students
+  const filteredStudents = students.filter((stu) => {
+    if (studentStatusFilter === 'Pending' && stu.status !== 'Pending') return false;
+    if (studentStatusFilter === 'Approved' && stu.status !== 'Approved') return false;
+    if (studentSearchQuery.trim()) {
+      const q = studentSearchQuery.toLowerCase().trim();
+      const match =
+        stu.name.toLowerCase().includes(q) ||
+        (stu.registrationNumber && stu.registrationNumber.toLowerCase().includes(q)) ||
+        (stu.mobile && stu.mobile.includes(q)) ||
+        (stu.studentClass && stu.studentClass.toLowerCase().includes(q)) ||
+        (stu.fatherName && stu.fatherName.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  // Filtered volunteers
+  const filteredVolunteers = volunteers.filter((vol) => {
+    if (volunteerStatusFilter === 'Pending' && vol.status !== 'Pending') return false;
+    if (volunteerStatusFilter === 'Active' && vol.status !== 'Active' && vol.status !== 'Approved') return false;
+    if (volunteerSearchQuery.trim()) {
+      const q = volunteerSearchQuery.toLowerCase().trim();
+      const match =
+        vol.name.toLowerCase().includes(q) ||
+        (vol.id && vol.id.toLowerCase().includes(q)) ||
+        (vol.mobile && vol.mobile.includes(q)) ||
+        (vol.preferredService && vol.preferredService.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    return true;
+  });
+
+  // Donations summaries
   const approvedDonationsList = donations.filter((d) => d.status === 'Approved');
   const pendingDonationsList = donations.filter((d) => d.status === 'Pending' || (!d.status && !d.isVerified));
   const rejectedDonationsList = donations.filter((d) => d.status === 'Rejected');
-
-  const totalDonationsAmount = approvedDonationsList.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-  const totalPendingDonationsAmount = pendingDonationsList.reduce((sum, d) => sum + Number(d.amount || 0), 0);
-  const totalIdCards = idCards.length;
-  const activeIdCards = idCards.filter((c) => c.status === 'Active' || c.status === 'Approved').length;
+  const totalDonationsAmount = approvedDonationsList.reduce((sum, d) => sum + (d.amount || 0), 0);
+  const totalPendingDonationsAmount = pendingDonationsList.reduce((sum, d) => sum + (d.amount || 0), 0);
 
   // Filtered donations
   const filteredDonations = donations.filter((don) => {
@@ -931,10 +976,10 @@ export const AdminDashboardPage: React.FC = () => {
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 pb-3">
         {[
           { id: 'overview', label: t.admin.tabOverview, icon: Shield },
-          { id: 'id_cards', label: `${t.admin.tabIdCards} (${totalIdCards})`, icon: CreditCard, highlight: true },
-          { id: 'applications', label: `${t.admin.tabApplications} (${totalApps})`, icon: Users },
-          { id: 'students', label: `${t.admin.tabStudents} (${totalStudents})`, icon: GraduationCap },
-          { id: 'volunteers', label: `${t.admin.tabVolunteers} (${totalVolunteers})`, icon: UserCheck },
+          { id: 'id_cards', label: t.admin.tabIdCards, count: totalIdCards, pending: pendingIdCards, icon: CreditCard, highlight: true },
+          { id: 'applications', label: t.admin.tabApplications, count: totalApps, pending: pendingApps, icon: Users },
+          { id: 'students', label: t.admin.tabStudents, count: totalStudents, pending: pendingStudents, icon: GraduationCap },
+          { id: 'volunteers', label: t.admin.tabVolunteers, count: totalVolunteers, pending: pendingVolunteers, icon: UserCheck },
           { id: 'donations', label: t.admin.tabDonations, icon: Heart },
           { id: 'announcements', label: t.admin.tabAnnouncements, icon: Bell },
           { id: 'service_images', label: language === 'en' ? '6 Project Images' : 'सेवा छवियां (Images)', icon: ImageIcon, isImages: true },
@@ -942,11 +987,14 @@ export const AdminDashboardPage: React.FC = () => {
           { id: 'supabase', label: 'Supabase Cloud DB', icon: Database, isSupabase: true },
         ].map((tab) => {
           const Icon = tab.icon;
+          const displayLabel = (tab as any).count !== undefined
+            ? `${tab.label} (${(tab as any).count})`
+            : tab.label;
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === tab.id
                   ? 'bg-blue-900 text-white shadow-sm'
                   : (tab as any).isSupabase
@@ -957,7 +1005,12 @@ export const AdminDashboardPage: React.FC = () => {
               }`}
             >
               <Icon className="w-4 h-4" />
-              <span>{tab.label}</span>
+              <span>{displayLabel}</span>
+              {(tab as any).pending !== undefined && (tab as any).pending > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950 border border-amber-500 shadow-2xs">
+                  ⏳ {(tab as any).pending} {language === 'en' ? 'Pending' : 'लंबित'}
+                </span>
+              )}
               {(tab as any).isSupabase && (
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               )}
@@ -1225,6 +1278,46 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Status Quick Filter Chips */}
+          <div className="flex flex-wrap items-center gap-2 pt-1 pb-1">
+            <button
+              onClick={() => setIdStatusFilter('all')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
+                idStatusFilter === 'all'
+                  ? 'bg-blue-900 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+              }`}
+            >
+              {language === 'en' ? 'All ID Cards' : 'सभी ID Cards'} ({totalIdCards})
+            </button>
+            <button
+              onClick={() => setIdStatusFilter('Pending')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                idStatusFilter === 'Pending'
+                  ? 'bg-amber-500 text-slate-950 shadow-xs'
+                  : 'bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300'
+              }`}
+            >
+              <span>⏳ {language === 'en' ? 'Pending Approval' : 'प्रतीक्षारत (Pending)'}</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 font-black text-[10px]">
+                {pendingIdCards}
+              </span>
+            </button>
+            <button
+              onClick={() => setIdStatusFilter('Active')}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                idStatusFilter === 'Active'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300'
+              }`}
+            >
+              <span>✓ {language === 'en' ? 'Active' : 'सक्रिय (Active)'}</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-emerald-200 text-emerald-950 font-black text-[10px]">
+                {activeIdCards}
+              </span>
+            </button>
+          </div>
+
           {/* ID Cards Table */}
           <div className="overflow-x-auto border border-slate-200 rounded-2xl">
             <table className="w-full text-left text-xs border-collapse">
@@ -1251,6 +1344,7 @@ export const AdminDashboardPage: React.FC = () => {
                   filteredIdCards.map((card, idx) => {
                     const cfg = ID_CARD_CATEGORY_CONFIG[card.category] || ID_CARD_CATEGORY_CONFIG.beneficiary;
                     const catLabel = language === 'en' ? (card.categoryLabelEn || card.category) : card.categoryLabelHi;
+                    const isCardActive = card.status === 'Active' || card.status === 'Approved';
                     return (
                       <tr key={`${card.id}-${card.cardNumber || ''}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3 px-3 font-mono font-black text-red-700">
@@ -1271,10 +1365,10 @@ export const AdminDashboardPage: React.FC = () => {
                         <td className="py-3 px-3">
                           <span
                             className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                              card.status === 'Active' || card.status === 'Approved'
+                              isCardActive
                                 ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                                 : card.status === 'Pending'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                ? 'bg-amber-100 text-amber-800 border border-amber-300 animate-pulse'
                                 : 'bg-rose-100 text-rose-800 border border-rose-300'
                             }`}
                           >
@@ -1294,15 +1388,47 @@ export const AdminDashboardPage: React.FC = () => {
                           </span>
                         </td>
                         <td className="py-3 px-3 text-right space-x-1 whitespace-nowrap">
-                          {/* View & Print */}
-                          <button
-                            onClick={() => setActiveIdCard(card)}
-                            className="px-2.5 py-1 bg-blue-900 hover:bg-blue-950 text-white rounded font-bold text-[11px] cursor-pointer"
-                            title={language === 'en' ? 'View and print card' : 'कार्ड देखें व प्रिंट करें'}
-                          >
-                            <Printer className="w-3.5 h-3.5 inline mr-1" />
-                            {language === 'en' ? 'Card' : 'कार्ड'}
-                          </button>
+                          {/* Quick Approve Action if pending */}
+                          {!isCardActive && (
+                            <button
+                              onClick={() => {
+                                updateIdCard(card.id, { status: 'Active' });
+                                setActionToast({
+                                  message:
+                                    language === 'en'
+                                      ? `ID Card "${card.cardNumber}" approved and activated! Print option unlocked.`
+                                      : `पहचान पत्र "${card.cardNumber}" स्वीकृत व सक्रिय किया गया! प्रिंट विकल्प चालू हुआ।`,
+                                  type: 'success',
+                                });
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                              title={language === 'en' ? 'Approve & Activate ID Card' : 'पहचान पत्र स्वीकृत व सक्रिय करें'}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5 inline" />
+                              <span>{language === 'en' ? 'Approve' : 'स्वीकृति दें'}</span>
+                            </button>
+                          )}
+
+                          {/* View & Print (Only active after approval) */}
+                          {isCardActive ? (
+                            <button
+                              onClick={() => setActiveIdCard(card)}
+                              className="px-2.5 py-1 bg-blue-900 hover:bg-blue-950 text-white rounded font-bold text-[11px] cursor-pointer"
+                              title={language === 'en' ? 'View and print card' : 'कार्ड देखें व प्रिंट करें'}
+                            >
+                              <Printer className="w-3.5 h-3.5 inline mr-1" />
+                              {language === 'en' ? 'Card' : 'कार्ड'}
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="px-2.5 py-1 bg-slate-200 text-slate-400 rounded font-bold text-[11px] cursor-not-allowed border border-slate-300 inline-flex items-center gap-1"
+                              title={language === 'en' ? 'Locked: Approval required before printing' : 'प्रिंट लॉक: पहले स्वीकृति दें'}
+                            >
+                              <Printer className="w-3.5 h-3.5 inline" />
+                              <span>{language === 'en' ? 'Card 🔒' : 'कार्ड 🔒'}</span>
+                            </button>
+                          )}
 
                           {/* Digital Verification */}
                           <button
@@ -1497,15 +1623,26 @@ export const AdminDashboardPage: React.FC = () => {
                             <span>{language === 'en' ? 'Edit Form' : 'फॉर्म एडिट'}</span>
                           </button>
 
-                          {/* Print या PDF ऑप्शन */}
-                          <button
-                            onClick={() => setPrintableCandidate({ candidate: app, type: 'application' })}
-                            className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
-                            title={language === 'en' ? 'Print or Save PDF' : 'प्रपत्र प्रिंट या PDF'}
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>{language === 'en' ? 'Print/PDF' : 'प्रिंट/PDF'}</span>
-                          </button>
+                          {/* Print या PDF ऑप्शन (स्वीकृति के बाद ही उपलब्ध) */}
+                          {app.status === 'Approved' ? (
+                            <button
+                              onClick={() => setPrintableCandidate({ candidate: app, type: 'application' })}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                              title={language === 'en' ? 'Print or Save PDF' : 'प्रपत्र प्रिंट या PDF'}
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>{language === 'en' ? 'Print/PDF' : 'प्रिंट/PDF'}</span>
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="px-2.5 py-1 bg-slate-100 text-slate-400 rounded font-bold text-[11px] cursor-not-allowed inline-flex items-center gap-1 border border-slate-200"
+                              title={language === 'en' ? 'Printing is locked until application is approved' : 'अनुमोदन के बिना प्रिंट वर्जित है (पहले स्वीकृति दें)'}
+                            >
+                              <Printer className="w-3.5 h-3.5 opacity-40" />
+                              <span>{language === 'en' ? 'Print 🔒' : 'प्रिंट 🔒'}</span>
+                            </button>
+                          )}
 
                           {/* विवरण देखें */}
                           <button
@@ -1525,11 +1662,13 @@ export const AdminDashboardPage: React.FC = () => {
                                   'Approved',
                                   language === 'en' ? 'Approved by admin' : 'कार्यालय द्वारा स्वीकृत'
                                 );
+                                setActionToast({ message: language === 'en' ? 'Application approved successfully!' : 'आवेदन सफलतापूर्वक स्वीकृत किया गया!' });
                               }}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded font-bold text-[11px] cursor-pointer"
-                              title={language === 'en' ? 'Approve' : 'स्वीकृत करें'}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[11px] cursor-pointer shadow-xs inline-flex items-center gap-1"
+                              title={language === 'en' ? 'Approve & Unlock Print' : 'स्वीकृति दें (प्रिंट अनलॉक करें)'}
                             >
-                              {language === 'en' ? 'Approve' : 'स्वीकृत करें'}
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>{language === 'en' ? 'Approve' : 'स्वीकृति दें'}</span>
                             </button>
                           )}
 
@@ -1616,13 +1755,20 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                {language === 'en' ? 'Student Registry & ID Cards' : 'विद्यार्थी सूची एवं पहचान पत्र'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {language === 'en' ? 'Student Registry & ID Cards' : 'विद्यार्थी सूची एवं पहचान पत्र'}
+                </h2>
+                {pendingStudents > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500 text-slate-950 animate-pulse">
+                    ⏳ {pendingStudents} {language === 'en' ? 'Pending' : 'लंबित'}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">
                 {language === 'en'
-                  ? 'Official records of students enrolled in free education and coaching programs.'
-                  : 'निःशुल्क शिक्षा, छात्रवृत्ति एवं कोचिंग अध्ययनरत विद्यार्थियों का आधिकारिक रिकॉर्ड।'}
+                  ? 'Official records of students enrolled in free education. Approval is required before printing dossiers or activating ID cards.'
+                  : 'निःशुल्क शिक्षा, छात्रवृत्ति व कोचिंग अध्ययनरत विद्यार्थियों का आधिकारिक रिकॉर्ड। प्रपत्र प्रिंट एवं आईडी कार्ड के लिए प्रशासनिक स्वीकृति आवश्यक है।'}
               </p>
             </div>
             <button
@@ -1634,6 +1780,56 @@ export const AdminDashboardPage: React.FC = () => {
             </button>
           </div>
 
+          {/* Search & Status Filters */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase">{language === 'en' ? 'Status:' : 'स्थिति:'}</span>
+              <button
+                type="button"
+                onClick={() => setStudentStatusFilter('all')}
+                className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors ${
+                  studentStatusFilter === 'all'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {language === 'en' ? 'All' : 'सभी'} ({students.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentStatusFilter('Pending')}
+                className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors ${
+                  studentStatusFilter === 'Pending'
+                    ? 'bg-amber-500 text-slate-950 font-black ring-2 ring-amber-300'
+                    : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                ⏳ {language === 'en' ? 'Pending' : 'प्रतीक्षारत'} ({pendingStudents})
+              </button>
+              <button
+                type="button"
+                onClick={() => setStudentStatusFilter('Approved')}
+                className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors ${
+                  studentStatusFilter === 'Approved'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                }`}
+              >
+                ✓ {language === 'en' ? 'Approved' : 'स्वीकृत'} ({students.length - pendingStudents})
+              </button>
+            </div>
+
+            <div className="w-full sm:w-64">
+              <input
+                type="text"
+                value={studentSearchQuery}
+                onChange={(e) => setStudentSearchQuery(e.target.value)}
+                placeholder={language === 'en' ? 'Search student, roll, mobile...' : 'छात्र नाम, अनुक्रमांक या फोन...'}
+                className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
           <div className="overflow-x-auto border border-slate-200 rounded-2xl">
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold">
@@ -1643,77 +1839,144 @@ export const AdminDashboardPage: React.FC = () => {
                   <th className="py-3 px-3">{language === 'en' ? 'Class' : 'कक्षा'}</th>
                   <th className="py-3 px-3">{language === 'en' ? 'Parents' : 'माता / पिता'}</th>
                   <th className="py-3 px-3">{language === 'en' ? 'Mobile' : 'मोबाइल'}</th>
-                  <th className="py-3 px-3">{language === 'en' ? 'DOB' : 'जन्मतिथि'}</th>
+                  <th className="py-3 px-3">{language === 'en' ? 'Status' : 'स्थिति'}</th>
                   <th className="py-3 px-3 text-right">{t.admin.actionsColumn}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {students.map((stu, idx) => {
-                  const card = idCards.find(
-                    (c) => c.sourceId === stu.id || c.registrationNumber === stu.registrationNumber
-                  );
-                  return (
-                    <tr key={`${stu.id}-${stu.registrationNumber || ''}-${idx}`} className="hover:bg-slate-50/70">
-                      <td className="py-3 px-3 font-mono font-bold text-red-700">{stu.registrationNumber}</td>
-                      <td className="py-3 px-3 font-bold text-slate-900">{stu.name}</td>
-                      <td className="py-3 px-3">{stu.studentClass}</td>
-                      <td className="py-3 px-3 text-slate-600">{stu.fatherName}</td>
-                      <td className="py-3 px-3 font-mono">{stu.mobile}</td>
-                      <td className="py-3 px-3 font-mono">{stu.dob}</td>
-                      <td className="py-3 px-3 text-right space-x-1 whitespace-nowrap">
-                        {/* छात्र फॉर्म एडिट */}
-                        <button
-                          onClick={() => handleOpenEditStudent(stu)}
-                          className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                          title={language === 'en' ? 'Edit Student Form & Aadhaar' : 'छात्र फॉर्म व आधार एडिट करें'}
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                          <span>{language === 'en' ? 'Edit Form' : 'फॉर्म एडिट'}</span>
-                        </button>
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                      {language === 'en' ? 'No students found matching your criteria.' : 'कोई छात्र रिकॉर्ड नहीं मिला।'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStudents.map((stu, idx) => {
+                    const card = idCards.find(
+                      (c) => c.sourceId === stu.id || c.registrationNumber === stu.registrationNumber
+                    );
+                    const isApproved = stu.status === 'Approved';
 
-                        {/* छात्र Print या PDF */}
-                        <button
-                          onClick={() => setPrintableCandidate({ candidate: stu, type: 'student' })}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
-                          title={language === 'en' ? 'Print or Save PDF' : 'छात्र प्रपत्र प्रिंट या PDF'}
-                        >
-                          <Printer className="w-3.5 h-3.5" />
-                          <span>{language === 'en' ? 'Print/PDF' : 'प्रिंट/PDF'}</span>
-                        </button>
+                    return (
+                      <tr key={`${stu.id}-${stu.registrationNumber || ''}-${idx}`} className="hover:bg-slate-50/70">
+                        <td className="py-3 px-3 font-mono font-bold text-red-700">{stu.registrationNumber}</td>
+                        <td className="py-3 px-3 font-bold text-slate-900">{stu.name}</td>
+                        <td className="py-3 px-3">{stu.studentClass}</td>
+                        <td className="py-3 px-3 text-slate-600">{stu.fatherName}</td>
+                        <td className="py-3 px-3 font-mono">{stu.mobile}</td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                              isApproved
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-amber-100 text-amber-900 border border-amber-300'
+                            }`}
+                          >
+                            {isApproved
+                              ? (language === 'en' ? '✓ Approved' : '✓ स्वीकृत')
+                              : (language === 'en' ? '⏳ Pending' : '⏳ प्रतीक्षारत')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right space-x-1 whitespace-nowrap">
+                          {/* छात्र फॉर्म एडिट */}
+                          <button
+                            onClick={() => handleOpenEditStudent(stu)}
+                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                            title={language === 'en' ? 'Edit Student Form & Aadhaar' : 'छात्र फॉर्म व आधार एडिट करें'}
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>{language === 'en' ? 'Edit Form' : 'फॉर्म एडिट'}</span>
+                          </button>
 
-                        <button
-                          onClick={() => {
-                            if (card) {
-                              setActiveIdCard(card);
-                            } else {
-                              const newCard = generateIdCardForRecord('student', stu, 'Active');
-                              setActiveIdCard(newCard);
-                            }
-                          }}
-                          className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold cursor-pointer"
-                          title={language === 'en' ? 'View ID Card' : 'छात्र पहचान पत्र देखें'}
-                        >
-                          <CreditCard className="w-3.5 h-3.5 inline mr-1" />
-                          {language === 'en' ? 'ID Card' : 'ID Card'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setDeleteConfirmItem({
-                              type: 'student',
-                              id: stu.id,
-                              title: stu.registrationNumber || stu.id,
-                              details: `${stu.name} (${stu.studentClass}) • ${stu.mobile}`,
-                            });
-                          }}
-                          className="px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded cursor-pointer transition-colors"
-                          title={language === 'en' ? 'Delete' : 'हटाएं'}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 inline" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                          {/* छात्र Print या PDF (केवल स्वीकृति के बाद) */}
+                          {isApproved ? (
+                            <button
+                              onClick={() => setPrintableCandidate({ candidate: stu, type: 'student' })}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
+                              title={language === 'en' ? 'Print or Save PDF' : 'छात्र प्रपत्र प्रिंट या PDF'}
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                              <span>{language === 'en' ? 'Print/PDF' : 'प्रिंट/PDF'}</span>
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="px-2.5 py-1 bg-slate-100 text-slate-400 rounded font-bold text-[11px] cursor-not-allowed inline-flex items-center gap-1 border border-slate-200"
+                              title={language === 'en' ? 'Print locked until approval' : 'अनुमोदन के बिना प्रिंट वर्जित है (पहले स्वीकृति दें)'}
+                            >
+                              <Printer className="w-3.5 h-3.5 opacity-40" />
+                              <span>{language === 'en' ? 'Print 🔒' : 'प्रिंट 🔒'}</span>
+                            </button>
+                          )}
+
+                          {/* पहचान पत्र (केवल स्वीकृति के बाद) */}
+                          {isApproved ? (
+                            <button
+                              onClick={() => {
+                                if (card) {
+                                  setActiveIdCard(card);
+                                } else {
+                                  const newCard = generateIdCardForRecord('student', stu, 'Active');
+                                  setActiveIdCard(newCard);
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold cursor-pointer inline-flex items-center gap-1"
+                              title={language === 'en' ? 'View ID Card' : 'छात्र पहचान पत्र देखें'}
+                            >
+                              <CreditCard className="w-3.5 h-3.5" />
+                              <span>{language === 'en' ? 'ID Card' : 'ID कार्ड'}</span>
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              className="px-2.5 py-1 bg-slate-100 text-slate-400 rounded font-bold text-[11px] cursor-not-allowed inline-flex items-center gap-1 border border-slate-200"
+                              title={language === 'en' ? 'ID Card locked until approval' : 'स्वीकृति के बिना पहचान पत्र लॉक है'}
+                            >
+                              <CreditCard className="w-3.5 h-3.5 opacity-40" />
+                              <span>{language === 'en' ? 'ID 🔒' : 'कार्ड 🔒'}</span>
+                            </button>
+                          )}
+
+                          {/* Quick Approval Action */}
+                          {!isApproved && (
+                            <button
+                              onClick={() => {
+                                updateStudentStatus(
+                                  stu.id,
+                                  'Approved',
+                                  language === 'en' ? 'Approved by admin' : 'कार्यालय द्वारा स्वीकृत'
+                                );
+                                setActionToast({
+                                  message: language === 'en' ? 'Student approved successfully!' : 'छात्र सफलतापूर्वक स्वीकृत! प्रिंट व कार्ड अनलॉक हो गया।',
+                                });
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[11px] cursor-pointer shadow-xs inline-flex items-center gap-1"
+                              title={language === 'en' ? 'Approve & Unlock Print/ID' : 'स्वीकृति दें (प्रिंट व कार्ड अनलॉक करें)'}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>{language === 'en' ? 'Approve' : 'स्वीकृति दें'}</span>
+                            </button>
+                          )}
+
+                          <button
+                            onClick={() => {
+                              setDeleteConfirmItem({
+                                type: 'student',
+                                id: stu.id,
+                                title: stu.registrationNumber || stu.id,
+                                details: `${stu.name} (${stu.studentClass}) • ${stu.mobile}`,
+                              });
+                            }}
+                            className="px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded cursor-pointer transition-colors"
+                            title={language === 'en' ? 'Delete' : 'हटाएं'}
+                          >
+                            <Trash2 className="w-3.5 h-3.5 inline" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -1725,14 +1988,71 @@ export const AdminDashboardPage: React.FC = () => {
         <div className="bg-white rounded-3xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                {language === 'en' ? 'Volunteers Registry & ID Cards' : 'स्वयंसेवक रिकॉर्ड एवं परिचय पत्र'}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-slate-900">
+                  {language === 'en' ? 'Volunteers Registry & ID Cards' : 'स्वयंसेवक रिकॉर्ड एवं परिचय पत्र'}
+                </h2>
+                {pendingVolunteers > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-500 text-slate-950 animate-pulse">
+                    ⏳ {pendingVolunteers} {language === 'en' ? 'Pending' : 'लंबित'}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500">
                 {language === 'en'
-                  ? 'Community workers and seva trust volunteer records with official ID generation.'
-                  : 'ट्रस्ट के साथ जुड़े सामाजिक कार्यकर्ताओं का ब्यौरा एवं आधिकारिक सेवादार पहचान पत्र।'}
+                  ? 'Community workers and seva trust volunteer records. Administrative approval is required to activate Sevadar ID cards.'
+                  : 'ट्रस्ट के साथ जुड़े सामाजिक कार्यकर्ताओं का ब्यौरा। सेवादार पहचान पत्र सक्रिय करने हेतु प्रशासनिक स्वीकृति आवश्यक है।'}
               </p>
+            </div>
+          </div>
+
+          {/* Search & Status Filters */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500 uppercase">{language === 'en' ? 'Status:' : 'स्थिति:'}</span>
+              <button
+                type="button"
+                onClick={() => setVolunteerStatusFilter('all')}
+                className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors ${
+                  volunteerStatusFilter === 'all'
+                    ? 'bg-slate-900 text-white'
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}
+              >
+                {language === 'en' ? 'All' : 'सभी'} ({volunteers.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setVolunteerStatusFilter('Pending')}
+                className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors ${
+                  volunteerStatusFilter === 'Pending'
+                    ? 'bg-amber-500 text-slate-950 font-black ring-2 ring-amber-300'
+                    : 'bg-amber-50 text-amber-900 hover:bg-amber-100 border border-amber-200'
+                }`}
+              >
+                ⏳ {language === 'en' ? 'Pending' : 'प्रतीक्षारत'} ({pendingVolunteers})
+              </button>
+              <button
+                type="button"
+                onClick={() => setVolunteerStatusFilter('Active')}
+                className={`px-3 py-1 rounded-full text-xs font-bold cursor-pointer transition-colors ${
+                  volunteerStatusFilter === 'Active'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 border border-emerald-200'
+                }`}
+              >
+                ✓ {language === 'en' ? 'Active' : 'स्वीकृत'} ({volunteers.length - pendingVolunteers})
+              </button>
+            </div>
+
+            <div className="w-full sm:w-64">
+              <input
+                type="text"
+                value={volunteerSearchQuery}
+                onChange={(e) => setVolunteerSearchQuery(e.target.value)}
+                placeholder={language === 'en' ? 'Search volunteer name, mobile, service...' : 'स्वयंसेवक नाम, मोबाइल या सेवा...'}
+                className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
             </div>
           </div>
 
@@ -1745,71 +2065,126 @@ export const AdminDashboardPage: React.FC = () => {
                   <th className="py-3 px-3">{language === 'en' ? 'Preferred Service' : 'पसंदीदा सेवा'}</th>
                   <th className="py-3 px-3">{language === 'en' ? 'Occupation / Skills' : 'पेशा / हुनर'}</th>
                   <th className="py-3 px-3">{language === 'en' ? 'Mobile' : 'मोबाइल'}</th>
-                  <th className="py-3 px-3">{language === 'en' ? 'Availability' : 'उपलब्ध समय'}</th>
+                  <th className="py-3 px-3">{language === 'en' ? 'Status' : 'स्थिति'}</th>
                   <th className="py-3 px-3 text-right">{t.admin.actionsColumn}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {volunteers.map((vol, idx) => {
-                  const card = idCards.find((c) => c.sourceId === vol.id);
-                  return (
-                    <tr key={`${vol.id}-${idx}`} className="hover:bg-slate-50/70">
-                      <td className="py-3 px-3 font-mono font-bold text-emerald-800">{vol.id}</td>
-                      <td className="py-3 px-3 font-bold text-slate-900">
-                        {vol.name} ({vol.age} {language === 'en' ? 'yrs' : 'वर्ष'})
-                      </td>
-                      <td className="py-3 px-3 text-blue-900 font-semibold">{vol.preferredService}</td>
-                      <td className="py-3 px-3 text-slate-600">{vol.occupation} • {vol.skills}</td>
-                      <td className="py-3 px-3 font-mono">{vol.mobile}</td>
-                      <td className="py-3 px-3">{vol.availableTime}</td>
-                      <td className="py-3 px-3 text-right space-x-1 whitespace-nowrap">
-                        {/* Edit Volunteer Button */}
-                        <button
-                          onClick={() => handleOpenEditVolunteer(vol)}
-                          className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors"
-                          title={language === 'en' ? 'Edit Volunteer Details' : 'स्वयंसेवक विवरण संपादित करें'}
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                          <span>{language === 'en' ? 'Edit' : 'एडिट'}</span>
-                        </button>
+                {filteredVolunteers.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-8 text-center text-slate-400">
+                      {language === 'en' ? 'No volunteers found matching your criteria.' : 'कोई स्वयंसेवक रिकॉर्ड नहीं मिला।'}
+                    </td>
+                  </tr>
+                ) : (
+                  filteredVolunteers.map((vol, idx) => {
+                    const card = idCards.find((c) => c.sourceId === vol.id);
+                    const isApproved = vol.status === 'Active' || vol.status === 'Approved';
 
-                        {card ? (
-                          <button
-                            onClick={() => setActiveIdCard(card)}
-                            className="px-2 py-1 bg-amber-50 text-amber-900 hover:bg-amber-100 font-bold rounded cursor-pointer"
+                    return (
+                      <tr key={`${vol.id}-${idx}`} className="hover:bg-slate-50/70">
+                        <td className="py-3 px-3 font-mono font-bold text-emerald-800">{vol.id}</td>
+                        <td className="py-3 px-3 font-bold text-slate-900">
+                          {vol.name} ({vol.age} {language === 'en' ? 'yrs' : 'वर्ष'})
+                        </td>
+                        <td className="py-3 px-3 text-blue-900 font-semibold">{vol.preferredService}</td>
+                        <td className="py-3 px-3 text-slate-600">{vol.occupation} • {vol.skills}</td>
+                        <td className="py-3 px-3 font-mono">{vol.mobile}</td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                              isApproved
+                                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                : 'bg-amber-100 text-amber-900 border border-amber-300'
+                            }`}
                           >
-                            <CreditCard className="w-3.5 h-3.5 inline mr-1" />
-                            {language === 'en' ? 'ID Card' : 'ID Card'}
+                            {isApproved
+                              ? (language === 'en' ? '✓ Active' : '✓ स्वीकृत')
+                              : (language === 'en' ? '⏳ Pending' : '⏳ प्रतीक्षारत')}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-right space-x-1 whitespace-nowrap">
+                          {/* Edit Volunteer Button */}
+                          <button
+                            onClick={() => handleOpenEditVolunteer(vol)}
+                            className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1 shadow-2xs transition-colors"
+                            title={language === 'en' ? 'Edit Volunteer Details' : 'स्वयंसेवक विवरण संपादित करें'}
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                            <span>{language === 'en' ? 'Edit' : 'एडिट'}</span>
                           </button>
-                        ) : (
+
+                          {/* पहचान पत्र (केवल स्वीकृति के बाद) */}
+                          {isApproved ? (
+                            card ? (
+                              <button
+                                onClick={() => setActiveIdCard(card)}
+                                className="px-2.5 py-1 bg-blue-50 text-blue-800 hover:bg-blue-100 font-bold rounded cursor-pointer inline-flex items-center gap-1"
+                                title={language === 'en' ? 'View ID Card' : 'पहचान पत्र देखें'}
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>{language === 'en' ? 'ID Card' : 'ID कार्ड'}</span>
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  const created = generateIdCardForRecord('volunteer', vol, 'Active');
+                                  setActiveIdCard(created);
+                                }}
+                                className="px-2.5 py-1 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 font-bold rounded cursor-pointer inline-flex items-center gap-1"
+                                title={language === 'en' ? 'Issue ID Card' : 'पहचान पत्र जारी करें'}
+                              >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                <span>{language === 'en' ? '+ ID Card' : '+ ID कार्ड'}</span>
+                              </button>
+                            )
+                          ) : (
+                            <button
+                              disabled
+                              className="px-2.5 py-1 bg-slate-100 text-slate-400 rounded font-bold text-[11px] cursor-not-allowed inline-flex items-center gap-1 border border-slate-200"
+                              title={language === 'en' ? 'ID Card locked until approval' : 'स्वीकृति के बिना पहचान पत्र लॉक है'}
+                            >
+                              <CreditCard className="w-3.5 h-3.5 opacity-40" />
+                              <span>{language === 'en' ? 'ID 🔒' : 'कार्ड 🔒'}</span>
+                            </button>
+                          )}
+
+                          {/* Quick Approval Action */}
+                          {!isApproved && (
+                            <button
+                              onClick={() => {
+                                updateVolunteerStatus(vol.id, 'Active');
+                                setActionToast({
+                                  message: language === 'en' ? 'Volunteer approved successfully!' : 'स्वयंसेवक सफलतापूर्वक स्वीकृत! सेवादार पहचान पत्र अनलॉक हो गया।',
+                                });
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[11px] cursor-pointer shadow-xs inline-flex items-center gap-1"
+                              title={language === 'en' ? 'Approve & Unlock ID Card' : 'स्वीकृति दें (पहचान पत्र अनलॉक करें)'}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>{language === 'en' ? 'Approve' : 'स्वीकृति दें'}</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => {
-                              const created = generateIdCardForRecord('volunteer', vol, 'Active');
-                              setActiveIdCard(created);
+                              setDeleteConfirmItem({
+                                type: 'volunteer',
+                                id: vol.id,
+                                title: vol.id,
+                                details: `${vol.name} • ${vol.preferredService} • ${vol.mobile}`,
+                              });
                             }}
-                            className="px-2 py-1 bg-emerald-50 text-emerald-800 font-bold rounded cursor-pointer"
+                            className="px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded cursor-pointer transition-colors"
+                            title={language === 'en' ? 'Delete' : 'हटाएं'}
                           >
-                            {language === 'en' ? '+ ID Card' : '+ ID कार्ड'}
+                            <Trash2 className="w-3.5 h-3.5 inline" />
                           </button>
-                        )}
-                        <button
-                          onClick={() => {
-                            setDeleteConfirmItem({
-                              type: 'volunteer',
-                              id: vol.id,
-                              title: vol.id,
-                              details: `${vol.name} • ${vol.preferredService} • ${vol.mobile}`,
-                            });
-                          }}
-                          className="px-2 py-1 bg-red-50 text-red-700 hover:bg-red-100 rounded cursor-pointer transition-colors"
-                          title={language === 'en' ? 'Delete' : 'हटाएं'}
-                        >
-                          <Trash2 className="w-3.5 h-3.5 inline" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
