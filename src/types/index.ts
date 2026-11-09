@@ -234,3 +234,5 @@ export interface TrustSettings {
 }
 
 export type BgTheme = 'sandalwood' | 'amber' | 'sand' | 'sage' | 'sky' | 'white';
+
+export * from './career';

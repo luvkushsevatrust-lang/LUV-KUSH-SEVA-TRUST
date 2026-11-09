@@ -15,6 +15,7 @@ export const hiTranslations: Translations = {
     volunteer: 'स्वयंसेवक',
     studentRegistration: 'विद्यार्थी पंजीकरण',
     idCard: 'पहचान पत्र',
+    careers: 'करियर / नौकरी',
     contact: 'संपर्क',
     donate: 'दान करें',
     login: 'लॉगिन',

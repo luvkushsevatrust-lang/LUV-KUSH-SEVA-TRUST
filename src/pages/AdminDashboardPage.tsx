@@ -41,7 +41,9 @@ import {
   Copy,
   Check,
   Save,
+  Briefcase,
 } from 'lucide-react';
+import { CareerAdminPanel } from '../components/CareerAdminPanel';
 import {
   ApplicationStatus,
   ServiceCategory,
@@ -113,10 +115,11 @@ export const AdminDashboardPage: React.FC = () => {
     t,
     supabaseStatus,
     syncWithSupabase,
+    jobApplications,
   } = useTrust();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'applications' | 'students' | 'id_cards' | 'donations' | 'volunteers' | 'announcements' | 'settings' | 'service_images' | 'supabase'
+    'overview' | 'applications' | 'students' | 'id_cards' | 'donations' | 'volunteers' | 'announcements' | 'settings' | 'service_images' | 'supabase' | 'careers'
   >('overview');
 
   const [copiedSql, setCopiedSql] = useState(false);
@@ -978,6 +981,7 @@ export const AdminDashboardPage: React.FC = () => {
           { id: 'overview', label: t.admin.tabOverview, icon: Shield },
           { id: 'id_cards', label: t.admin.tabIdCards, count: totalIdCards, pending: pendingIdCards, icon: CreditCard, highlight: true },
           { id: 'applications', label: t.admin.tabApplications, count: totalApps, pending: pendingApps, icon: Users },
+          { id: 'careers', label: language === 'en' ? 'Careers & Jobs' : 'करियर एवं भर्ती', count: jobApplications.length, pending: jobApplications.filter((j) => j.status === 'Pending').length, icon: Briefcase, isCareer: true },
           { id: 'students', label: t.admin.tabStudents, count: totalStudents, pending: pendingStudents, icon: GraduationCap },
           { id: 'volunteers', label: t.admin.tabVolunteers, count: totalVolunteers, pending: pendingVolunteers, icon: UserCheck },
           { id: 'donations', label: t.admin.tabDonations, icon: Heart },
@@ -997,6 +1001,8 @@ export const AdminDashboardPage: React.FC = () => {
               className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 activeTab === tab.id
                   ? 'bg-blue-900 text-white shadow-sm'
+                  : (tab as any).isCareer
+                  ? 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300'
                   : (tab as any).isSupabase
                   ? 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100 border border-emerald-300'
                   : tab.highlight
@@ -4115,6 +4121,11 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TAB 10: CAREERS & RECRUITMENT MANAGEMENT */}
+      {activeTab === 'careers' && (
+        <CareerAdminPanel />
       )}
 
       {/* ========================================================

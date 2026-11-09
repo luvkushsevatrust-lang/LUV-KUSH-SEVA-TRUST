@@ -15,6 +15,7 @@ export const enTranslations: Translations = {
     volunteer: 'Volunteer',
     studentRegistration: 'Student Registration',
     idCard: 'My ID Card',
+    careers: 'Career / Job',
     contact: 'Contact',
     donate: 'Donate',
     login: 'Login',

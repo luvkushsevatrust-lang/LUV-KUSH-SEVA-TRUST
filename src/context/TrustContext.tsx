@@ -11,6 +11,10 @@ import {
   Announcement,
   ApplicationStatus,
   BgTheme,
+  JobVacancy,
+  JobApplication,
+  JobApplicationStatus,
+  PlacementAddressInfo,
 } from '../types';
 import { BG_THEMES } from '../data/bgThemeConfig';
 import { Language, Translations, getTranslation } from '../translations';
@@ -24,7 +28,9 @@ import {
   INITIAL_ANNOUNCEMENTS,
   ID_CARD_CATEGORY_CONFIG,
 } from '../data/mockData';
+import { INITIAL_JOB_VACANCIES, INITIAL_PLACEMENT_ADDRESS } from '../data/mockJobs';
 import { SupabaseService } from '../lib/supabaseService';
+import { SupabaseCareerService } from '../lib/supabaseCareerService';
 import { resolveAssetUrl, TRUST_EMBLEM_LOGO } from '../assets';
 import { safeSetItem, safeRemoveItem, cleanupStorageQuota } from '../utils/safeStorage';
 
@@ -104,6 +110,30 @@ interface TrustContextType {
   announcements: Announcement[];
   addAnnouncement: (item: Omit<Announcement, 'id'>) => void;
   deleteAnnouncement: (id: string) => void;
+
+  // Career & Recruitment (Career / Job Portal)
+  jobs: JobVacancy[];
+  addJob: (data: Omit<JobVacancy, 'id' | 'postedAt'>) => JobVacancy;
+  updateJob: (id: string, data: Partial<JobVacancy>) => void;
+  deleteJob: (id: string) => void;
+  toggleJobStatus: (id: string) => void;
+
+  jobApplications: JobApplication[];
+  submitJobApplication: (
+    data: Omit<JobApplication, 'id' | 'status' | 'submittedAt'>
+  ) => Promise<JobApplication>;
+  updateJobApplicationStatus: (
+    id: string,
+    newStatus: JobApplicationStatus,
+    remarks?: string,
+    interview?: { date?: string; time?: string; address?: string }
+  ) => Promise<void>;
+  deleteJobApplication: (id: string) => void;
+
+  placementAddress: PlacementAddressInfo;
+  updatePlacementAddress: (info: Partial<PlacementAddressInfo>) => void;
+  uploadPlacementPdf: (file: File) => Promise<{ url: string; fileName: string }>;
+  deletePlacementPdf: () => void;
 
   // Auth
   currentStudent: Student | null;
@@ -354,6 +384,41 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : null;
   });
 
+  // Persistent Job Vacancies (Career / Recruitment)
+  const [jobs, setJobs] = useState<JobVacancy[]>(() => {
+    const saved = localStorage.getItem('lkst_career_jobs_v1');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return INITIAL_JOB_VACANCIES;
+  });
+
+  // Persistent Job Applications
+  const [jobApplications, setJobApplications] = useState<JobApplication[]>(() => {
+    const saved = localStorage.getItem('lkst_career_applications_v1');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+
+  // Persistent Placement Address
+  const [placementAddress, setPlacementAddress] = useState<PlacementAddressInfo>(() => {
+    const saved = localStorage.getItem('lkst_career_placement_v1');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {}
+    }
+    return INITIAL_PLACEMENT_ADDRESS;
+  });
+
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     return localStorage.getItem('lkst_is_admin') === 'true';
   });
@@ -429,16 +494,29 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     let isMounted = true;
     const loadFromSupabase = async () => {
       try {
-        const [cloudApps, cloudStudents, cloudCards, cloudVols, cloudDonations, cloudAnnouncements, cloudSettings] =
-          await Promise.all([
-            SupabaseService.fetchApplications(),
-            SupabaseService.fetchStudents(),
-            SupabaseService.fetchIdCards(),
-            SupabaseService.fetchVolunteers(),
-            SupabaseService.fetchDonations(),
-            SupabaseService.fetchAnnouncements(),
-            SupabaseService.fetchSettings(),
-          ]);
+        const [
+          cloudApps,
+          cloudStudents,
+          cloudCards,
+          cloudVols,
+          cloudDonations,
+          cloudAnnouncements,
+          cloudSettings,
+          cloudJobs,
+          cloudJobApps,
+          cloudPlacement,
+        ] = await Promise.all([
+          SupabaseService.fetchApplications(),
+          SupabaseService.fetchStudents(),
+          SupabaseService.fetchIdCards(),
+          SupabaseService.fetchVolunteers(),
+          SupabaseService.fetchDonations(),
+          SupabaseService.fetchAnnouncements(),
+          SupabaseService.fetchSettings(),
+          SupabaseCareerService.getJobs(),
+          SupabaseCareerService.getApplications(),
+          SupabaseCareerService.getPlacementAddress(),
+        ]);
 
         if (!isMounted) return;
 
@@ -462,6 +540,15 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (cloudSettings) {
           setSettings(cloudSettings);
+        }
+        if (cloudJobs && cloudJobs.length > 0) {
+          setJobs(cloudJobs);
+        }
+        if (cloudJobApps && cloudJobApps.length > 0) {
+          setJobApplications(cloudJobApps);
+        }
+        if (cloudPlacement) {
+          setPlacementAddress(cloudPlacement);
         }
 
         setSupabaseStatus((prev) => ({
@@ -513,6 +600,18 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     safeSetItem('lkst_announcements', JSON.stringify(announcements));
   }, [announcements]);
+
+  useEffect(() => {
+    safeSetItem('lkst_career_jobs_v1', JSON.stringify(jobs));
+  }, [jobs]);
+
+  useEffect(() => {
+    safeSetItem('lkst_career_applications_v1', JSON.stringify(jobApplications));
+  }, [jobApplications]);
+
+  useEffect(() => {
+    safeSetItem('lkst_career_placement_v1', JSON.stringify(placementAddress));
+  }, [placementAddress]);
 
   useEffect(() => {
     if (currentStudent) {
@@ -1352,6 +1451,131 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
+  // Career & Recruitment Methods
+  const addJob = (data: Omit<JobVacancy, 'id' | 'postedAt'>): JobVacancy => {
+    const newId = `LKST-JOB-${String(Date.now()).slice(-4)}`;
+    const newJob: JobVacancy = {
+      ...data,
+      id: newId,
+      postedAt: new Date().toISOString().split('T')[0],
+      status: data.status || 'Active',
+    };
+    setJobs((prev) => [newJob, ...prev]);
+    SupabaseCareerService.saveJob(newJob);
+    return newJob;
+  };
+
+  const updateJob = (id: string, data: Partial<JobVacancy>) => {
+    setJobs((prev) =>
+      prev.map((job) => {
+        if (job.id === id) {
+          const updated = { ...job, ...data, updatedAt: new Date().toISOString() };
+          SupabaseCareerService.saveJob(updated);
+          return updated;
+        }
+        return job;
+      })
+    );
+  };
+
+  const deleteJob = (id: string) => {
+    setJobs((prev) => prev.filter((j) => j.id !== id));
+    SupabaseCareerService.deleteJob(id);
+  };
+
+  const toggleJobStatus = (id: string) => {
+    setJobs((prev) =>
+      prev.map((job) => {
+        if (job.id === id) {
+          const newStatus = job.status === 'Active' ? 'Inactive' : 'Active';
+          const updated: JobVacancy = { ...job, status: newStatus, updatedAt: new Date().toISOString() };
+          SupabaseCareerService.saveJob(updated);
+          return updated;
+        }
+        return job;
+      })
+    );
+  };
+
+  const submitJobApplication = async (
+    data: Omit<JobApplication, 'id' | 'status' | 'submittedAt'>
+  ): Promise<JobApplication> => {
+    const nextSeq = 1000 + jobApplications.length + 1;
+    const newId = `LKST-JOB-2026-${nextSeq}`;
+    const newApp: JobApplication = {
+      ...data,
+      id: newId,
+      status: 'Pending',
+      submittedAt: new Date().toISOString(),
+    };
+    setJobApplications((prev) => [newApp, ...prev]);
+    await SupabaseCareerService.submitApplication(newApp);
+    return newApp;
+  };
+
+  const updateJobApplicationStatus = async (
+    id: string,
+    newStatus: JobApplicationStatus,
+    remarks?: string,
+    interview?: { date?: string; time?: string; address?: string }
+  ): Promise<void> => {
+    const current = jobApplications.find((a) => a.id === id);
+    const prevStatus = current?.status || 'Pending';
+
+    setJobApplications((prev) =>
+      prev.map((app) => {
+        if (app.id === id) {
+          return {
+            ...app,
+            status: newStatus,
+            statusRemarks: remarks || app.statusRemarks,
+            interviewDate: interview?.date ?? app.interviewDate,
+            interviewTime: interview?.time ?? app.interviewTime,
+            interviewAddress: interview?.address ?? app.interviewAddress,
+            reviewedAt: new Date().toISOString(),
+          };
+        }
+        return app;
+      })
+    );
+
+    await SupabaseCareerService.updateApplicationStatus(id, newStatus, prevStatus, remarks, interview);
+  };
+
+  const deleteJobApplication = (id: string) => {
+    setJobApplications((prev) => prev.filter((a) => a.id !== id));
+    SupabaseCareerService.deleteApplication(id);
+  };
+
+  const updatePlacementAddress = (info: Partial<PlacementAddressInfo>) => {
+    setPlacementAddress((prev) => {
+      const updated: PlacementAddressInfo = {
+        ...prev,
+        ...info,
+        updatedAt: new Date().toISOString(),
+      };
+      safeSetItem('lkst_career_placement_v1', JSON.stringify(updated));
+      SupabaseCareerService.savePlacementAddress(updated);
+      return updated;
+    });
+  };
+
+  const uploadPlacementPdf = async (file: File): Promise<{ url: string; fileName: string }> => {
+    const res = await SupabaseCareerService.uploadDocument(file, 'placement_pdf');
+    updatePlacementAddress({
+      placementPdfUrl: res.url,
+      placementPdfName: res.fileName,
+    });
+    return res;
+  };
+
+  const deletePlacementPdf = () => {
+    updatePlacementAddress({
+      placementPdfUrl: '',
+      placementPdfName: '',
+    });
+  };
+
   return (
     <TrustContext.Provider
       value={{
@@ -1387,6 +1611,20 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         announcements,
         addAnnouncement,
         deleteAnnouncement,
+        // Career & Recruitment
+        jobs,
+        addJob,
+        updateJob,
+        deleteJob,
+        toggleJobStatus,
+        jobApplications,
+        submitJobApplication,
+        updateJobApplicationStatus,
+        deleteJobApplication,
+        placementAddress,
+        updatePlacementAddress,
+        uploadPlacementPdf,
+        deletePlacementPdf,
         currentStudent,
         studentLogin,
         studentLogout,

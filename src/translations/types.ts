@@ -15,6 +15,7 @@ export interface Translations {
     volunteer: string;
     studentRegistration: string;
     idCard: string;
+    careers: string;
     contact: string;
     donate: string;
     login: string;

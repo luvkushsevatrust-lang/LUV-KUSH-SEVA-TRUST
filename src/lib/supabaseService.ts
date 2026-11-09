@@ -200,6 +200,148 @@ BEGIN
     CREATE POLICY "Allow public access trust_settings" ON public.trust_settings FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
+
+-- ==============================================================================
+-- 8. CAREER & RECRUITMENT TABLES (भर्ती एवं रोजगार पोर्टल)
+-- ==============================================================================
+
+-- Jobs Table (रिक्तियां)
+CREATE TABLE IF NOT EXISTS public.jobs (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  title_hi TEXT,
+  category TEXT NOT NULL,
+  position TEXT NOT NULL,
+  position_hi TEXT,
+  qualification TEXT,
+  qualification_hi TEXT,
+  experience TEXT,
+  experience_hi TEXT,
+  salary TEXT,
+  salary_hi TEXT,
+  vacancies INTEGER DEFAULT 1,
+  location TEXT,
+  location_hi TEXT,
+  deadline TEXT,
+  status TEXT DEFAULT 'Active',
+  description TEXT,
+  description_hi TEXT,
+  requirements JSONB DEFAULT '[]'::jsonb,
+  requirements_hi JSONB DEFAULT '[]'::jsonb,
+  posted_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  raw_data JSONB
+);
+
+-- Job Applications Table (आवेदन)
+CREATE TABLE IF NOT EXISTS public.job_applications (
+  id TEXT PRIMARY KEY,
+  job_id TEXT,
+  job_title TEXT,
+  job_category TEXT NOT NULL,
+  position TEXT NOT NULL,
+  full_name TEXT NOT NULL,
+  father_or_guardian_name TEXT NOT NULL,
+  dob TEXT NOT NULL,
+  gender TEXT,
+  mobile TEXT NOT NULL,
+  whatsapp_number TEXT NOT NULL,
+  email TEXT NOT NULL,
+  address TEXT NOT NULL,
+  district TEXT DEFAULT 'Nalanda',
+  block TEXT NOT NULL,
+  village TEXT NOT NULL,
+  educational_qualification TEXT NOT NULL,
+  professional_qualification TEXT,
+  work_experience TEXT,
+  resume_url TEXT,
+  resume_file_name TEXT,
+  photo_url TEXT,
+  additional_docs_url TEXT,
+  additional_docs_file_name TEXT,
+  declaration_accepted BOOLEAN DEFAULT TRUE,
+  status TEXT DEFAULT 'Pending',
+  status_remarks TEXT,
+  interview_date TEXT,
+  interview_time TEXT,
+  interview_address TEXT,
+  submitted_at TIMESTAMPTZ DEFAULT NOW(),
+  reviewed_at TIMESTAMPTZ,
+  raw_data JSONB
+);
+
+-- Application Documents Table (दस्तावेज)
+CREATE TABLE IF NOT EXISTS public.application_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  application_id TEXT,
+  document_type TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  file_url TEXT NOT NULL,
+  file_size BIGINT,
+  mime_type TEXT,
+  uploaded_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Placement Addresses Table (नियुक्ति एवं साक्षात्कार स्थल)
+CREATE TABLE IF NOT EXISTS public.placement_addresses (
+  id TEXT PRIMARY KEY DEFAULT 'current_placement',
+  title TEXT NOT NULL,
+  title_hi TEXT,
+  placement_location TEXT NOT NULL,
+  placement_location_hi TEXT,
+  interview_address TEXT NOT NULL,
+  interview_address_hi TEXT,
+  google_maps_url TEXT,
+  contact_person_name TEXT,
+  contact_person_phone TEXT,
+  contact_person_designation TEXT,
+  instructions JSONB DEFAULT '[]'::jsonb,
+  instructions_hi JSONB DEFAULT '[]'::jsonb,
+  placement_pdf_url TEXT,
+  placement_pdf_name TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  raw_data JSONB
+);
+
+-- Application Status History Table (स्थिति इतिहास)
+CREATE TABLE IF NOT EXISTS public.application_status_history (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  application_id TEXT,
+  previous_status TEXT,
+  new_status TEXT NOT NULL,
+  remarks TEXT,
+  updated_by TEXT DEFAULT 'Admin',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS for Career Tables
+ALTER TABLE public.jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.job_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.application_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.placement_addresses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.application_status_history ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'jobs' AND policyname = 'Allow public select jobs') THEN
+    CREATE POLICY "Allow public select jobs" ON public.jobs FOR SELECT USING (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'jobs' AND policyname = 'Allow all jobs admin') THEN
+    CREATE POLICY "Allow all jobs admin" ON public.jobs FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'job_applications' AND policyname = 'Allow public insert applications') THEN
+    CREATE POLICY "Allow public insert applications" ON public.job_applications FOR INSERT WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'job_applications' AND policyname = 'Allow all applications admin') THEN
+    CREATE POLICY "Allow all applications admin" ON public.job_applications FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'placement_addresses' AND policyname = 'Allow all placement_addresses') THEN
+    CREATE POLICY "Allow all placement_addresses" ON public.placement_addresses FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'application_status_history' AND policyname = 'Allow all status_history') THEN
+    CREATE POLICY "Allow all status_history" ON public.application_status_history FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 `;
 
 // Helper to safely execute Supabase calls without breaking offline / unconfigured apps

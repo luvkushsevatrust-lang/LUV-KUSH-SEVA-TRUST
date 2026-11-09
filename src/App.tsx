@@ -23,6 +23,7 @@ import { ContactPage } from './pages/ContactPage';
 import { LoginPage } from './pages/LoginPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { CareerPage } from './pages/CareerPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsPage } from './pages/TermsPage';
 import { BG_THEMES } from './data/bgThemeConfig';
@@ -68,6 +69,9 @@ const AppContent: React.FC = () => {
         return <StudentLoginPage />;
       case 'student-dashboard':
         return <StudentDashboardPage />;
+      case 'careers':
+      case 'career':
+        return <CareerPage />;
       case 'id-card':
       case 'admit-card': // legacy alias safely mapped to ID card portal
         return <IdCardPortalPage />;

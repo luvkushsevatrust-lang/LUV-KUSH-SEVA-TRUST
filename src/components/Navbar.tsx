@@ -14,6 +14,7 @@ import {
   ChevronDown,
   LogOut,
   Home,
+  Briefcase,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -53,6 +54,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenStatusModal }) => {
         { id: 'services', label: t.nav.allServices },
       ],
     },
+    { id: 'careers', label: t.nav.careers || (language === 'hi' ? 'करियर / नौकरी' : 'Career / Job'), icon: Briefcase },
     { id: 'volunteer-registration', label: t.nav.volunteer },
     { id: 'student-registration', label: t.nav.studentRegistration },
     { id: 'id-card', label: t.nav.idCard, icon: CreditCard },
