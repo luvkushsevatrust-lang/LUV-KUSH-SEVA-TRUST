@@ -1,40 +1,33 @@
 import React, { useState } from 'react';
 import { useTrust } from '../context/TrustContext';
-import { SafeImage } from '../components/SafeImage';
 import {
   Heart,
-  QrCode,
-  Building,
   CreditCard,
-  Copy,
   Check,
-  Upload,
-  Printer,
   CheckCircle,
   AlertCircle,
   ArrowRight,
   Clock,
   Download,
   Search,
-  RefreshCw,
-  Edit3,
-  Save,
-  ExternalLink,
   X,
   Lock,
   ShieldCheck,
-  CheckCircle2,
-  Trash2,
   Smartphone,
+  Building2,
+  FileText,
+  BadgeCheck,
+  Sparkles,
+  Loader2,
+  Copy,
 } from 'lucide-react';
 import { Donation } from '../types';
-import { compressImageFile } from '../utils/imageCompressor';
+import { openRazorpayCheckout } from '../lib/razorpayClient';
 
 export const DonationPage: React.FC = () => {
   const {
     settings,
-    updateSettings,
-    addDonation,
+    recordRazorpayDonation,
     setActiveReceipt,
     language,
     t,
@@ -48,19 +41,16 @@ export const DonationPage: React.FC = () => {
   const [donorName, setDonorName] = useState('');
   const [mobile, setMobile] = useState('');
   const [email, setEmail] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'UPI' | 'QR Code' | 'Bank Transfer'>('QR Code');
-  const [transactionId, setTransactionId] = useState('');
+  const [panCard, setPanCard] = useState('');
+  const [purpose, setPurpose] = useState('सामान्य धर्मार्थ सहयोग (General Welfare)');
   const [message, setMessage] = useState('');
-  const [screenshotPreview, setScreenshotPreview] = useState<string>('');
-  const [copiedUpi, setCopiedUpi] = useState(false);
-  const [copiedBank, setCopiedBank] = useState(false);
+
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [submittedDonation, setSubmittedDonation] = useState<Donation | null>(null);
   const [copiedReceiptNo, setCopiedReceiptNo] = useState(false);
 
-
-  const [submittedDonation, setSubmittedDonation] = useState<Donation | null>(null);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Download Approved Receipt Finder State
+  // Search & Download Past Approved Receipts Modal
   const [showDownloadReceiptModal, setShowDownloadReceiptModal] = useState(false);
   const [searchReceiptQuery, setSearchReceiptQuery] = useState('');
   const [searchedDonation, setSearchedDonation] = useState<Donation | null>(null);
@@ -68,7 +58,19 @@ export const DonationPage: React.FC = () => {
     text: string;
     type: 'error' | 'info' | 'pending' | 'success';
   } | null>(null);
-  const [statusRefreshToast, setStatusRefreshToast] = useState<string>('');
+
+  const effectiveAmount = customAmount ? parseInt(customAmount, 10) || 0 : selectedAmount;
+
+  const handleSelectAmount = (val: number) => {
+    setSelectedAmount(val);
+    setCustomAmount('');
+    setErrorMsg('');
+  };
+
+  const handleCustomAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCustomAmount(e.target.value);
+    setErrorMsg('');
+  };
 
   const handleSearchReceipt = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,8 +79,8 @@ export const DonationPage: React.FC = () => {
       setSearchStatusMsg({
         text:
           language === 'en'
-            ? 'Please enter your receipt number, mobile number, or UTR.'
-            : 'कृपया रसीद संख्या, मोबाइल नंबर या UTR दर्ज करें।',
+            ? 'Please enter your receipt number, mobile number, or Razorpay payment ID.'
+            : 'कृपया रसीद संख्या, मोबाइल नंबर या रेजरपे पेमेंट आईडी दर्ज करें।',
         type: 'error',
       });
       return;
@@ -89,7 +91,8 @@ export const DonationPage: React.FC = () => {
         d.receiptNumber.toLowerCase() === q ||
         d.receiptNumber.toLowerCase().includes(q) ||
         d.mobile.includes(q) ||
-        (d.transactionId && d.transactionId.toLowerCase().includes(q))
+        (d.transactionId && d.transactionId.toLowerCase().includes(q)) ||
+        (d.razorpayPaymentId && d.razorpayPaymentId.toLowerCase().includes(q))
     );
 
     if (!found) {
@@ -105,9 +108,7 @@ export const DonationPage: React.FC = () => {
     }
 
     setSearchedDonation(found);
-    const isAppr =
-      found.status === 'Approved' ||
-      (found.isVerified && found.status !== 'Rejected' && found.status !== 'Pending');
+    const isAppr = found.status === 'Approved' || found.isVerified;
 
     if (isAppr) {
       setSearchStatusMsg({
@@ -117,72 +118,43 @@ export const DonationPage: React.FC = () => {
             : '✓ आपका दान आधिकारिक रूप से स्वीकृत है! रसीद डाउनलोड करने हेतु नीचे दिए गए बटन पर क्लिक करें।',
         type: 'success',
       });
-    } else if (found.status === 'Rejected') {
-      setSearchStatusMsg({
-        text:
-          language === 'en'
-            ? 'This donation request was rejected. Please contact trust helpline.'
-            : 'यह दान अनुरोध अस्वीकृत है। सहायता हेतु कृपया ट्रस्ट हेल्पलाइन पर संपर्क करें।',
-        type: 'error',
-      });
     } else {
       setSearchStatusMsg({
         text:
           language === 'en'
-            ? '⏳ Your donation is Under Verification (Pending Approval). Verified receipt will be available immediately upon approval.'
-            : '⏳ आपका दान वर्तमान में सत्यापन प्रक्रियाधीन (लंबित) है। ट्रस्ट व्यवस्थापक द्वारा अप्रूवल (स्वीकृति) मिलते ही यहाँ से रसीद डाउनलोड होगी।',
+            ? '⏳ This donation is under verification. Please wait for approval.'
+            : '⏳ यह दान वर्तमान में सत्यापन प्रक्रियाधीन है।',
         type: 'pending',
       });
     }
   };
 
-  const effectiveAmount = customAmount ? parseInt(customAmount, 10) || 0 : selectedAmount;
-
-  const handleSelectAmount = (val: number) => {
-    setSelectedAmount(val);
-    setCustomAmount('');
-  };
-
-  const handleCopyUpi = () => {
-    navigator.clipboard.writeText(settings.upiId);
-    setCopiedUpi(true);
-    setTimeout(() => setCopiedUpi(false), 2000);
-  };
-
-  const handleCopyBank = () => {
-    const text = `Account: ${settings.bankDetails.accountNumber}\nIFSC: ${settings.bankDetails.ifscCode}\nBank: ${settings.bankDetails.bankName}\nName: ${settings.bankDetails.accountHolderName}`;
-    navigator.clipboard.writeText(text);
-    setCopiedBank(true);
-    setTimeout(() => setCopiedBank(false), 2000);
-  };
-
-  const handleScreenshotUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const compressed = await compressImageFile(file, 800, 800, 0.7);
-        setScreenshotPreview(compressed);
-      } catch {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setScreenshotPreview(reader.result as string);
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  /**
+   * Razorpay Checkout Handler (Exclusive Gateway)
+   * Completely bypasses manual UPI/QR/Bank transfer.
+   */
+  const handleRazorpayPay = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!effectiveAmount || effectiveAmount <= 0) {
+    setErrorMsg('');
+
+    if (!effectiveAmount || effectiveAmount < 1) {
       setErrorMsg(
         language === 'en'
-          ? 'Please select or enter a donation amount.'
-          : 'कृपया सहयोग राशि चुनें या दर्ज करें।'
+          ? 'Please enter a valid donation amount (minimum ₹1).'
+          : 'कृपया न्यूनतम ₹1 या अधिक की सहयोग राशि चुनें।'
       );
       return;
     }
-    if (mobile.length < 10) {
+
+    if (!donorName.trim()) {
+      setErrorMsg(
+        language === 'en' ? 'Please enter your full name.' : 'कृपया अपना पूरा नाम दर्ज करें।'
+      );
+      return;
+    }
+
+    const cleanMobile = mobile.replace(/\D/g, '');
+    if (cleanMobile.length < 10) {
       setErrorMsg(
         language === 'en'
           ? 'Please enter a valid 10-digit mobile number.'
@@ -191,101 +163,81 @@ export const DonationPage: React.FC = () => {
       return;
     }
 
-    setErrorMsg('');
-
-    const newDon = addDonation({
-      donorName,
-      mobile,
-      email,
-      amount: effectiveAmount,
-      paymentMethod,
-      transactionId: transactionId || `TXN-${Date.now().toString().slice(-6)}`,
-      screenshotUrl: screenshotPreview,
-      message,
-      status: 'Pending',
-    });
-
-    setSubmittedDonation(newDon);
-  };
-
-  // Open UPI payment URL generator (without fixed amount: donor can pay any manual voluntary amount of their choice)
-  const getUpiUrl = (appScheme: 'generic' | 'phonepe' | 'gpay' | 'paytm' | 'bhim' = 'generic') => {
-    const params = new URLSearchParams({
-      pa: settings.upiId,
-      pn: settings.name,
-      cu: 'INR',
-      tn: 'Luv Kush Seva Trust Donation',
-    });
-    // Intentionally no 'am' parameter added: allows the donor to manually enter ANY amount (₹10, ₹50, ₹100, etc.) in their UPI app
-    const query = params.toString();
-
-    switch (appScheme) {
-      case 'phonepe':
-        return `phonepe://pay?${query}`;
-      case 'gpay':
-        return `tez://upi/pay?${query}`;
-      case 'paytm':
-        return `paytmmp://pay?${query}`;
-      case 'bhim':
-        return `bhim://pay?${query}`;
-      default:
-        return `upi://pay?${query}`;
+    // Optional PAN validation if provided
+    if (panCard.trim() && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/i.test(panCard.trim())) {
+      setErrorMsg(
+        language === 'en'
+          ? 'Invalid PAN format. Example: ABCDE1234F'
+          : 'अमान्य पैन कार्ड नंबर प्रारूप। उदाहरण: ABCDE1234F'
+      );
+      return;
     }
-  };
 
-  const upiPayUrl = getUpiUrl('generic');
-  const [launchedAppName, setLaunchedAppName] = useState<string | null>(null);
+    setIsProcessing(true);
 
-  const launchUpiApp = (appScheme: 'generic' | 'phonepe' | 'gpay' | 'paytm' | 'bhim' = 'generic') => {
-    const url = getUpiUrl(appScheme);
-    const appLabel =
-      appScheme === 'phonepe'
-        ? 'PhonePe'
-        : appScheme === 'gpay'
-        ? 'Google Pay (GPay)'
-        : appScheme === 'paytm'
-        ? 'Paytm'
-        : appScheme === 'bhim'
-        ? 'BHIM UPI'
-        : language === 'en'
-        ? 'UPI App'
-        : 'UPI ऐप';
-
-    setLaunchedAppName(appLabel);
-    setTimeout(() => setLaunchedAppName(null), 7000);
-
-    // 1. Try navigating top-level window directly (essential inside iframes/preview)
     try {
-      if (window.top && window.top !== window) {
-        window.top.location.href = url;
-      } else {
-        window.location.href = url;
-      }
-    } catch {
-      window.location.href = url;
-    }
+      await openRazorpayCheckout({
+        amount: effectiveAmount,
+        purpose: 'donation',
+        donorName: donorName.trim(),
+        contact: cleanMobile,
+        email: email.trim() || undefined,
+        panCard: panCard.trim().toUpperCase() || undefined,
+        notes: {
+          purpose,
+          message: message.trim() || 'Luv Kush Seva Trust Charitable Donation',
+        },
+        onSuccess: (verifyResult) => {
+          setIsProcessing(false);
 
-    // 2. Also trigger a native anchor with target="_top" for mobile browser protocol handler
-    try {
-      const a = document.createElement('a');
-      a.href = url;
-      a.target = '_top';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } catch {
-      // ignore
+          // Record instant approved donation with official verified receipt
+          const newDon = recordRazorpayDonation({
+            donorName: donorName.trim(),
+            mobile: cleanMobile,
+            email: email.trim() || undefined,
+            panCard: panCard.trim().toUpperCase() || undefined,
+            amount: effectiveAmount,
+            orderId: verifyResult.orderId,
+            paymentId: verifyResult.paymentId,
+            purpose,
+            receiptNumber: verifyResult.receiptNumber,
+          });
+
+          setSubmittedDonation(newDon);
+        },
+        onFailure: (err) => {
+          setIsProcessing(false);
+          setErrorMsg(
+            err.message ||
+              (language === 'en'
+                ? 'Payment could not be completed. Please try again.'
+                : 'भुगतान पूरा नहीं हो सका। कृपया पुनः प्रयास करें।')
+          );
+        },
+      });
+    } catch (err: any) {
+      setIsProcessing(false);
+      setErrorMsg(
+        err.message ||
+          (language === 'en'
+            ? 'Failed to connect to payment gateway.'
+            : 'गेटवे से संपर्क करने में असमर्थ। कृपया पुनः प्रयास करें।')
+      );
     }
   };
-
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-12">
-      
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-10">
       {/* Top Headline Section */}
       <div className="text-center space-y-3">
-
+        <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold shadow-xs">
+          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+          <span>
+            {language === 'en'
+              ? 'Official Online Donation Gateway • 100% Secure via Razorpay'
+              : 'अधिकृत ऑनलाइन दान पोर्टल • रेजरपे द्वारा 100% सुरक्षित भुगतान'}
+          </span>
+        </div>
 
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 leading-tight">
           {t.donation.title}
@@ -294,12 +246,16 @@ export const DonationPage: React.FC = () => {
           "{t.donation.subtitle}"
         </p>
 
-        {/* Quick Receipt Download Bar for already approved donations */}
+        {/* Quick Receipt Download Bar for Past Approved Donations */}
         <div className="pt-2">
           <div className="inline-flex flex-wrap items-center justify-center gap-2 p-2 bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-300 rounded-2xl shadow-xs text-xs">
             <span className="font-bold text-emerald-900 px-2 flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>{language === 'en' ? 'Already contributed and got approval?' : 'दान स्वीकृत हो चुका है? यहाँ से रसीद डाउनलोड करें:'}</span>
+              <BadgeCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>
+                {language === 'en'
+                  ? 'Already donated online? Download your verified receipt:'
+                  : 'पहले ऑनलाइन दान कर चुके हैं? यहाँ से प्रमाणित रसीद डाउनलोड करें:'}
+              </span>
             </span>
             <button
               type="button"
@@ -316,453 +272,379 @@ export const DonationPage: React.FC = () => {
           </div>
         </div>
       </div>
-      {submittedDonation ? (() => {
-        const liveDonation = donations.find((d) => d.id === submittedDonation.id) || submittedDonation;
-        // Strictly only approved if status is 'Approved' (never while Pending)
-        const isApproved = liveDonation.status === 'Approved';
 
-        return (
-          // Donation Success Card (Target element of selector 1)
-          <div className="bg-white rounded-3xl border-2 border-emerald-500 shadow-2xl p-6 sm:p-10 text-center space-y-6 max-w-xl mx-auto animate-fadeIn">
-            {/* Top Check Icon */}
-            <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-              <CheckCircle className="w-10 h-10" />
-            </div>
+      {/* Main Content Area */}
+      {submittedDonation ? (
+        (() => {
+          const liveDonation =
+            donations.find((d) => d.id === submittedDonation.id) || submittedDonation;
 
-            {/* Thank You Message */}
-            <div className="space-y-2">
-              <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3.5 py-1 rounded-full uppercase tracking-wider">
-                {language === 'en' ? 'Donation Received' : 'दान विवरण प्रेषित'}
-              </span>
-              <h2 className="text-2xl sm:text-3xl font-black text-emerald-800">
-                {language === 'en'
-                  ? 'Thank You for Your Generous Support!'
-                  : 'सहयोग एवं दान हेतु आपका हार्दिक धन्यवाद!'}
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-                {language === 'en'
-                  ? 'Your donation has been registered successfully with Luv Kush Seva Trust. We are deeply grateful for your generous contribution towards humanity, education, and welfare.'
-                  : 'लव कुश सेवा ट्रस्ट में आपका दान विवरण सफलतापूर्वक दर्ज कर लिया गया है। असहायों, बच्चों व समाज सेवा के इस पुनीत कार्य में सहयोग के लिए ट्रस्ट परिवार आपका सदैव आभारी रहेगा।'}
-              </p>
-            </div>
+          return (
+            <div className="bg-white rounded-3xl border-2 border-emerald-500 shadow-2xl p-6 sm:p-10 text-center space-y-6 max-w-2xl mx-auto animate-fadeIn">
+              {/* Top Check Icon */}
+              <div className="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
+                <CheckCircle className="w-10 h-10" />
+              </div>
 
-            {/* Details Card */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left space-y-2.5 text-xs">
-              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
-                <span className="text-slate-600 font-bold">{t.donation.receiptNumber}:</span>
-                <div className="flex items-center gap-2">
-                  <strong className="font-mono text-sm text-blue-950 font-black">{liveDonation.receiptNumber}</strong>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard.writeText(liveDonation.receiptNumber);
-                      setCopiedReceiptNo(true);
-                      setTimeout(() => setCopiedReceiptNo(false), 2000);
-                    }}
-                    className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
-                    title={language === 'en' ? 'Copy Receipt No' : 'रसीद संख्या कॉपी करें'}
-                  >
-                    {copiedReceiptNo ? <Check className="w-3 h-3 text-emerald-700" /> : <Copy className="w-3 h-3" />}
-                    <span>{copiedReceiptNo ? (language === 'en' ? 'Copied' : 'कॉपी') : (language === 'en' ? 'Copy' : 'कॉपी')}</span>
-                  </button>
+              {/* Thank You Message */}
+              <div className="space-y-2">
+                <span className="text-[11px] font-extrabold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3.5 py-1 rounded-full uppercase tracking-wider inline-flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>
+                    {language === 'en'
+                      ? 'Razorpay Payment Verified & Approved'
+                      : 'रेजरपे भुगतान सत्यापित एवं स्वीकृत'}
+                  </span>
+                </span>
+                <h2 className="text-2xl sm:text-3xl font-black text-emerald-900">
+                  {language === 'en'
+                    ? 'Thank You for Your Generous Support!'
+                    : 'पुनीत सहयोग एवं दान हेतु आपका हार्दिक धन्यवाद!'}
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-lg mx-auto">
+                  {language === 'en'
+                    ? 'Your donation has been verified and registered with Luv Kush Seva Trust. Your official tax-deductible receipt has been generated automatically.'
+                    : 'लव कुश सेवा ट्रस्ट में आपका दान सफलतापूर्वक सत्यापित हो चुका है। आपकी आधिकारिक प्रमाणित रसीद तत्काल तैयार कर दी गई है।'}
+                </p>
+              </div>
+
+              {/* Details Card */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 text-left space-y-3 text-xs">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                  <span className="text-slate-600 font-bold">{t.donation.receiptNumber}:</span>
+                  <div className="flex items-center gap-2">
+                    <strong className="font-mono text-sm text-blue-950 font-black">
+                      {liveDonation.receiptNumber}
+                    </strong>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(liveDonation.receiptNumber);
+                        setCopiedReceiptNo(true);
+                        setTimeout(() => setCopiedReceiptNo(false), 2000);
+                      }}
+                      className="px-2 py-0.5 bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold rounded text-[10px] flex items-center gap-1 cursor-pointer transition-colors"
+                      title={language === 'en' ? 'Copy Receipt No' : 'रसीद संख्या कॉपी करें'}
+                    >
+                      {copiedReceiptNo ? (
+                        <Check className="w-3 h-3 text-emerald-700" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                      <span>
+                        {copiedReceiptNo
+                          ? language === 'en'
+                            ? 'Copied'
+                            : 'कॉपी'
+                          : language === 'en'
+                          ? 'Copy'
+                          : 'कॉपी'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">{t.donation.donorName}:</span>
-                <strong className="text-slate-900 font-bold">{liveDonation.donorName}</strong>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">{language === 'en' ? 'Contribution Amount:' : 'सहयोग दान राशि:'}</span>
-                <strong className="text-red-700 text-base font-black font-mono">₹ {liveDonation.amount.toLocaleString('en-IN')} /-</strong>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <span className="text-slate-600 font-medium">{t.donation.paymentMethodTitle}:</span>
-                <span className="text-slate-800 font-semibold">{liveDonation.paymentMethod}</span>
-              </div>
-
-              {liveDonation.transactionId && (
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-600 font-medium">{t.donation.transactionIdLabel}:</span>
-                  <span className="font-mono text-slate-800 font-bold">{liveDonation.transactionId}</span>
+                  <span className="text-slate-600 font-medium">{t.donation.donorName}:</span>
+                  <strong className="text-slate-900 font-bold">{liveDonation.donorName}</strong>
                 </div>
-              )}
 
-              <div className="flex justify-between items-center pt-1.5 border-t border-slate-200">
-                <span className="text-slate-600 font-medium">{language === 'en' ? 'Approval Status:' : 'स्वीकृति स्थिति:'}</span>
-                {isApproved ? (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                    <CheckCircle className="w-3 h-3 text-emerald-600" />
-                    <span>{language === 'en' ? 'Approved & Verified' : 'स्वीकृत एवं सत्यापित'}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 font-medium">
+                    {language === 'en' ? 'Contribution Amount:' : 'सहयोग दान राशि:'}
                   </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
-                    <Clock className="w-3 h-3 text-amber-700 animate-pulse" />
-                    <span>{language === 'en' ? 'Pending Admin Approval' : 'व्यवस्थापक अप्रूवल प्रतीक्षारत (लंबित)'}</span>
+                  <strong className="text-red-700 text-base font-black font-mono">
+                    ₹ {Number(liveDonation.amount || 0).toLocaleString('en-IN')} /-
+                  </strong>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-600 font-medium">{t.donation.paymentMethodTitle}:</span>
+                  <span className="text-slate-800 font-semibold flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                    <span>Online (Razorpay Gateway)</span>
                   </span>
+                </div>
+
+                {liveDonation.razorpayPaymentId && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600 font-medium">
+                      {language === 'en' ? 'Razorpay Payment ID:' : 'रेजरपे पेमेंट आईडी:'}
+                    </span>
+                    <span className="font-mono text-slate-800 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {liveDonation.razorpayPaymentId}
+                    </span>
+                  </div>
                 )}
-              </div>
-            </div>
 
-            {/* If Approved: PROMINENT DOWNLOAD RECEIPT BUTTON */}
-            {isApproved ? (
+                {liveDonation.panCard && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-600 font-medium">
+                      {language === 'en' ? 'PAN Number (80G Benefit):' : 'पैन नंबर (80G छूट हेतु):'}
+                    </span>
+                    <span className="font-mono text-slate-800 font-bold">
+                      {liveDonation.panCard}
+                    </span>
+                  </div>
+                )}
+
+                <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                  <span className="text-slate-600 font-medium">
+                    {language === 'en' ? 'Approval Status:' : 'स्वीकृति स्थिति:'}
+                  </span>
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>{language === 'en' ? 'Approved & Ready for Download' : 'स्वीकृत एवं डाउनलोड हेतु तैयार'}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Instant Verified Receipt Download CTA */}
               <div className="bg-emerald-50 border-2 border-emerald-400 rounded-2xl p-5 space-y-3 shadow-sm text-center">
                 <div className="flex items-center justify-center gap-2 text-emerald-900 font-black text-sm">
-                  <CheckCircle className="w-5 h-5 text-emerald-600" />
-                  <span>{language === 'en' ? 'Official Receipt is Ready!' : 'आपकी आधिकारिक रसीद तैयार है!'}</span>
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  <span>
+                    {language === 'en' ? 'Your Official Receipt is Ready!' : 'आपकी आधिकारिक प्रमाणित रसीद तैयार है!'}
+                  </span>
                 </div>
                 <p className="text-xs text-emerald-800 leading-relaxed">
                   {language === 'en'
-                    ? 'Your donation has been approved by the trust administration. Click below to download your verified receipt with official seal.'
-                    : 'ट्रस्ट कार्यालय द्वारा आपके दान का सत्यापन कर अप्रूवल (स्वीकृति) दे दिया गया है। आप नीचे दिए गए बटन से अपनी प्रमाणित रसीद डाउनलोड कर सकते हैं।'}
+                    ? 'Payment verified via Razorpay HMAC signature. Click below to view, print, or download your official digital receipt with Trust QR code and authorization stamp.'
+                    : 'रेजरपे एचएमएसी सिग्नेचर द्वारा सत्यापित। ट्रस्ट के डिजिटल क्यूआर कोड और मुहर सहित प्रमाणित रसीद देखने व डाउनलोड करने के लिए नीचे क्लिक करें।'}
                 </p>
                 <button
                   type="button"
                   onClick={() => setActiveReceipt({ type: 'donation', data: liveDonation })}
-                  className="w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm rounded-xl shadow-lg transition-transform hover:scale-102 flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-sm rounded-xl shadow-lg transition-transform hover:scale-102 flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Download className="w-5 h-5 text-amber-300" />
-                  <span>{language === 'en' ? 'Download Approved Receipt (PDF)' : 'स्वीकृत रसीद डाउनलोड करें (PDF)'}</span>
-                </button>
-              </div>
-            ) : (
-              /* Wait for Approval Notice Box */
-              <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 sm:p-5 text-left space-y-3 shadow-2xs">
-                <div className="flex items-center gap-2 text-amber-950 font-black text-xs sm:text-sm">
-                  <Clock className="w-4 h-4 text-amber-700 shrink-0" />
                   <span>
                     {language === 'en'
-                      ? 'Please wait for Admin Approval to download receipt'
-                      : 'रसीद डाउनलोड करने के लिए व्यवस्थापक अप्रूवल (स्वीकृति) की प्रतीक्षा करें'}
+                      ? 'Download Approved Receipt (PDF / Print)'
+                      : 'स्वीकृत रसीद डाउनलोड करें (PDF / Print)'}
                   </span>
-                </div>
-
-                <p className="text-[11.5px] text-amber-900 leading-relaxed">
-                  {language === 'en'
-                    ? 'Your transaction is currently under verification with the trust bank records. Once the administration verifies and approves your contribution, the verified official receipt will become available. Please note down your Receipt Number for future reference.'
-                    : 'आपके द्वारा किए गए भुगतान (UTR / Transaction ID) का बैंक खाते से मिलान एवं भौतिक सत्यापन किया जा रहा है। ट्रस्ट कार्यालय द्वारा अप्रूवल (स्वीकृति) प्रदान करने के उपरांत ही प्रमाणित रसीद उपलब्ध होगी। कृपया अपनी रसीद संख्या सुरक्षित रखें।'}
-                </p>
-
-                {/* Live Status Refresh Action */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-amber-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const updated = donations.find((d) => d.id === submittedDonation.id);
-                      if (updated && (updated.status === 'Approved' || updated.isVerified)) {
-                        setStatusRefreshToast(
-                          language === 'en'
-                            ? '✓ Approved! Your verified receipt is now available above.'
-                            : '✓ स्वीकृत हो चुका है! आपकी प्रमाणित रसीद डाउनलोड के लिए तैयार है।'
-                        );
-                      } else {
-                        setStatusRefreshToast(
-                          language === 'en'
-                            ? '⏳ Still under review with trust office. Please wait.'
-                            : '⏳ अभी व्यवस्थापक सत्यापन प्रक्रियाधीन है। कृपया थोड़ी प्रतीक्षा करें।'
-                        );
-                      }
-                      setTimeout(() => setStatusRefreshToast(''), 4000);
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-950 rounded-lg text-xs font-bold cursor-pointer transition-colors w-fit"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 text-amber-800" />
-                    <span>{language === 'en' ? 'Check Live Approval Status' : 'लाइव अप्रूवल स्थिति जांचें'}</span>
-                  </button>
-
-                  <div className="text-[11px] text-amber-900 font-bold">
-                    <span>{language === 'en' ? 'Helpline:' : 'हेल्पलाइन:'} </span>
-                    <span className="font-mono text-blue-950">{settings.phone}</span>
-                  </div>
-                </div>
-
-                {statusRefreshToast && (
-                  <div className="text-[11px] font-bold text-amber-900 bg-amber-100 px-3 py-1.5 rounded-lg border border-amber-300 animate-fadeIn">
-                    {statusRefreshToast}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setSubmittedDonation(null);
-                  setDonorName('');
-                  setMobile('');
-                  setTransactionId('');
-                  setMessage('');
-                  setScreenshotPreview('');
-                  setStatusRefreshToast('');
-                }}
-                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-md transition-colors cursor-pointer"
-              >
-                {language === 'en' ? 'Make Another Donation' : 'अन्य दान करें'}
-              </button>
-              <button
-                type="button"
-                onClick={() => setCurrentPage('home')}
-                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl transition-colors cursor-pointer"
-              >
-                {language === 'en' ? 'Go to Home' : 'मुख्य पृष्ठ पर जाएं'}
-              </button>
-            </div>
-          </div>
-        );
-      })() : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Left Column: QR Code & Bank Details */}
-          <div className="lg:col-span-5 space-y-6">
-            
-            {/* UPI QR Code Card */}
-            <div className="bg-white rounded-3xl border-2 border-amber-400 p-6 shadow-xl text-center space-y-4 relative overflow-hidden">
-              <div className="bg-gradient-to-r from-red-600 to-amber-600 text-white font-bold text-xs py-1 px-4 -mx-6 -mt-6 mb-3 uppercase tracking-wider flex items-center justify-between">
-                <span>{language === 'en' ? 'Trust UPI QR Code' : 'ट्रस्ट UPI क्यूआर कोड'}</span>
-                <span className="text-[10px] text-amber-200">
-                  {language === 'en' ? 'Verified Official' : 'अधिकृत'}
-                </span>
-              </div>
-
-              <div className="w-56 h-56 mx-auto bg-slate-50 border-2 border-slate-300 rounded-2xl p-3 flex flex-col items-center justify-center relative shadow-inner">
-                {settings.donationQrUrl ? (
-                  <SafeImage
-                    src={settings.donationQrUrl}
-                    alt="Luv Kush Seva Trust Official UPI QR Code for Charitable Donations"
-                    className="w-full h-full object-contain rounded-xl"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center text-center space-y-2 p-2">
-                    <QrCode className="w-28 h-28 text-slate-800" />
-                    <span className="text-[11px] font-bold text-slate-700">
-                      {t.donation.scanQrToPay}
-                    </span>
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      (PhonePe, GPay, Paytm, BHIM)
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* UPI ID */}
-              <div className="space-y-1.5">
-                <span className="text-[11px] font-bold text-slate-500 uppercase block">
-                  {t.donation.upiIdLabel}
-                </span>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="font-mono font-black text-sm text-blue-950 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 select-all">
-                    {settings.upiId}
-                  </span>
-                  <button
-                    onClick={handleCopyUpi}
-                    className="p-1.5 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-lg text-xs flex items-center gap-1 font-bold cursor-pointer transition-colors"
-                    title={language === 'en' ? 'Copy UPI' : 'कॉपी करें'}
-                  >
-                    {copiedUpi ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                    <span>{copiedUpi ? t.donation.copied : t.donation.copyUpi}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Direct UPI Payment Section (Target element of selector 1: a:nth-of-type(1)) */}
-              <div className="space-y-2.5 pt-1.5">
-                <a
-                  href={upiPayUrl}
-                  target="_top"
-                  rel="noopener noreferrer"
-                  onClick={() => launchUpiApp('generic')}
-                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 bg-gradient-to-r from-emerald-600 via-emerald-700 to-teal-800 hover:from-emerald-700 hover:to-teal-900 active:from-emerald-800 active:to-teal-950 text-white font-black text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-98 cursor-pointer border border-emerald-500/20"
-                >
-                  <Smartphone className="w-4 h-4 text-amber-300" />
-                  <span>{language === 'en' ? 'Open Any UPI App (Pay Any Amount Manually)' : 'UPI ऐप खोलें (इच्छानुसार कोई भी राशि भरें)'}</span>
-                  <ExternalLink className="w-3.5 h-3.5 text-emerald-200" />
-                </a>
-
-                {/* Direct 1-Click Specific App Launchers for Maximum Compatibility */}
-                <div className="space-y-1">
-                  <span className="text-[10px] text-emerald-800 font-extrabold uppercase tracking-wider block text-center bg-emerald-50 py-0.5 px-2 rounded-lg border border-emerald-200/70">
-                    {language === 'en' ? '✨ No fixed amount • Enter any amount in app:' : '✨ कोई फिक्स राशि नहीं • ऐप में अपनी मर्जी से कोई भी राशि भरें:'}
-                  </span>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => launchUpiApp('phonepe')}
-                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-50 hover:bg-purple-100 active:bg-purple-200 border border-purple-200 text-purple-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title={language === 'en' ? 'Open PhonePe (Pay any voluntary amount)' : 'PhonePe खोलें (अपनी मर्जी से राशि भरें)'}
-                    >
-                      <span className="w-6 h-6 rounded-full bg-purple-600 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">पे</span>
-                      <span>PhonePe</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => launchUpiApp('gpay')}
-                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-50 hover:bg-blue-100 active:bg-blue-200 border border-blue-200 text-blue-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title={language === 'en' ? 'Open Google Pay (Pay any voluntary amount)' : 'Google Pay खोलें (अपनी मर्जी से राशि भरें)'}
-                    >
-                      <span className="w-6 h-6 rounded-full bg-white border border-blue-300 text-blue-600 flex items-center justify-center text-xs font-black mb-1 shadow-xs">G</span>
-                      <span>GPay</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => launchUpiApp('paytm')}
-                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-sky-50 hover:bg-sky-100 active:bg-sky-200 border border-sky-200 text-sky-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title={language === 'en' ? 'Open Paytm (Pay any voluntary amount)' : 'Paytm खोलें (अपनी मर्जी से राशि भरें)'}
-                    >
-                      <span className="w-6 h-6 rounded-full bg-sky-500 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">P</span>
-                      <span>Paytm</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => launchUpiApp('bhim')}
-                      className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 border border-emerald-200 text-emerald-950 font-bold text-[11px] transition-all hover:scale-102 cursor-pointer shadow-2xs"
-                      title={language === 'en' ? 'Open BHIM (Pay any voluntary amount)' : 'BHIM खोलें (अपनी मर्जी से राशि भरें)'}
-                    >
-                      <span className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black mb-1 shadow-xs">B</span>
-                      <span>BHIM</span>
-                    </button>
-                  </div>
-                </div>
-
-                {launchedAppName && (
-                  <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 text-xs text-emerald-950 text-center font-bold animate-fadeIn space-y-1">
-                    <div className="flex items-center justify-center gap-1.5 text-emerald-800">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 animate-bounce" />
-                      <span>{language === 'en' ? `Opening ${launchedAppName}...` : `${launchedAppName} ऐप खोला जा रहा है...`}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-700 font-medium">
-                      {language === 'en'
-                        ? 'App will open with blank amount: enter any amount you wish to donate.'
-                        : 'ऐप बिना किसी फिक्स राशि के खुलेगा: अपनी इच्छानुसार जो भी राशि देनी हो, दर्ज करके भुगतान करें।'}
-                    </p>
-                    <div className="font-mono font-black text-sm text-blue-900 bg-white py-1 px-3 rounded-lg border border-emerald-200 inline-block shadow-2xs select-all">
-                      {settings.upiId}
-                    </div>
-                  </div>
-                )}
-
-                <div className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-[10.5px] text-slate-600 text-center space-y-0.5">
-                  <div className="font-bold text-slate-800">
-                    💡 {language === 'en' ? 'Voluntary Contribution:' : 'स्वैच्छिक दान:'}
-                  </div>
-                  <div>
-                    {language === 'en'
-                      ? '• No amount is locked or fixed. You can pay ₹10, ₹50, ₹100, ₹500 or any custom amount in PhonePe/GPay/Paytm.'
-                      : '• कोई राशि लॉक या फिक्स नहीं है। आप PhonePe, GPay या Paytm में ₹10, ₹50, ₹100, ₹500 या अपनी मर्जी से कोई भी राशि डालकर सीधे भुगतान कर सकते हैं।'}
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Bank Transfer Details Box */}
-            <div className="bg-slate-50 rounded-3xl border border-slate-200 p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                  <Building className="w-4 h-4 text-blue-700" />
-                  <span>{t.donation.bankDetailsTitle}</span>
-                </h3>
-                <button
-                  onClick={handleCopyBank}
-                  className="text-xs text-blue-700 hover:underline flex items-center gap-1 font-semibold cursor-pointer"
-                >
-                  {copiedBank ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  <span>{copiedBank ? t.donation.copied : t.donation.copyBankDetails}</span>
                 </button>
               </div>
 
-              <div className="space-y-2 text-xs text-slate-700">
-                <div className="flex justify-between border-b border-slate-200 pb-1">
-                  <span className="text-slate-500">{t.donation.bankName}:</span>
-                  <strong className="text-slate-900">{settings.bankDetails.bankName}</strong>
+              {/* Reset or New Donation */}
+              <div className="pt-2 flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmittedDonation(null);
+                    setCustomAmount('');
+                    setSelectedAmount(1000);
+                  }}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-900 hover:underline cursor-pointer"
+                >
+                  {language === 'en' ? '← Make Another Donation' : '← नया दान करें'}
+                </button>
+              </div>
+            </div>
+          );
+        })()
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          {/* Left Column: Razorpay Gateway Information & Trust Credentials */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Razorpay Assurance Card */}
+            <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 rounded-3xl p-6 sm:p-7 text-white shadow-xl space-y-5 border border-blue-800/40 relative overflow-hidden">
+              <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+
+              <div className="flex items-center justify-between border-b border-blue-800/50 pb-4">
+                <div className="space-y-0.5">
+                  <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-wider block">
+                    {language === 'en' ? 'Payment Partner' : 'भुगतान सहयोगी'}
+                  </span>
+                  <div className="text-xl font-black tracking-tight text-white flex items-center gap-2">
+                    <span className="text-blue-400">Razorpay</span>
+                    <span className="text-xs bg-blue-800/60 text-blue-200 px-2 py-0.5 rounded-full border border-blue-600/40 font-mono">
+                      100% SECURE
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between border-b border-slate-200 pb-1">
-                  <span className="text-slate-500">{t.donation.accountHolder}:</span>
-                  <strong className="text-slate-900">{settings.bankDetails.accountHolderName}</strong>
-                </div>
-                <div className="flex justify-between border-b border-slate-200 pb-1">
-                  <span className="text-slate-500">{t.donation.accountNumber}:</span>
-                  <strong className="font-mono text-sm text-blue-900">{settings.bankDetails.accountNumber}</strong>
-                </div>
-                <div className="flex justify-between border-b border-slate-200 pb-1">
-                  <span className="text-slate-500">{t.donation.ifscCode}:</span>
-                  <strong className="font-mono text-sm text-red-700">{settings.bankDetails.ifscCode}</strong>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500">{t.donation.branch}:</span>
-                  <span className="text-slate-800">{settings.bankDetails.branch}</span>
+                <div className="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-300">
+                  <Lock className="w-5 h-5 text-amber-300" />
                 </div>
               </div>
 
-              <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
+              <p className="text-xs text-slate-300 leading-relaxed">
                 {language === 'en'
-                  ? '* After transfer, please fill details in the form to generate your official receipt.'
-                  : '* ट्रांसफर के बाद कृपया नीचे दिए गए फॉर्म में विवरण भरकर रसीद प्राप्त करें।'}
+                  ? 'All online donations to Luv Kush Seva Trust are processed through Razorpay’s banking gateway with 256-bit SSL encryption. All major payment options are supported:'
+                  : 'लव कुश सेवा ट्रस्ट को किए जाने वाले सभी ऑनलाइन दान रेजरपे के 256-बिट सुरक्षित बैंकिंग गेटवे द्वारा प्रोसेस होते हैं। सभी प्रमुख ऑनलाइन विकल्प उपलब्ध हैं:'}
+              </p>
+
+              {/* Supported Payment Channels */}
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div>
+                    <strong className="block text-white text-[11px]">UPI Apps</strong>
+                    <span className="text-[10px] text-slate-400">GPay, PhonePe, Paytm, BHIM</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-amber-400 shrink-0" />
+                  <div>
+                    <strong className="block text-white text-[11px]">Cards</strong>
+                    <span className="text-[10px] text-slate-400">RuPay, Visa, Mastercard</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2">
+                  <Building2 className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <div>
+                    <strong className="block text-white text-[11px]">Net Banking</strong>
+                    <span className="text-[10px] text-slate-400">50+ Indian Banks</span>
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-white/5 border border-white/10 flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-purple-400 shrink-0" />
+                  <div>
+                    <strong className="block text-white text-[11px]">Instant Receipt</strong>
+                    <span className="text-[10px] text-slate-400">Official 80G PDF</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Badges */}
+              <div className="p-3 bg-blue-900/40 rounded-xl border border-blue-700/40 space-y-1.5 text-[11px] text-blue-200">
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    {language === 'en'
+                      ? 'No Manual UTR Verification Required'
+                      : 'मैन्युअल UTR या स्क्रीनशॉट भेजने की आवश्यकता नहीं'}
+                  </span>
+                </div>
+                <p className="text-[10.5px] text-slate-300 leading-relaxed">
+                  {language === 'en'
+                    ? 'Unlike manual QR or bank transfers, Razorpay automatically verifies your payment in real time and immediately issues your verified official receipt.'
+                    : 'पुराने मैन्युअल क्यूआर या बैंक ट्रांसफर के विपरीत, रेजरपे आपके भुगतान का तुरंत ऑटो-वेरिफिकेशन करता है और रसीद तुरंत डाउनलोड हेतु उपलब्ध कराता है।'}
+                </p>
               </div>
             </div>
 
+            {/* Official Trust Registration Information */}
+            <div className="bg-slate-50 rounded-3xl border border-slate-200 p-6 space-y-3.5 text-xs text-slate-700">
+              <h3 className="font-extrabold text-sm text-slate-900 flex items-center gap-2">
+                <BadgeCheck className="w-4 h-4 text-blue-700" />
+                <span>
+                  {language === 'en' ? 'Trust Registration Credentials' : 'ट्रस्ट का वैधानिक पंजीकरण'}
+                </span>
+              </h3>
+
+              <div className="space-y-2 text-[11.5px]">
+                <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                  <span className="text-slate-500">
+                    {language === 'en' ? 'Trust Name:' : 'ट्रस्ट का नाम:'}
+                  </span>
+                  <strong className="text-slate-900">{settings.name}</strong>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                  <span className="text-slate-500">
+                    {language === 'en' ? 'Trust Reg. No:' : 'पंजीकरण संख्या:'}
+                  </span>
+                  <strong className="font-mono text-blue-950 font-bold">{settings.registrationNumber}</strong>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                  <span className="text-slate-500">
+                    {language === 'en' ? 'NITI Aayog NGO Darpan:' : 'नीति आयोग दर्पण ID:'}
+                  </span>
+                  <strong className="font-mono text-emerald-800 font-bold">{settings.ngoDarpanId}</strong>
+                </div>
+                <div className="flex justify-between border-b border-slate-200 pb-1.5">
+                  <span className="text-slate-500">
+                    {language === 'en' ? 'PAN Card No:' : 'ट्रस्ट पैन नंबर:'}
+                  </span>
+                  <strong className="font-mono text-slate-900">{settings.panNumber}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">
+                    {language === 'en' ? 'Regd. Address:' : 'पंजीकृत पता:'}
+                  </span>
+                  <span className="text-slate-800 text-right max-w-[200px]">{settings.address}</span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-900 leading-relaxed font-medium">
+                {language === 'en'
+                  ? '• Donations are eligible for tax exemption under applicable provisions of the Income Tax Act.'
+                  : '• आयकर अधिनियम के सुसंगत प्रावधानों के अंतर्गत किए गए दान पर कर छूट की पात्रता उपलब्ध है।'}
+              </div>
+            </div>
           </div>
 
-          {/* Right Column: Amount Selection & Donor Form */}
+          {/* Right Column: Amount Selection & Razorpay Online Payment Form */}
           <div className="lg:col-span-7 bg-white rounded-3xl border border-slate-200 shadow-xl p-6 sm:p-8 space-y-6">
-            
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
-                {t.donation.amountTitle} *
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  {t.donation.amountTitle} *
+                </label>
+                <span className="text-[11px] font-bold text-emerald-700">
+                  {language === 'en' ? 'Select or type custom amount' : 'राशि चुनें या अपनी इच्छानुसार लिखें'}
+                </span>
+              </div>
 
-              {/* Preset Buttons per prompt: 100, 500, 1000, 2100, 5100 */}
+              {/* Preset Buttons: ₹100, ₹500, ₹1000, ₹2100, ₹5100 */}
               <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
                 {[100, 500, 1000, 2100, 5100].map((amt) => (
                   <button
                     type="button"
                     key={amt}
                     onClick={() => handleSelectAmount(amt)}
-                    className={`py-2.5 px-3 rounded-xl font-bold text-sm border transition-all cursor-pointer ${
+                    className={`py-3 px-3 rounded-xl font-black text-sm border transition-all cursor-pointer ${
                       selectedAmount === amt && !customAmount
-                        ? 'bg-red-600 text-white border-red-600 shadow-md scale-105'
-                        : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100'
+                        ? 'bg-gradient-to-r from-red-600 to-amber-600 text-white border-transparent shadow-md scale-102 ring-2 ring-amber-400'
+                        : 'bg-slate-50 text-slate-800 border-slate-200 hover:bg-slate-100 hover:border-slate-300'
                     }`}
                   >
-                    ₹{amt}
+                    ₹{amt.toLocaleString('en-IN')}
                   </button>
                 ))}
               </div>
 
               {/* Custom Input */}
               <div className="mt-3">
+                <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                  {language === 'en'
+                    ? 'Or enter any voluntary amount of your choice:'
+                    : 'या अपनी इच्छानुसार कोई भी राशि लिखें:'}
+                </label>
                 <div className="relative">
-                  <span className="absolute left-3.5 top-2.5 text-slate-400 font-bold">₹</span>
+                  <span className="absolute left-3.5 top-2.5 text-slate-500 font-bold text-base">₹</span>
                   <input
                     type="number"
                     min="1"
                     value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
+                    onChange={handleCustomAmountChange}
                     placeholder={t.donation.customAmountPlaceholder}
-                    className="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:outline-none font-bold text-slate-900"
+                    className="w-full pl-8 pr-4 py-2.5 border-2 border-slate-300 rounded-xl text-base focus:border-red-600 focus:ring-2 focus:ring-red-100 focus:outline-none font-black text-slate-900"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Donation Form */}
-            <form onSubmit={handleSubmit} className="space-y-4 pt-4 border-t border-slate-100">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                {t.donation.donorInfoTitle}
-              </label>
+            {/* Donor Information & Payment Form */}
+            <form onSubmit={handleRazorpayPay} className="space-y-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  {t.donation.donorInfoTitle}
+                </label>
+                <span className="text-[10px] text-slate-500 font-medium">
+                  * {language === 'en' ? 'Required fields' : 'अनिवार्य विवरण'}
+                </span>
+              </div>
 
               {errorMsg && (
-                <div className="bg-red-50 border border-red-200 text-red-700 p-3 rounded-xl text-xs flex items-center gap-2">
+                <div className="bg-red-50 border border-red-200 text-red-700 p-3.5 rounded-xl text-xs flex items-center gap-2 animate-fadeIn">
                   <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{errorMsg}</span>
+                  <span className="font-medium">{errorMsg}</span>
                 </div>
               )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+                <div className="sm:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     {t.donation.donorName} *
                   </label>
@@ -771,8 +653,8 @@ export const DonationPage: React.FC = () => {
                     required
                     value={donorName}
                     onChange={(e) => setDonorName(e.target.value)}
-                    placeholder={language === 'en' ? 'Your Name' : 'आपका नाम'}
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder={language === 'en' ? 'Full Name as on Aadhaar/PAN' : 'पूरा नाम (आधार या पैन के अनुसार)'}
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium text-slate-900"
                   />
                 </div>
 
@@ -783,10 +665,11 @@ export const DonationPage: React.FC = () => {
                   <input
                     type="tel"
                     required
+                    maxLength={10}
                     value={mobile}
-                    onChange={(e) => setMobile(e.target.value)}
-                    placeholder={language === 'en' ? '10-digit mobile number' : '10 अंकों का मोबाइल नंबर'}
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, ''))}
+                    placeholder="9876543210"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono font-bold text-slate-900"
                   />
                 </div>
 
@@ -798,37 +681,40 @@ export const DonationPage: React.FC = () => {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="example@mail.com"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder="donor@example.com"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {t.donation.paymentMethodTitle} *
-                  </label>
-                  <select
-                    value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value as any)}
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer"
-                  >
-                    <option value="QR Code">{language === 'en' ? 'QR Code Scanner' : 'QR Code स्कैनर'}</option>
-                    <option value="UPI">{language === 'en' ? 'UPI Transfer' : 'UPI ट्रांसफर'}</option>
-                    <option value="Bank Transfer">{language === 'en' ? 'Bank Transfer (NEFT / IMPS)' : 'बैंक ट्रांसफर (NEFT / IMPS)'}</option>
-                  </select>
-                </div>
-
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    {t.donation.transactionIdLabel}
+                    {language === 'en' ? 'PAN Card (For 80G Tax Benefit)' : 'पैन कार्ड (80G कर छूट रसीद हेतु)'}
                   </label>
                   <input
                     type="text"
-                    value={transactionId}
-                    onChange={(e) => setTransactionId(e.target.value)}
-                    placeholder={t.donation.transactionIdPlaceholder}
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono"
+                    maxLength={10}
+                    value={panCard}
+                    onChange={(e) => setPanCard(e.target.value.toUpperCase())}
+                    placeholder="ABCDE1234F"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none font-mono uppercase font-bold text-slate-900"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    {language === 'en' ? 'Donation Purpose' : 'दान का उद्देश्य'}
+                  </label>
+                  <select
+                    value={purpose}
+                    onChange={(e) => setPurpose(e.target.value)}
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none cursor-pointer font-medium text-slate-800"
+                  >
+                    <option value="सामान्य धर्मार्थ सहयोग (General Welfare)">सामान्य धर्मार्थ सहयोग (General Welfare)</option>
+                    <option value="निःशुल्क चिकित्सा एवं अस्पताल सेवा (Healthcare)">निःशुल्क चिकित्सा एवं अस्पताल सेवा (Healthcare)</option>
+                    <option value="गरीब बच्चों की शिक्षा सहायता (Education)">गरीब बच्चों की शिक्षा सहायता (Education)</option>
+                    <option value="अनाथ आश्रम एवं वृद्ध आश्रम सेवा (Orphan & Senior Care)">अनाथ आश्रम एवं वृद्ध आश्रम सेवा (Orphan & Senior Care)</option>
+                    <option value="एम्बुलेंस एवं आपातकालीन सेवा (Ambulance)">एम्बुलेंस एवं आपातकालीन सेवा (Ambulance)</option>
+                  </select>
                 </div>
 
                 <div className="sm:col-span-2">
@@ -839,54 +725,71 @@ export const DonationPage: React.FC = () => {
                     type="text"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    placeholder={t.donation.messagePlaceholder}
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    placeholder={
+                      language === 'en'
+                        ? 'Best wishes or prayer message (optional)'
+                        : 'शुभकामना या संदेश (वैकल्पिक)'
+                    }
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-900"
                   />
                 </div>
-
-
               </div>
 
-              {/* Submit CTA */}
-              <div className="pt-4">
+              {/* Single Primary Razorpay CTA Button */}
+              <div className="pt-4 space-y-3">
                 <button
                   type="submit"
-                  className="w-full py-3.5 bg-red-600 hover:bg-red-700 text-white font-bold text-base rounded-xl shadow-lg transition-transform hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
+                  disabled={isProcessing}
+                  className="w-full py-4 px-6 bg-gradient-to-r from-red-600 via-red-700 to-amber-600 hover:from-red-700 hover:to-amber-700 active:scale-98 text-white font-black text-base sm:text-lg rounded-2xl shadow-xl transition-all flex items-center justify-center gap-3 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed border border-red-500/30"
                 >
-                  <Heart className="w-5 h-5 fill-white" />
-                  <span>Donate Now</span>
-                  <ArrowRight className="w-4 h-4" />
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin text-white" />
+                      <span>
+                        {language === 'en'
+                          ? 'Connecting to Razorpay Gateway...'
+                          : 'रेजरपे सुरक्षित गेटवे से संपर्क हो रहा है...'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Heart className="w-5 h-5 fill-white text-white" />
+                      <span>
+                        {language === 'en'
+                          ? `Proceed to Pay ₹${effectiveAmount.toLocaleString('en-IN')} via Razorpay`
+                          : `रेजरपे द्वारा ₹${effectiveAmount.toLocaleString('en-IN')} का सुरक्षित भुगतान करें`}
+                      </span>
+                      <ArrowRight className="w-5 h-5 text-amber-300" />
+                    </>
+                  )}
                 </button>
+
+                <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 font-medium">
+                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>
+                    {language === 'en'
+                      ? 'Protected by Razorpay 256-bit Bank Grade Security • Instant Receipt'
+                      : 'रेजरपे 256-बिट बैंक स्तरीय सुरक्षा • तुरंत रसीद उपलब्ध'}
+                  </span>
+                </div>
               </div>
             </form>
-
           </div>
-
         </div>
       )}
 
-
-      {/* ========================================================
-          DOWNLOAD APPROVED DONATION RECEIPT MODAL
-      ======================================================== */}
+      {/* Download Approved Receipt Finder Modal */}
       {showDownloadReceiptModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 border border-slate-200 animate-fadeIn my-6">
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-scaleUp">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-black text-base sm:text-lg text-slate-900 flex items-center gap-2">
-                  <Download className="w-5 h-5 text-emerald-600" />
-                  <span>
-                    {language === 'en'
-                      ? 'Download Approved Donation Receipt'
-                      : 'स्वीकृत दान रसीद डाउनलोड करें'}
-                  </span>
-                </h3>
-                <p className="text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-slate-900 font-black text-base">
+                <Download className="w-5 h-5 text-emerald-600" />
+                <span>
                   {language === 'en'
-                    ? 'Enter your Receipt Number, Mobile Number, or UTR to download verified receipt.'
-                    : 'अपनी रसीद संख्या, मोबाइल नंबर या UTR दर्ज कर प्रमाणित रसीद डाउनलोड करें।'}
-                </p>
+                    ? 'Find & Download Approved Receipt'
+                    : 'स्वीकृत रसीद खोजें व डाउनलोड करें'}
+                </span>
               </div>
               <button
                 type="button"
@@ -896,57 +799,63 @@ export const DonationPage: React.FC = () => {
                   setSearchedDonation(null);
                   setSearchReceiptQuery('');
                 }}
-                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center cursor-pointer transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Search Input Form */}
+            <p className="text-xs text-slate-600 leading-relaxed">
+              {language === 'en'
+                ? 'Enter your Receipt Number (e.g. LKST-REC-2026-...), 10-digit mobile number, or Razorpay payment ID to download your official PDF receipt.'
+                : 'अपनी रसीद संख्या (जैसे LKST-REC-2026-...), 10 अंकों का मोबाइल नंबर, या रेजरपे पेमेंट आईडी दर्ज करके अपनी रसीद डाउनलोड करें।'}
+            </p>
+
             <form onSubmit={handleSearchReceipt} className="space-y-3">
-              <label className="block text-xs font-bold text-slate-700">
-                {language === 'en'
-                  ? 'Enter Receipt Number or Mobile Number *'
-                  : 'रसीद संख्या या पंजीकृत मोबाइल नंबर *'}
-              </label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                  <input
-                    type="text"
-                    value={searchReceiptQuery}
-                    onChange={(e) => setSearchReceiptQuery(e.target.value)}
-                    placeholder="e.g. LKST-REC-2026-784 या 98XXXXXXXX"
-                    className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono font-bold focus:outline-none focus:border-emerald-600 focus:bg-white"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                  <span>{language === 'en' ? 'Find' : 'खोजें'}</span>
-                </button>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input
+                  type="text"
+                  value={searchReceiptQuery}
+                  onChange={(e) => setSearchReceiptQuery(e.target.value)}
+                  placeholder={
+                    language === 'en'
+                      ? 'Receipt No / Mobile / Payment ID'
+                      : 'रसीद संख्या / मोबाइल नंबर / पेमेंट आईडी'
+                  }
+                  className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none font-mono"
+                  autoFocus
+                />
               </div>
-              <p className="text-[11px] text-slate-500">
-                {language === 'en'
-                  ? '* Official receipts can be downloaded only after physical bank verification and admin approval.'
-                  : '* केवल व्यवस्थापक द्वारा स्वीकृत (Approved) दानों की ही प्रमाणित रसीद डाउनलोड की जा सकती है।'}
-              </p>
+
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-sm rounded-xl shadow-md transition-transform hover:scale-101 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Search className="w-4 h-4" />
+                <span>{language === 'en' ? 'Search Receipt' : 'रसीद खोजें'}</span>
+              </button>
             </form>
 
-            {/* Status Message / Result */}
+            {/* Status Message */}
             {searchStatusMsg && (
               <div
-                className={`p-3.5 rounded-2xl text-xs leading-relaxed border ${
+                className={`p-3 rounded-xl text-xs font-medium flex items-start gap-2 ${
                   searchStatusMsg.type === 'success'
-                    ? 'bg-emerald-50 text-emerald-900 border-emerald-300'
-                    : searchStatusMsg.type === 'pending'
-                    ? 'bg-amber-50 text-amber-900 border-amber-300'
-                    : 'bg-red-50 text-red-900 border-red-200'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : searchStatusMsg.type === 'error'
+                    ? 'bg-red-50 text-red-800 border border-red-200'
+                    : 'bg-amber-50 text-amber-800 border border-amber-200'
                 }`}
               >
-                {searchStatusMsg.text}
+                {searchStatusMsg.type === 'success' ? (
+                  <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                ) : searchStatusMsg.type === 'error' ? (
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                ) : (
+                  <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                )}
+                <span>{searchStatusMsg.text}</span>
               </div>
             )}
 
@@ -966,18 +875,24 @@ export const DonationPage: React.FC = () => {
                     <strong className="text-slate-900 text-xs">{searchedDonation.donorName}</strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block">{language === 'en' ? 'Amount:' : 'दान राशि:'}</span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {language === 'en' ? 'Amount:' : 'दान राशि:'}
+                    </span>
                     <strong className="text-red-700 font-mono font-bold text-xs">
                       ₹ {Number(searchedDonation.amount || 0).toLocaleString('en-IN')} /-
                     </strong>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block">{language === 'en' ? 'Date:' : 'दिनांक:'}</span>
+                    <span className="text-[10px] text-slate-400 block">
+                      {language === 'en' ? 'Date:' : 'दिनांक:'}
+                    </span>
                     <span>{new Date(searchedDonation.donatedAt || Date.now()).toLocaleDateString()}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block">{language === 'en' ? 'Status:' : 'स्थिति:'}</span>
-                    {searchedDonation.status === 'Approved' ? (
+                    <span className="text-[10px] text-slate-400 block">
+                      {language === 'en' ? 'Status:' : 'स्थिति:'}
+                    </span>
+                    {searchedDonation.status === 'Approved' || searchedDonation.isVerified ? (
                       <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[10px]">
                         <CheckCircle className="w-3 h-3 text-emerald-600" />
                         {language === 'en' ? 'Approved' : 'स्वीकृत'}
@@ -991,8 +906,8 @@ export const DonationPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Download Button if Approved ONLY */}
-                {searchedDonation.status === 'Approved' ? (
+                {/* Download Button if Approved */}
+                {searchedDonation.status === 'Approved' || searchedDonation.isVerified ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -1011,8 +926,8 @@ export const DonationPage: React.FC = () => {
                 ) : (
                   <div className="p-2.5 bg-amber-100/70 border border-amber-300 rounded-xl text-[11px] text-amber-900 leading-relaxed text-center font-medium">
                     {language === 'en'
-                      ? 'This receipt will be downloadable as soon as admin approves the transaction.'
-                      : 'व्यवस्थापक द्वारा भुगतान अप्रूव होते ही यहाँ डाउनलोड बटन सक्रिय हो जाएगा।'}
+                      ? 'This receipt is pending approval.'
+                      : 'यह रसीद अभी सत्यापन प्रक्रिया में है।'}
                   </div>
                 )}
               </div>
@@ -1035,7 +950,6 @@ export const DonationPage: React.FC = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };

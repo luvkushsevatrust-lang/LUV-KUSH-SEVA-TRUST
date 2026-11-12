@@ -7,6 +7,7 @@ import {
   Donation,
   Announcement,
   TrustSettings,
+  IdCardOrder,
 } from '../types';
 
 /**
@@ -342,6 +343,122 @@ BEGIN
     CREATE POLICY "Allow all status_history" ON public.application_status_history FOR ALL USING (true) WITH CHECK (true);
   END IF;
 END $$;
+
+-- ==============================================================================
+-- 9. RAZORPAY PAYMENT SYSTEM & SMART ID ORDERS (नॉन-डिस्ट्रक्टिव)
+-- ==============================================================================
+
+-- A. Razorpay Orders (ऑर्डर ट्रैकिंग)
+CREATE TABLE IF NOT EXISTS public.razorpay_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id TEXT NOT NULL UNIQUE,
+  purpose TEXT NOT NULL CHECK (purpose IN ('donation', 'smart_id_card')),
+  amount NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+  amount_paise BIGINT NOT NULL CHECK (amount_paise = ROUND(amount * 100)),
+  currency TEXT NOT NULL DEFAULT 'INR',
+  status TEXT NOT NULL DEFAULT 'created' CHECK (status IN ('created', 'attempted', 'paid', 'failed')),
+  donor_name TEXT NOT NULL,
+  email TEXT,
+  contact TEXT NOT NULL,
+  notes JSONB DEFAULT '{}'::jsonb,
+  receipt_number TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- B. Razorpay Payments (वेरिफाइड ट्रांजेक्शन)
+CREATE TABLE IF NOT EXISTS public.razorpay_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  payment_id TEXT NOT NULL UNIQUE,
+  order_id TEXT NOT NULL REFERENCES public.razorpay_orders(order_id),
+  amount NUMERIC(10, 2) NOT NULL CHECK (amount > 0),
+  currency TEXT NOT NULL DEFAULT 'INR',
+  status TEXT NOT NULL CHECK (status IN ('captured', 'authorized', 'failed', 'refunded')),
+  method TEXT,
+  bank TEXT,
+  wallet TEXT,
+  vpa TEXT,
+  email TEXT,
+  contact TEXT,
+  error_code TEXT,
+  error_description TEXT,
+  signature_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  verified_at TIMESTAMPTZ,
+  raw_response JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- C. Webhook Event Log (आईडेम्पोटेंट ऑडिट)
+CREATE TABLE IF NOT EXISTS public.razorpay_webhooks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_id TEXT NOT NULL UNIQUE,
+  event_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  payload JSONB NOT NULL,
+  signature_verified BOOLEAN NOT NULL DEFAULT FALSE,
+  processed BOOLEAN NOT NULL DEFAULT FALSE,
+  processing_error TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- D. Smart ID Card Orders (अलग सर्विस फीस टेबल)
+CREATE TABLE IF NOT EXISTS public.id_card_orders (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id TEXT NOT NULL REFERENCES public.razorpay_orders(order_id),
+  payment_id TEXT REFERENCES public.razorpay_payments(payment_id),
+  tier TEXT NOT NULL CHECK (tier IN ('special_service_200', 'general_associate_free')),
+  applicant_id TEXT REFERENCES public.applications(id) ON DELETE SET NULL,
+  full_name TEXT NOT NULL,
+  mobile TEXT NOT NULL,
+  email TEXT,
+  service_category TEXT,
+  amount_fee NUMERIC(10, 2) NOT NULL CHECK (amount_fee >= 0),
+  is_paid BOOLEAN NOT NULL DEFAULT FALSE,
+  admin_approved BOOLEAN NOT NULL DEFAULT FALSE,
+  admin_approved_at TIMESTAMPTZ,
+  admin_approved_by TEXT,
+  card_issued BOOLEAN NOT NULL DEFAULT FALSE,
+  id_card_id TEXT REFERENCES public.id_cards(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- E. Extend donations table safely
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT;
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT;
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'manual';
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS pan_card TEXT;
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Approved';
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_razorpay_orders_purpose ON public.razorpay_orders(purpose);
+CREATE INDEX IF NOT EXISTS idx_razorpay_orders_status ON public.razorpay_orders(status);
+CREATE INDEX IF NOT EXISTS idx_razorpay_payments_order ON public.razorpay_payments(order_id);
+CREATE INDEX IF NOT EXISTS idx_id_card_orders_applicant ON public.id_card_orders(applicant_id);
+CREATE INDEX IF NOT EXISTS idx_id_card_orders_paid ON public.id_card_orders(is_paid);
+CREATE INDEX IF NOT EXISTS idx_donations_rzp_payment ON public.donations(razorpay_payment_id);
+
+-- Enable RLS
+ALTER TABLE public.razorpay_orders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.razorpay_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.razorpay_webhooks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.id_card_orders ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_orders' AND policyname = 'Allow service role all razorpay_orders') THEN
+    CREATE POLICY "Allow service role all razorpay_orders" ON public.razorpay_orders FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_payments' AND policyname = 'Allow service role all razorpay_payments') THEN
+    CREATE POLICY "Allow service role all razorpay_payments" ON public.razorpay_payments FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_webhooks' AND policyname = 'Allow service role all razorpay_webhooks') THEN
+    CREATE POLICY "Allow service role all razorpay_webhooks" ON public.razorpay_webhooks FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'id_card_orders' AND policyname = 'Allow service role all id_card_orders') THEN
+    CREATE POLICY "Allow service role all id_card_orders" ON public.id_card_orders FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;
 `;
 
 // Helper to safely execute Supabase calls without breaking offline / unconfigured apps
@@ -662,11 +779,16 @@ export const SupabaseService = {
         donorName: row.donor_name || row.raw_data?.donorName,
         mobile: row.mobile || row.raw_data?.mobile,
         email: row.email || row.raw_data?.email,
+        panCard: row.pan_card || row.pan_or_aadhaar || row.raw_data?.panCard,
         amount: Number(row.amount ?? row.raw_data?.amount ?? 0),
         paymentMethod: row.payment_mode || row.raw_data?.paymentMethod || 'UPI',
         transactionId: row.transaction_id || row.raw_data?.transactionId,
         message: row.purpose || row.raw_data?.message,
         isVerified: row.is_verified ?? row.raw_data?.isVerified ?? true,
+        status: (row.status || row.raw_data?.status || (row.is_verified ? 'Approved' : 'Pending')) as any,
+        paymentGateway: (row.payment_gateway || row.raw_data?.paymentGateway || (row.razorpay_payment_id ? 'razorpay' : 'manual')) as any,
+        razorpayOrderId: row.razorpay_order_id || row.raw_data?.razorpayOrderId,
+        razorpayPaymentId: row.razorpay_payment_id || row.raw_data?.razorpayPaymentId,
         donatedAt: row.donated_at || row.raw_data?.donatedAt,
       }));
     });
@@ -680,12 +802,16 @@ export const SupabaseService = {
         donor_name: d.donorName,
         mobile: d.mobile,
         email: d.email,
+        pan_card: d.panCard,
         amount: d.amount,
         payment_mode: d.paymentMethod,
         transaction_id: d.transactionId,
         purpose: d.message,
         is_verified: d.isVerified,
         status: d.status || (d.isVerified ? 'Approved' : 'Pending'),
+        payment_gateway: d.paymentGateway || (d.razorpayPaymentId ? 'razorpay' : 'manual'),
+        razorpay_order_id: d.razorpayOrderId,
+        razorpay_payment_id: d.razorpayPaymentId,
         donated_at: d.donatedAt || new Date().toISOString(),
         raw_data: d,
       };
@@ -698,6 +824,77 @@ export const SupabaseService = {
   async deleteDonation(id: string): Promise<boolean> {
     const res = await safeQuery(async () => {
       const { error } = await supabase.from('donations').delete().eq('id', id);
+      return !error;
+    });
+    return Boolean(res);
+  },
+
+  // --- SMART ID CARD ORDERS (Separated Service Fee Ledger) ---
+  async fetchIdCardOrders(): Promise<IdCardOrder[] | null> {
+    return safeQuery(async () => {
+      const { data, error } = await supabase.from('id_card_orders').select('*').order('created_at', { ascending: false });
+      if (error || !data) return null;
+      return data.map((row: any) => ({
+        id: row.id,
+        orderId: row.order_id,
+        paymentId: row.payment_id,
+        tier: row.tier,
+        applicantId: row.applicant_id,
+        fullName: row.full_name,
+        mobile: row.mobile,
+        email: row.email,
+        serviceCategory: row.service_category,
+        amountFee: Number(row.amount_fee || 0),
+        isPaid: Boolean(row.is_paid),
+        adminApproved: Boolean(row.admin_approved),
+        adminApprovedAt: row.admin_approved_at,
+        adminApprovedBy: row.admin_approved_by,
+        cardIssued: Boolean(row.card_issued),
+        idCardId: row.id_card_id,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    });
+  },
+
+  async saveIdCardOrder(order: Partial<IdCardOrder>): Promise<boolean> {
+    const res = await safeQuery(async () => {
+      const payload: any = {
+        order_id: order.orderId,
+        payment_id: order.paymentId,
+        tier: order.tier,
+        applicant_id: order.applicantId,
+        full_name: order.fullName,
+        mobile: order.mobile,
+        email: order.email,
+        service_category: order.serviceCategory,
+        amount_fee: order.amountFee ?? (order.tier === 'special_service_200' ? 200 : 0),
+        is_paid: order.isPaid ?? false,
+        admin_approved: order.adminApproved ?? false,
+        admin_approved_at: order.adminApprovedAt,
+        admin_approved_by: order.adminApprovedBy,
+        card_issued: order.cardIssued ?? false,
+        id_card_id: order.idCardId,
+        updated_at: new Date().toISOString(),
+      };
+      if (order.id) payload.id = order.id;
+      const { error } = await supabase.from('id_card_orders').upsert(payload);
+      return !error;
+    });
+    return Boolean(res);
+  },
+
+  async updateIdCardOrderApproval(orderId: string, approved: boolean, adminName: string = 'Admin'): Promise<boolean> {
+    const res = await safeQuery(async () => {
+      const { error } = await supabase
+        .from('id_card_orders')
+        .update({
+          admin_approved: approved,
+          admin_approved_at: approved ? new Date().toISOString() : null,
+          admin_approved_by: approved ? adminName : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('order_id', orderId);
       return !error;
     });
     return Boolean(res);

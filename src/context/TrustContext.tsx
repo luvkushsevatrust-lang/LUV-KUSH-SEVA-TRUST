@@ -15,6 +15,7 @@ import {
   JobApplication,
   JobApplicationStatus,
   PlacementAddressInfo,
+  IdCardOrder,
 } from '../types';
 import { BG_THEMES } from '../data/bgThemeConfig';
 import { Language, Translations, getTranslation } from '../translations';
@@ -98,6 +99,17 @@ interface TrustContextType {
   addDonation: (
     data: Omit<Donation, 'id' | 'receiptNumber' | 'isVerified' | 'donatedAt'> & { status?: 'Pending' | 'Approved' | 'Rejected' }
   ) => Donation;
+  recordRazorpayDonation: (params: {
+    donorName: string;
+    mobile: string;
+    email?: string;
+    panCard?: string;
+    amount: number;
+    orderId: string;
+    paymentId: string;
+    purpose?: string;
+    receiptNumber?: string;
+  }) => Donation;
   verifyDonation: (id: string, verified: boolean) => void;
   updateDonation: (id: string, updatedData: Partial<Donation>) => void;
   updateDonationStatus: (
@@ -106,6 +118,12 @@ interface TrustContextType {
     remarks?: string
   ) => void;
   deleteDonation: (id: string) => void;
+
+  // Smart ID Card Orders (₹200 Service Fee Ledger)
+  idCardOrders: IdCardOrder[];
+  recordIdCardOrder: (order: Partial<IdCardOrder>) => Promise<boolean>;
+  approveIdCardOrder: (orderId: string, adminName?: string) => Promise<boolean>;
+  refreshIdCardOrders: () => Promise<void>;
 
   announcements: Announcement[];
   addAnnouncement: (item: Omit<Announcement, 'id'>) => void;
@@ -355,6 +373,12 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [donations, setDonations] = useState<Donation[]>(() => {
     const saved = localStorage.getItem('lkst_donations');
     return saved ? JSON.parse(saved) : INITIAL_DONATIONS;
+  });
+
+  // Persistent Smart ID Card Orders (₹200 Service Fee Ledger)
+  const [idCardOrders, setIdCardOrders] = useState<IdCardOrder[]>(() => {
+    const saved = localStorage.getItem('lkst_id_card_orders');
+    return saved ? JSON.parse(saved) : [];
   });
 
   // Persistent Announcements
@@ -1220,6 +1244,129 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return newDon;
   };
 
+  /**
+   * Dedicated Razorpay Verified Donation Recorder
+   * Automatically marks status as 'Approved' and unlocks instant receipt generation.
+   */
+  const recordRazorpayDonation = (params: {
+    donorName: string;
+    mobile: string;
+    email?: string;
+    panCard?: string;
+    amount: number;
+    orderId: string;
+    paymentId: string;
+    purpose?: string;
+    receiptNumber?: string;
+  }): Donation => {
+    const newDon: Donation = {
+      id: `don-${Date.now()}`,
+      receiptNumber: params.receiptNumber || `LKST-REC-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+      donorName: params.donorName,
+      mobile: params.mobile,
+      email: params.email,
+      panCard: params.panCard,
+      amount: params.amount,
+      paymentMethod: 'Online (Razorpay)',
+      transactionId: params.paymentId,
+      message: params.purpose || 'सामान्य धर्मार्थ सहयोग (Razorpay Verified)',
+      isVerified: true,
+      status: 'Approved',
+      paymentGateway: 'razorpay',
+      razorpayOrderId: params.orderId,
+      razorpayPaymentId: params.paymentId,
+      approvedAt: new Date().toISOString(),
+      approvedBy: 'Razorpay Auto-Verified',
+      donatedAt: new Date().toISOString(),
+    };
+
+    setDonations((prev) => {
+      const updated = [newDon, ...prev.filter((d) => d.razorpayPaymentId !== params.paymentId)];
+      safeSetItem('lkst_donations', JSON.stringify(updated));
+      return updated;
+    });
+
+    SupabaseService.saveDonation(newDon);
+    setActiveReceipt({ type: 'donation', data: newDon });
+    return newDon;
+  };
+
+  const recordIdCardOrder = async (order: Partial<IdCardOrder>): Promise<boolean> => {
+    const fullOrder: IdCardOrder = {
+      id: order.id || `ico-${Date.now()}`,
+      orderId: order.orderId || `order_${Date.now()}`,
+      paymentId: order.paymentId,
+      tier: order.tier || 'general_associate_free',
+      applicantId: order.applicantId,
+      fullName: order.fullName || 'Anonymous',
+      mobile: order.mobile || '',
+      email: order.email,
+      serviceCategory: order.serviceCategory,
+      amountFee: order.amountFee ?? (order.tier === 'special_service_200' ? 200 : 0),
+      isPaid: Boolean(order.isPaid),
+      adminApproved: Boolean(order.adminApproved),
+      adminApprovedAt: order.adminApprovedAt,
+      adminApprovedBy: order.adminApprovedBy,
+      cardIssued: Boolean(order.cardIssued),
+      idCardId: order.idCardId,
+      createdAt: order.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setIdCardOrders((prev) => {
+      const filtered = prev.filter((o) => o.orderId !== fullOrder.orderId);
+      const updated = [fullOrder, ...filtered];
+      safeSetItem('lkst_id_card_orders', JSON.stringify(updated));
+      return updated;
+    });
+
+    return await SupabaseService.saveIdCardOrder(fullOrder);
+  };
+
+  const approveIdCardOrder = async (orderId: string, adminName: string = 'Admin'): Promise<boolean> => {
+    const order = idCardOrders.find((o) => o.orderId === orderId);
+    if (!order) return false;
+
+    // Find applicant to generate active card
+    const applicant = applications.find((a) => a.id === order.applicantId) || {
+      id: order.applicantId || `app-${Date.now()}`,
+      fullName: order.fullName,
+      mobile: order.mobile,
+      email: order.email,
+      serviceCategory: order.serviceCategory || 'beneficiary',
+      serviceTitleHi: 'विशेष सेवा (सत्यापित)',
+    };
+
+    const newCard = generateIdCardForRecord('application', applicant, 'Active');
+
+    const updatedOrder: IdCardOrder = {
+      ...order,
+      adminApproved: true,
+      adminApprovedAt: new Date().toISOString(),
+      adminApprovedBy: adminName,
+      cardIssued: true,
+      idCardId: newCard.id,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setIdCardOrders((prev) => {
+      const updated = prev.map((o) => (o.orderId === orderId ? updatedOrder : o));
+      safeSetItem('lkst_id_card_orders', JSON.stringify(updated));
+      return updated;
+    });
+
+    await SupabaseService.saveIdCardOrder(updatedOrder);
+    return true;
+  };
+
+  const refreshIdCardOrders = async () => {
+    const fetched = await SupabaseService.fetchIdCardOrders();
+    if (fetched) {
+      setIdCardOrders(fetched);
+      safeSetItem('lkst_id_card_orders', JSON.stringify(fetched));
+    }
+  };
+
   const verifyDonation = (id: string, verified: boolean) => {
     setDonations((prev) =>
       prev.map((d) => {
@@ -1604,10 +1751,15 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         deleteVolunteer,
         donations,
         addDonation,
+        recordRazorpayDonation,
         verifyDonation,
         updateDonation,
         updateDonationStatus,
         deleteDonation,
+        idCardOrders,
+        recordIdCardOrder,
+        approveIdCardOrder,
+        refreshIdCardOrders,
         announcements,
         addAnnouncement,
         deleteAnnouncement,

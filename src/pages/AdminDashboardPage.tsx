@@ -42,6 +42,7 @@ import {
   Check,
   Save,
   Briefcase,
+  Lock,
 } from 'lucide-react';
 import { CareerAdminPanel } from '../components/CareerAdminPanel';
 import {
@@ -116,6 +117,9 @@ export const AdminDashboardPage: React.FC = () => {
     supabaseStatus,
     syncWithSupabase,
     jobApplications,
+    idCardOrders,
+    approveIdCardOrder,
+    refreshIdCardOrders,
   } = useTrust();
 
   const [activeTab, setActiveTab] = useState<
@@ -274,13 +278,14 @@ export const AdminDashboardPage: React.FC = () => {
 
   // Donations Management State (Edit & Approval)
   const [donationFilter, setDonationFilter] = useState<'all' | 'Approved' | 'Pending' | 'Rejected'>('all');
+  const [gatewayFilter, setGatewayFilter] = useState<'all' | 'razorpay' | 'manual'>('all');
   const [donationSearchQuery, setDonationSearchQuery] = useState('');
   const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
   const [editDonDonorName, setEditDonDonorName] = useState('');
   const [editDonMobile, setEditDonMobile] = useState('');
   const [editDonEmail, setEditDonEmail] = useState('');
   const [editDonAmount, setEditDonAmount] = useState<number>(0);
-  const [editDonPaymentMethod, setEditDonPaymentMethod] = useState<'UPI' | 'QR Code' | 'Bank Transfer'>('UPI');
+  const [editDonPaymentMethod, setEditDonPaymentMethod] = useState<'UPI' | 'QR Code' | 'Bank Transfer' | 'Online (Razorpay)' | 'Razorpay'>('UPI');
   const [editDonTransactionId, setEditDonTransactionId] = useState('');
   const [editDonStatus, setEditDonStatus] = useState<'Approved' | 'Pending' | 'Rejected'>('Approved');
   const [editDonRemarks, setEditDonRemarks] = useState('');
@@ -413,10 +418,14 @@ export const AdminDashboardPage: React.FC = () => {
     const isAppr = don.status === 'Approved';
     const isPend = don.status === 'Pending' || (!don.status && !don.isVerified);
     const isRej = don.status === 'Rejected';
+    const isRazorpay = don.paymentGateway === 'razorpay' || Boolean(don.razorpayPaymentId);
 
     if (donationFilter === 'Approved' && !isAppr) return false;
     if (donationFilter === 'Pending' && !isPend) return false;
     if (donationFilter === 'Rejected' && !isRej) return false;
+
+    if (gatewayFilter === 'razorpay' && !isRazorpay) return false;
+    if (gatewayFilter === 'manual' && isRazorpay) return false;
 
     if (donationSearchQuery.trim()) {
       const q = donationSearchQuery.toLowerCase().trim();
@@ -425,7 +434,9 @@ export const AdminDashboardPage: React.FC = () => {
         don.receiptNumber.toLowerCase().includes(q) ||
         don.mobile.includes(q) ||
         (don.transactionId && don.transactionId.toLowerCase().includes(q)) ||
-        (don.email && don.email.toLowerCase().includes(q));
+        (don.email && don.email.toLowerCase().includes(q)) ||
+        (don.razorpayPaymentId && don.razorpayPaymentId.toLowerCase().includes(q)) ||
+        (don.razorpayOrderId && don.razorpayOrderId.toLowerCase().includes(q));
       if (!match) return false;
     }
     return true;
@@ -1227,6 +1238,126 @@ export const AdminDashboardPage: React.FC = () => {
               <Plus className="w-4 h-4" />
               <span>{t.admin.issueIdCardBtn}</span>
             </button>
+          </div>
+
+          {/* Smart ID Card Orders & Service Fee Ledger (Separated from Donations) */}
+          <div className="bg-gradient-to-r from-amber-500/10 via-amber-50 to-orange-50 rounded-2xl border-2 border-amber-300 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-200 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-600 text-white uppercase tracking-wider">
+                    {language === 'en' ? 'Service Fee Ledger' : 'सर्विस फीस लेजर'}
+                  </span>
+                  <span className="text-xs text-amber-900 font-bold">
+                    {language === 'en' ? '₹200 Special Service & Free Smart ID Orders' : '₹200 विशेष सेवा एवं निःशुल्क स्मार्ट कार्ड आवेदन'}
+                  </span>
+                </div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 mt-1">
+                  {language === 'en'
+                    ? 'Smart ID Card Approval & Issue Gate'
+                    : 'स्मार्ट पहचान पत्र अनुमोदन एवं जारीकरण नियंत्रण'}
+                </h3>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  {language === 'en'
+                    ? 'Note: ₹200 fees are administrative charges recorded in id_card_orders, strictly isolated from charitable donations. Cards remain locked until you click Approve.'
+                    : 'सूचना: ₹200 का शुल्क प्रशासनिक सेवा शुल्क है और धर्मार्थ दान से पूर्णतः अलग है। कार्ड तब तक लॉक रहता है जब तक आप स्वीकृति प्रदान नहीं करते।'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="text-right text-xs bg-white px-3 py-1.5 rounded-xl border border-amber-300 font-bold shadow-2xs">
+                  <span className="text-[10px] text-slate-500 block uppercase">Paid Service Orders</span>
+                  <span className="text-amber-800 font-mono font-black text-sm">
+                    {idCardOrders.filter((o) => o.isPaid).length} (₹{idCardOrders.filter((o) => o.isPaid).reduce((s, o) => s + (o.amountFee || 0), 0).toLocaleString('en-IN')})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Orders List */}
+            {idCardOrders.length === 0 ? (
+              <div className="text-center py-4 text-xs text-slate-500">
+                {language === 'en' ? 'No Smart ID Card registration orders recorded yet.' : 'अभी कोई स्मार्ट कार्ड पंजीकरण ऑर्डर दर्ज नहीं है।'}
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead className="bg-amber-100/60 text-slate-700 font-bold uppercase text-[10px]">
+                    <tr>
+                      <th className="py-2 px-2.5">Applicant / Mobile</th>
+                      <th className="py-2 px-2.5">Tier & Fee</th>
+                      <th className="py-2 px-2.5">Payment / Gateway</th>
+                      <th className="py-2 px-2.5">Approval Status</th>
+                      <th className="py-2 px-2.5 text-right">Card Issuance</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-amber-200/60 text-[11px]">
+                    {idCardOrders.map((order) => (
+                      <tr key={order.orderId} className="hover:bg-amber-100/30">
+                        <td className="py-2 px-2.5 font-bold text-slate-900">
+                          <div>{order.fullName}</div>
+                          <div className="font-mono text-[10px] text-slate-500">{order.mobile}</div>
+                        </td>
+                        <td className="py-2 px-2.5">
+                          {order.tier === 'special_service_200' ? (
+                            <span className="px-2 py-0.5 rounded bg-red-100 text-red-800 font-bold font-mono">
+                              Special ₹200
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">
+                              Free Associate
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2.5">
+                          {order.isPaid ? (
+                            <div className="text-emerald-700 font-bold flex items-center gap-1 font-mono text-[10px]">
+                              <CheckCircle className="w-3 h-3 text-emerald-600" />
+                              <span>Paid ({order.paymentId || 'Verified'})</span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 text-[10px]">Free Tier (₹0)</span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2.5">
+                          {order.adminApproved ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Approved & Issued</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900">
+                              <Lock className="w-3 h-3 text-amber-700" />
+                              <span>Locked (Pending)</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2.5 text-right">
+                          {!order.adminApproved ? (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                await approveIdCardOrder(order.orderId || order.id, 'Trust Admin');
+                                setActionToast({
+                                  message: language === 'en' ? `ID Card for ${order.fullName} approved and issued!` : `${order.fullName} का पहचान पत्र स्वीकृत एवं जारी कर दिया गया!`,
+                                  type: 'success',
+                                });
+                              }}
+                              className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg text-[10.5px] cursor-pointer shadow-xs inline-flex items-center gap-1"
+                            >
+                              <BadgeCheck className="w-3 h-3 text-amber-300" />
+                              <span>{language === 'en' ? 'Approve & Issue ID' : 'अनुमोदन व कार्ड जारी करें'}</span>
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-emerald-700 font-bold">Active in ID Cards List</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
 
           {/* Filters & Search */}
@@ -2553,6 +2684,44 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
               </div>
 
+              {/* Gateway Filter Toggle */}
+              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => setGatewayFilter('all')}
+                  className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                    gatewayFilter === 'all'
+                      ? 'bg-white text-slate-900 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {language === 'en' ? 'All Gateways' : 'सभी गेटवे'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGatewayFilter('razorpay')}
+                  className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1 ${
+                    gatewayFilter === 'razorpay'
+                      ? 'bg-blue-900 text-white shadow-xs'
+                      : 'text-blue-800 hover:bg-blue-50'
+                  }`}
+                >
+                  <ShieldCheck className="w-3 h-3 text-blue-300" />
+                  <span>Razorpay ({donations.filter((d) => d.paymentGateway === 'razorpay' || d.razorpayPaymentId).length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGatewayFilter('manual')}
+                  className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                    gatewayFilter === 'manual'
+                      ? 'bg-slate-700 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Manual UTR ({donations.filter((d) => d.paymentGateway !== 'razorpay' && !d.razorpayPaymentId).length})</span>
+                </button>
+              </div>
+
               <div className="relative sm:w-72">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
                 <input
@@ -2561,8 +2730,8 @@ export const AdminDashboardPage: React.FC = () => {
                   onChange={(e) => setDonationSearchQuery(e.target.value)}
                   placeholder={
                     language === 'en'
-                      ? 'Search by donor, receipt, UTR...'
-                      : 'दानदाता, रसीद सं., UTR से खोजें...'
+                      ? 'Search donor, receipt, Razorpay PID...'
+                      : 'दानदाता, रसीद, पेमेंट आईडी से खोजें...'
                   }
                   className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-red-500"
                 />
@@ -2577,7 +2746,7 @@ export const AdminDashboardPage: React.FC = () => {
                     <th className="py-3 px-3">{language === 'en' ? 'Receipt No.' : 'रसीद संख्या'}</th>
                     <th className="py-3 px-3">{language === 'en' ? 'Donor / Contact' : 'दानदाता / संपर्क'}</th>
                     <th className="py-3 px-3">{language === 'en' ? 'Amount (₹)' : 'राशि (₹)'}</th>
-                    <th className="py-3 px-3">{language === 'en' ? 'Method / Ref UTR' : 'माध्यम / UTR'}</th>
+                    <th className="py-3 px-3">{language === 'en' ? 'Gateway / Ref ID' : 'गेटवे / आईडी'}</th>
                     <th className="py-3 px-3">{language === 'en' ? 'Approval Status' : 'स्वीकृति स्थिति'}</th>
                     <th className="py-3 px-3 text-right">{language === 'en' ? 'Actions' : 'कार्य'}</th>
                   </tr>
@@ -2593,6 +2762,7 @@ export const AdminDashboardPage: React.FC = () => {
                     filteredDonations.map((don, idx) => {
                       const isApproved = don.status === 'Approved';
                       const isRejected = don.status === 'Rejected';
+                      const isRazorpay = don.paymentGateway === 'razorpay' || Boolean(don.razorpayPaymentId);
 
                       return (
                         <tr
@@ -2611,7 +2781,11 @@ export const AdminDashboardPage: React.FC = () => {
                           <td className="py-3 px-3">
                             <div className="font-bold text-slate-900">{don.donorName}</div>
                             <div className="font-mono text-[11px] text-slate-500">{don.mobile}</div>
-                            {don.email && <div className="text-[10px] text-slate-400">{don.email}</div>}
+                            {don.panCard && (
+                              <div className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-50 px-1 py-0.2 rounded w-fit mt-0.5">
+                                PAN: {don.panCard}
+                              </div>
+                            )}
                           </td>
 
                           <td className="py-3 px-3">
@@ -2630,16 +2804,37 @@ export const AdminDashboardPage: React.FC = () => {
                           </td>
 
                           <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-semibold text-[11px]">
-                              {don.paymentMethod}
-                            </span>
-                            {don.transactionId ? (
-                              <div className="font-mono text-[10.5px] text-blue-900 mt-1 font-bold select-all">
-                                {don.transactionId}
+                            {isRazorpay ? (
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-blue-100 text-blue-900 border border-blue-300">
+                                  <ShieldCheck className="w-3 h-3 text-blue-700" />
+                                  <span>Razorpay Online</span>
+                                </span>
+                                {don.razorpayPaymentId && (
+                                  <div className="font-mono text-[10px] text-slate-800 font-bold bg-slate-100 px-1.5 py-0.5 rounded select-all">
+                                    PID: {don.razorpayPaymentId}
+                                  </div>
+                                )}
+                                {don.razorpayOrderId && (
+                                  <div className="font-mono text-[9px] text-slate-500 truncate max-w-[140px]" title={don.razorpayOrderId}>
+                                    OID: {don.razorpayOrderId}
+                                  </div>
+                                )}
                               </div>
                             ) : (
-                              <div className="text-[10px] text-slate-400 italic mt-0.5">
-                                {language === 'en' ? 'No UTR' : 'UTR नहीं'}
+                              <div className="space-y-1">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300">
+                                  <span>Manual UTR (Historical)</span>
+                                </span>
+                                {don.transactionId ? (
+                                  <div className="font-mono text-[10.5px] text-blue-900 font-bold select-all">
+                                    {don.transactionId}
+                                  </div>
+                                ) : (
+                                  <div className="text-[10px] text-slate-400 italic">
+                                    {language === 'en' ? 'No UTR' : 'UTR नहीं'}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </td>

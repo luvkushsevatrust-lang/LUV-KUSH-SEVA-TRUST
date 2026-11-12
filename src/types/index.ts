@@ -164,7 +164,7 @@ export interface Donation {
   mobile: string;
   email?: string;
   amount: number;
-  paymentMethod: 'UPI' | 'QR Code' | 'Bank Transfer';
+  paymentMethod: 'UPI' | 'QR Code' | 'Bank Transfer' | 'Razorpay' | 'Online (Razorpay)';
   transactionId?: string;
   screenshotUrl?: string;
   message?: string;
@@ -174,6 +174,10 @@ export interface Donation {
   approvedAt?: string;
   approvedBy?: string;
   donatedAt: string;
+  panCard?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  paymentGateway?: 'razorpay' | 'manual';
 }
 
 export interface Announcement {
@@ -191,6 +195,8 @@ export interface TrustSettings {
   tagline: string;
   secondaryTagline: string;
   registrationNumber: string;
+  ngoDarpanId?: string;
+  panNumber?: string;
   chairpersonName: string;
   chairpersonPhotoUrl?: string;
   officeBuildingPhotoUrl?: string;
@@ -236,3 +242,4 @@ export interface TrustSettings {
 export type BgTheme = 'sandalwood' | 'amber' | 'sand' | 'sage' | 'sky' | 'white';
 
 export * from './career';
+export * from './payment';

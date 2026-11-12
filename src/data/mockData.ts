@@ -22,6 +22,8 @@ export const INITIAL_TRUST_SETTINGS: TrustSettings = {
   tagline: 'सेवा ही संकल्प, मानवता ही हमारा धर्म',
   secondaryTagline: 'सेवा ही सबसे बड़ा धर्म है',
   registrationNumber: 'BR/2026/1161821',
+  ngoDarpanId: 'BR/2024/0411326',
+  panNumber: 'AAATL5824K',
   chairpersonName: 'सत्येन्द्र कुमार',
   chairpersonPhotoUrl: '',
   officeBuildingPhotoUrl: '',
