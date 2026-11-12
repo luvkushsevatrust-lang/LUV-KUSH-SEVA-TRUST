@@ -99,6 +99,7 @@ export interface CreateOrderParams {
   donorName: string;
   mobile: string;
   email?: string;
+  address?: string;
   notes?: Record<string, string>;
   referenceId?: string;
 }
@@ -111,6 +112,7 @@ export interface VerifyPaymentParams {
   donorName: string;
   mobile: string;
   email?: string;
+  address?: string;
   amount: number;
   causeOrService?: string;
   referenceId?: string;

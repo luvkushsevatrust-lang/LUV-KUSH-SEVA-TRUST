@@ -1,4 +1,4 @@
-import { SUPABASE_URL } from './supabase';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
 import { CreateOrderParams, VerifyPaymentParams, PaymentPurpose } from '../types/payment';
 import { TRUST_EMBLEM_LOGO } from '../assets';
 
@@ -46,48 +46,93 @@ export function loadRazorpayScript(): Promise<boolean> {
 }
 
 /**
- * Creates a real server-side order via Supabase Edge Function.
- * Never returns mock or fake order IDs.
+ * Creates a genuine Razorpay Order via server proxy or Supabase Edge Function.
+ * Never generates mock or fake order IDs.
  */
 export async function createRazorpayOrder(
   params: CreateOrderParams
 ): Promise<{ orderId: string; amount: number; amountPaise: number; keyId: string }> {
-  const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/create-razorpay-order`;
+  let lastErrorMsg = '';
 
-  const res = await fetch(edgeFunctionUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(params),
-  });
+  // 1. Primary path: Call the backend server API route (/api/create-razorpay-order)
+  try {
+    const localRes = await fetch('/api/create-razorpay-order', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
 
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok || !data?.success) {
-    const errorMsg =
-      data?.error ||
-      data?.message ||
-      `Server order creation failed with HTTP status ${res.status}.`;
-    console.error('Failed to create Razorpay server order:', errorMsg, data);
-    throw new Error(errorMsg);
+    if (localRes.ok) {
+      const data = await localRes.json();
+      if (data?.success && isValidRazorpayOrderId(data.orderId)) {
+        return {
+          orderId: data.orderId,
+          amount: data.amount,
+          amountPaise: data.amountPaise,
+          keyId: data.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || 'rzp_live_Tyq0rHJ0l5nvAb',
+        };
+      }
+      if (data?.error) {
+        lastErrorMsg = data.error;
+      }
+    } else {
+      const errData = await localRes.json().catch(() => null);
+      if (errData?.error) {
+        lastErrorMsg = errData.error;
+      }
+    }
+  } catch (localErr: any) {
+    console.warn('Local /api/create-razorpay-order endpoint not accessible, trying Supabase Edge Function:', localErr?.message);
   }
 
-  if (!isValidRazorpayOrderId(data.orderId)) {
-    console.error('Invalid Razorpay Order ID received from server:', data.orderId);
-    throw new Error('Received an invalid Razorpay order identifier from payment server.');
+  // 2. Secondary path: Call Supabase Edge Function with required auth headers
+  try {
+    const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/create-razorpay-order`;
+    const edgeRes = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify(params),
+    });
+
+    const edgeData = await edgeRes.json().catch(() => null);
+
+    if (edgeRes.ok && edgeData?.success && isValidRazorpayOrderId(edgeData.orderId)) {
+      return {
+        orderId: edgeData.orderId,
+        amount: edgeData.amount,
+        amountPaise: edgeData.amountPaise,
+        keyId: edgeData.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || 'rzp_live_Tyq0rHJ0l5nvAb',
+      };
+    }
+
+    if (edgeData?.error) {
+      lastErrorMsg = edgeData.error;
+    } else if (edgeRes.status === 404) {
+      lastErrorMsg =
+        'Supabase Edge Function "create-razorpay-order" is not deployed yet. Please run `supabase functions deploy create-razorpay-order` or use the server proxy.';
+    }
+  } catch (edgeErr: any) {
+    console.error('Supabase Edge Function fetch error:', edgeErr);
+    if (!lastErrorMsg) {
+      lastErrorMsg =
+        'Payment server connection failed. Please ensure your internet is active and payment functions are deployed.';
+    }
   }
 
-  return {
-    orderId: data.orderId,
-    amount: data.amount,
-    amountPaise: data.amountPaise,
-    keyId: data.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || '',
-  };
+  throw new Error(
+    lastErrorMsg ||
+      'Unable to create payment order on server. Please check your payment gateway credentials and network connection.'
+  );
 }
 
 /**
- * Verifies payment server-side via Supabase Edge Function
+ * Verifies payment server-side via local API or Supabase Edge Function
  */
 export async function verifyRazorpayPayment(
   params: VerifyPaymentParams
@@ -98,12 +143,40 @@ export async function verifyRazorpayPayment(
   paymentId: string;
   orderId: string;
 }> {
-  const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/verify-razorpay-payment`;
+  // 1. Try local server endpoint
+  try {
+    const localRes = await fetch('/api/verify-razorpay-payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(params),
+    });
 
+    if (localRes.ok) {
+      const data = await localRes.json();
+      if (data?.success) {
+        return {
+          success: true,
+          verified: Boolean(data.verified),
+          receiptNumber: data.receiptNumber || `LKST-REC-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+          paymentId: data.paymentId || params.razorpayPaymentId,
+          orderId: data.orderId || params.razorpayOrderId,
+        };
+      }
+    }
+  } catch (localErr) {
+    console.warn('Local verification endpoint skipped:', localErr);
+  }
+
+  // 2. Try Supabase Edge Function
+  const edgeFunctionUrl = `${SUPABASE_URL}/functions/v1/verify-razorpay-payment`;
   const res = await fetch(edgeFunctionUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
     },
     body: JSON.stringify(params),
   });
@@ -113,7 +186,6 @@ export async function verifyRazorpayPayment(
   if (!res.ok || !data?.success) {
     const errorMsg =
       data?.error ||
-      data?.message ||
       `Server payment verification failed with status ${res.status}.`;
     console.error('Server signature verification failed:', errorMsg);
     throw new Error(errorMsg);
@@ -122,7 +194,7 @@ export async function verifyRazorpayPayment(
   return {
     success: true,
     verified: Boolean(data.verified),
-    receiptNumber: data.receiptNumber || `LKST-REC-2026-${Math.floor(100 + Math.random() * 900)}`,
+    receiptNumber: data.receiptNumber || `LKST-REC-2026-${Math.floor(1000 + Math.random() * 9000)}`,
     paymentId: data.paymentId || params.razorpayPaymentId,
     orderId: data.orderId || params.razorpayOrderId,
   };
@@ -138,6 +210,7 @@ export async function openRazorpayCheckout(options: {
   contact?: string;
   mobile?: string;
   email?: string;
+  address?: string;
   panCard?: string;
   causeOrService?: string;
   referenceId?: string;
@@ -177,10 +250,12 @@ export async function openRazorpayCheckout(options: {
       donorName: options.donorName,
       mobile: userMobile,
       email: options.email,
+      address: options.address,
       referenceId: options.referenceId,
       notes: {
         cause: options.causeOrService || 'Charitable Donation',
         purpose: options.purpose,
+        address: options.address || '',
         ...(options.notes || {}),
       },
     });
@@ -282,6 +357,7 @@ export async function openRazorpayCheckout(options: {
           donorName: options.donorName,
           mobile: userMobile,
           email: options.email,
+          address: options.address,
           amount: options.amount,
           causeOrService: options.causeOrService,
           referenceId: options.referenceId,

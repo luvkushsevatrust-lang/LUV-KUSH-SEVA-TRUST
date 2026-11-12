@@ -103,6 +103,7 @@ interface TrustContextType {
     donorName: string;
     mobile: string;
     email?: string;
+    address?: string;
     panCard?: string;
     amount: number;
     orderId: string;
@@ -1252,6 +1253,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     donorName: string;
     mobile: string;
     email?: string;
+    address?: string;
     panCard?: string;
     amount: number;
     orderId: string;
@@ -1265,6 +1267,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       donorName: params.donorName,
       mobile: params.mobile,
       email: params.email,
+      address: params.address,
       panCard: params.panCard,
       amount: params.amount,
       paymentMethod: 'Online (Razorpay)',

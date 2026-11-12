@@ -437,18 +437,36 @@ export const PrintableReceipt: React.FC = () => {
                         <td className="py-1.5 px-2.5 text-slate-800">{data.email}</td>
                       </tr>
                     )}
+                    {data.address && (
+                      <tr className="border-b border-slate-200">
+                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                          {language === 'en' ? 'Address:' : 'डाक पता:'}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-slate-800">{data.address}</td>
+                      </tr>
+                    )}
                     <tr className="border-b border-slate-200">
                       <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Payment Method:' : 'भुगतान माध्यम:'}
                       </td>
                       <td className="py-1.5 px-2.5 text-slate-800">{data.paymentMethod}</td>
                     </tr>
-                    {data.transactionId && (
+                    {data.razorpayOrderId && (
                       <tr className="border-b border-slate-200">
                         <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
-                          {language === 'en' ? 'Transaction ID (Ref):' : 'ट्रांजैक्शन आईडी (Ref):'}
+                          {language === 'en' ? 'Razorpay Order ID:' : 'रेजरपे ऑर्डर ID:'}
                         </td>
-                        <td className="py-1.5 px-2.5 font-mono text-slate-800">{data.transactionId}</td>
+                        <td className="py-1.5 px-2.5 font-mono text-slate-800">{data.razorpayOrderId}</td>
+                      </tr>
+                    )}
+                    {(data.razorpayPaymentId || data.transactionId) && (
+                      <tr className="border-b border-slate-200">
+                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                          {language === 'en' ? 'Payment ID / UTR:' : 'पेमेंट आईडी / UTR:'}
+                        </td>
+                        <td className="py-1.5 px-2.5 font-mono text-slate-800 font-bold">
+                          {data.razorpayPaymentId || data.transactionId}
+                        </td>
                       </tr>
                     )}
                     {data.message && (

@@ -163,6 +163,7 @@ export interface Donation {
   donorName: string;
   mobile: string;
   email?: string;
+  address?: string;
   amount: number;
   paymentMethod: 'UPI' | 'QR Code' | 'Bank Transfer' | 'Razorpay' | 'Online (Razorpay)';
   transactionId?: string;

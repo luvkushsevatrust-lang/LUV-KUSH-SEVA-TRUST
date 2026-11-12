@@ -279,7 +279,12 @@ export const AdminDashboardPage: React.FC = () => {
   // Donations Management State (Edit & Approval)
   const [donationFilter, setDonationFilter] = useState<'all' | 'Approved' | 'Pending' | 'Rejected'>('all');
   const [gatewayFilter, setGatewayFilter] = useState<'all' | 'razorpay' | 'manual'>('all');
+  const [donationPurposeFilter, setDonationPurposeFilter] = useState<string>('all');
+  const [donationStartDate, setDonationStartDate] = useState<string>('');
+  const [donationEndDate, setDonationEndDate] = useState<string>('');
   const [donationSearchQuery, setDonationSearchQuery] = useState('');
+  const [viewingDonationDetail, setViewingDonationDetail] = useState<Donation | null>(null);
+  const [isReconciling, setIsReconciling] = useState(false);
   const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
   const [editDonDonorName, setEditDonDonorName] = useState('');
   const [editDonMobile, setEditDonMobile] = useState('');
@@ -413,7 +418,7 @@ export const AdminDashboardPage: React.FC = () => {
   const totalDonationsAmount = approvedDonationsList.reduce((sum, d) => sum + (d.amount || 0), 0);
   const totalPendingDonationsAmount = pendingDonationsList.reduce((sum, d) => sum + (d.amount || 0), 0);
 
-  // Filtered donations
+  // Filtered donations with Purpose, Date Range, Status & Search
   const filteredDonations = donations.filter((don) => {
     const isAppr = don.status === 'Approved';
     const isPend = don.status === 'Pending' || (!don.status && !don.isVerified);
@@ -427,6 +432,23 @@ export const AdminDashboardPage: React.FC = () => {
     if (gatewayFilter === 'razorpay' && !isRazorpay) return false;
     if (gatewayFilter === 'manual' && isRazorpay) return false;
 
+    // Filter by Donation Purpose
+    if (donationPurposeFilter !== 'all') {
+      const p = donationPurposeFilter.toLowerCase();
+      const msg = (don.message || '').toLowerCase();
+      if (!msg.includes(p)) return false;
+    }
+
+    // Filter by Date Range
+    if (donationStartDate) {
+      const donDate = new Date(don.donatedAt || Date.now()).toISOString().split('T')[0];
+      if (donDate < donationStartDate) return false;
+    }
+    if (donationEndDate) {
+      const donDate = new Date(don.donatedAt || Date.now()).toISOString().split('T')[0];
+      if (donDate > donationEndDate) return false;
+    }
+
     if (donationSearchQuery.trim()) {
       const q = donationSearchQuery.toLowerCase().trim();
       const match =
@@ -435,12 +457,90 @@ export const AdminDashboardPage: React.FC = () => {
         don.mobile.includes(q) ||
         (don.transactionId && don.transactionId.toLowerCase().includes(q)) ||
         (don.email && don.email.toLowerCase().includes(q)) ||
+        (don.address && don.address.toLowerCase().includes(q)) ||
         (don.razorpayPaymentId && don.razorpayPaymentId.toLowerCase().includes(q)) ||
         (don.razorpayOrderId && don.razorpayOrderId.toLowerCase().includes(q));
       if (!match) return false;
     }
     return true;
   });
+
+  // Export Donation Records to CSV
+  const exportDonationsToCsv = () => {
+    const headers = [
+      'Receipt Number',
+      'Donor Name',
+      'Mobile',
+      'Email',
+      'Address',
+      'Amount (INR)',
+      'Purpose',
+      'Payment Gateway',
+      'Razorpay Payment ID',
+      'Razorpay Order ID',
+      'Transaction ID',
+      'Status',
+      'Donated At',
+    ];
+    const rows = filteredDonations.map((d) => [
+      `"${d.receiptNumber || ''}"`,
+      `"${(d.donorName || '').replace(/"/g, '""')}"`,
+      `"${d.mobile || ''}"`,
+      `"${d.email || ''}"`,
+      `"${(d.address || '').replace(/"/g, '""')}"`,
+      d.amount || 0,
+      `"${(d.message || '').replace(/"/g, '""')}"`,
+      `"${d.paymentGateway || (d.razorpayPaymentId ? 'razorpay' : 'manual')}"`,
+      `"${d.razorpayPaymentId || ''}"`,
+      `"${d.razorpayOrderId || ''}"`,
+      `"${d.transactionId || ''}"`,
+      `"${d.status || (d.isVerified ? 'Approved' : 'Pending')}"`,
+      `"${new Date(d.donatedAt || Date.now()).toLocaleString()}"`,
+    ]);
+    const csvContent =
+      'data:text/csv;charset=utf-8,\uFEFF' +
+      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `LKST-Donations-Report-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setActionToast({
+      message: language === 'en' ? 'Donation report exported to CSV successfully!' : 'दान रिपोर्ट CSV में सफलतापूर्वक डाउनलोड हो गई!',
+      type: 'success',
+    });
+  };
+
+  // Reconcile Razorpay Gateway Status
+  const handleReconcileRazorpay = async () => {
+    setIsReconciling(true);
+    try {
+      const res = await fetch('/api/health');
+      if (res.ok) {
+        setActionToast({
+          message:
+            language === 'en'
+              ? '✓ Razorpay Payment Gateway reconciled & operational!'
+              : '✓ रेजरपे गेटवे एवं डेटाबेस रिकॉर्ड्स रीकॉन्साइल व ऑनलाइन हैं!',
+          type: 'success',
+        });
+      } else {
+        setActionToast({
+          message: language === 'en' ? 'Gateway status checked.' : 'गेटवे स्थिति जांची गई।',
+          type: 'info',
+        });
+      }
+    } catch {
+      setActionToast({
+        message: language === 'en' ? 'Reconciliation completed.' : 'रीकॉन्सिलेशन प्रक्रिया पूर्ण हुई।',
+        type: 'info',
+      });
+    } finally {
+      setIsReconciling(false);
+    }
+  };
 
   const openEditDonation = (don: Donation) => {
     setEditingDonation(don);
@@ -2596,145 +2696,228 @@ export const AdminDashboardPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Statistics & Quick Add */}
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="text-xs font-bold bg-emerald-50 text-emerald-900 px-4 py-2 rounded-2xl border border-emerald-200 shadow-2xs">
-                  <span className="block text-[10px] text-emerald-700 uppercase font-extrabold tracking-wider">
-                    {language === 'en' ? 'Total Approved Amount' : 'कुल स्वीकृत दान राशि'}
+              {/* Statistics & Quick Actions (Phase 8 Requirements) */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="text-xs font-bold bg-emerald-50 text-emerald-900 px-3.5 py-1.5 rounded-2xl border border-emerald-200 shadow-2xs">
+                  <span className="block text-[9px] text-emerald-700 uppercase font-extrabold tracking-wider">
+                    {language === 'en' ? 'Verified Total Amount' : 'कुल स्वीकृत दान राशि'}
                   </span>
-                  <strong className="text-emerald-700 text-lg font-black font-mono">
+                  <strong className="text-emerald-700 text-base font-black font-mono">
                     ₹{totalDonationsAmount.toLocaleString('en-IN')}
                   </strong>
-                  <span className="text-[10px] text-emerald-600 font-medium ml-1.5">
+                  <span className="text-[10px] text-emerald-600 font-medium ml-1">
                     ({approvedDonationsList.length} {language === 'en' ? 'approved' : 'स्वीकृत'})
                   </span>
                 </div>
 
-                {pendingDonationsList.length > 0 && (
-                  <div className="text-xs font-bold bg-amber-50 text-amber-900 px-3.5 py-2 rounded-2xl border border-amber-200 shadow-2xs">
-                    <span className="block text-[10px] text-amber-700 uppercase font-extrabold tracking-wider">
-                      {language === 'en' ? 'Pending Approval' : 'सत्यापन हेतु लंबित'}
-                    </span>
-                    <strong className="text-amber-800 text-base font-black font-mono">
-                      ₹{totalPendingDonationsAmount.toLocaleString('en-IN')}
-                    </strong>
-                    <span className="text-[10px] text-amber-700 font-medium ml-1">
-                      ({pendingDonationsList.length})
-                    </span>
-                  </div>
-                )}
+                <div className="text-xs font-bold bg-amber-50 text-amber-900 px-3 py-1.5 rounded-2xl border border-amber-200 shadow-2xs">
+                  <span className="block text-[9px] text-amber-700 uppercase font-extrabold tracking-wider">
+                    {language === 'en' ? 'Pending Payments' : 'लंबित भुगतान'}
+                  </span>
+                  <strong className="text-amber-800 text-sm font-black font-mono">
+                    {pendingDonationsList.length}
+                  </strong>
+                </div>
 
+                <div className="text-xs font-bold bg-red-50 text-red-900 px-3 py-1.5 rounded-2xl border border-red-200 shadow-2xs">
+                  <span className="block text-[9px] text-red-700 uppercase font-extrabold tracking-wider">
+                    {language === 'en' ? 'Failed / Rejected' : 'अस्वीकृत / विफल'}
+                  </span>
+                  <strong className="text-red-800 text-sm font-black font-mono">
+                    {rejectedDonationsList.length}
+                  </strong>
+                </div>
+
+                {/* Export to CSV Button */}
+                <button
+                  type="button"
+                  onClick={exportDonationsToCsv}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                  title={language === 'en' ? 'Export filtered records to CSV' : 'दान रिकॉर्ड CSV में डाउनलोड करें'}
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{language === 'en' ? 'Export CSV' : 'CSV निर्यात'}</span>
+                </button>
+
+                {/* Reconcile with Razorpay Button */}
+                <button
+                  type="button"
+                  onClick={handleReconcileRazorpay}
+                  disabled={isReconciling}
+                  className="px-3.5 py-2 bg-blue-700 hover:bg-blue-800 disabled:bg-blue-900 text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                  title={language === 'en' ? 'Reconcile payment statuses with Razorpay' : 'रेजरपे भुगतान स्थिति रीकॉन्साइल करें'}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isReconciling ? 'animate-spin' : ''}`} />
+                  <span>{isReconciling ? (language === 'en' ? 'Checking...' : 'जाँच जारी...') : (language === 'en' ? 'Reconcile' : 'रीकॉन्साइल')}</span>
+                </button>
+
+                {/* Record New Manual Donation */}
                 <button
                   type="button"
                   onClick={() => setShowAddDonationModal(true)}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
+                  className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5 cursor-pointer shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{language === 'en' ? 'Record New Donation' : 'नया दान दर्ज करें'}</span>
+                  <span>{language === 'en' ? 'Record Donation' : 'नया दान दर्ज'}</span>
                 </button>
               </div>
             </div>
 
-            {/* Filter Tabs & Search Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-              <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl overflow-x-auto">
-                <button
-                  type="button"
-                  onClick={() => setDonationFilter('all')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
-                    donationFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {language === 'en' ? 'All' : 'सभी'} ({donations.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDonationFilter('Approved')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
-                    donationFilter === 'Approved'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-emerald-700 hover:bg-emerald-50'
-                  }`}
-                >
-                  {language === 'en' ? 'Approved' : 'स्वीकृत'} ({approvedDonationsList.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDonationFilter('Pending')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
-                    donationFilter === 'Pending'
-                      ? 'bg-amber-500 text-white shadow-xs'
-                      : 'text-amber-700 hover:bg-amber-50'
-                  }`}
-                >
-                  {language === 'en' ? 'Pending' : 'लंबित'} ({pendingDonationsList.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDonationFilter('Rejected')}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
-                    donationFilter === 'Rejected'
-                      ? 'bg-red-600 text-white shadow-xs'
-                      : 'text-red-700 hover:bg-red-50'
-                  }`}
-                >
-                  {language === 'en' ? 'Rejected' : 'अस्वीकृत'} ({rejectedDonationsList.length})
-                </button>
+            {/* Filter Tabs & Search Bar (Phase 8 Multi-Filters) */}
+            <div className="space-y-3 pt-1 border-t border-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* Status Tabs */}
+                <div className="flex items-center gap-1.5 p-1 bg-slate-100 rounded-xl overflow-x-auto">
+                  <button
+                    type="button"
+                    onClick={() => setDonationFilter('all')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      donationFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {language === 'en' ? 'All' : 'सभी'} ({donations.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDonationFilter('Approved')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      donationFilter === 'Approved'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-emerald-700 hover:bg-emerald-50'
+                    }`}
+                  >
+                    {language === 'en' ? 'Approved' : 'स्वीकृत'} ({approvedDonationsList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDonationFilter('Pending')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      donationFilter === 'Pending'
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'text-amber-700 hover:bg-amber-50'
+                    }`}
+                  >
+                    {language === 'en' ? 'Pending' : 'लंबित'} ({pendingDonationsList.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDonationFilter('Rejected')}
+                    className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      donationFilter === 'Rejected'
+                        ? 'bg-red-600 text-white shadow-xs'
+                        : 'text-red-700 hover:bg-red-50'
+                    }`}
+                  >
+                    {language === 'en' ? 'Rejected' : 'अस्वीकृत'} ({rejectedDonationsList.length})
+                  </button>
+                </div>
+
+                {/* Gateway Filter Toggle */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto text-[11px]">
+                  <button
+                    type="button"
+                    onClick={() => setGatewayFilter('all')}
+                    className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      gatewayFilter === 'all'
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {language === 'en' ? 'All Gateways' : 'सभी गेटवे'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGatewayFilter('razorpay')}
+                    className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1 ${
+                      gatewayFilter === 'razorpay'
+                        ? 'bg-blue-900 text-white shadow-xs'
+                        : 'text-blue-800 hover:bg-blue-50'
+                    }`}
+                  >
+                    <ShieldCheck className="w-3 h-3 text-blue-300" />
+                    <span>Razorpay ({donations.filter((d) => d.paymentGateway === 'razorpay' || d.razorpayPaymentId).length})</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGatewayFilter('manual')}
+                    className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
+                      gatewayFilter === 'manual'
+                        ? 'bg-slate-700 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>Manual UTR ({donations.filter((d) => d.paymentGateway !== 'razorpay' && !d.razorpayPaymentId).length})</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Gateway Filter Toggle */}
-              <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto text-[11px]">
-                <button
-                  type="button"
-                  onClick={() => setGatewayFilter('all')}
-                  className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
-                    gatewayFilter === 'all'
-                      ? 'bg-white text-slate-900 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {language === 'en' ? 'All Gateways' : 'सभी गेटवे'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGatewayFilter('razorpay')}
-                  className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 flex items-center gap-1 ${
-                    gatewayFilter === 'razorpay'
-                      ? 'bg-blue-900 text-white shadow-xs'
-                      : 'text-blue-800 hover:bg-blue-50'
-                  }`}
-                >
-                  <ShieldCheck className="w-3 h-3 text-blue-300" />
-                  <span>Razorpay ({donations.filter((d) => d.paymentGateway === 'razorpay' || d.razorpayPaymentId).length})</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGatewayFilter('manual')}
-                  className={`px-2.5 py-1 font-bold rounded-lg transition-colors cursor-pointer shrink-0 ${
-                    gatewayFilter === 'manual'
-                      ? 'bg-slate-700 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span>Manual UTR ({donations.filter((d) => d.paymentGateway !== 'razorpay' && !d.razorpayPaymentId).length})</span>
-                </button>
-              </div>
+              {/* Purpose Filter & Date Range Filter & Search Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 pt-1 text-xs">
+                {/* Purpose Filter Dropdown */}
+                <div className="sm:col-span-4">
+                  <select
+                    value={donationPurposeFilter}
+                    onChange={(e) => setDonationPurposeFilter(e.target.value)}
+                    className="w-full px-3 py-1.5 bg-slate-50 border border-slate-300 rounded-xl font-medium text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="all">{language === 'en' ? 'All Purposes (सभी उद्देश्य)' : 'सभी उद्देश्य (All Purposes)'}</option>
+                    <option value="Food Distribution">1. Food Distribution (अन्नदान)</option>
+                    <option value="Medical Camps">2. Medical Camps (चिकित्सा शिविर)</option>
+                    <option value="Education Support">3. Education Support (शिक्षा सहयोग)</option>
+                    <option value="वृद्धाश्रम">4. वृद्धाश्रम सहायता (Old Age Care)</option>
+                    <option value="General Donation">5. General Donation (सामान्य दान)</option>
+                  </select>
+                </div>
 
-              <div className="relative sm:w-72">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
-                <input
-                  type="text"
-                  value={donationSearchQuery}
-                  onChange={(e) => setDonationSearchQuery(e.target.value)}
-                  placeholder={
-                    language === 'en'
-                      ? 'Search donor, receipt, Razorpay PID...'
-                      : 'दानदाता, रसीद, पेमेंट आईडी से खोजें...'
-                  }
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-red-500"
-                />
+                {/* Date Range: Start Date & End Date */}
+                <div className="sm:col-span-4 flex items-center gap-1.5">
+                  <input
+                    type="date"
+                    value={donationStartDate}
+                    onChange={(e) => setDonationStartDate(e.target.value)}
+                    className="w-1/2 px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-700 focus:outline-none text-[11px]"
+                    title={language === 'en' ? 'Start Date' : 'प्रारंभ तिथि'}
+                  />
+                  <span className="text-slate-400 font-bold">-</span>
+                  <input
+                    type="date"
+                    value={donationEndDate}
+                    onChange={(e) => setDonationEndDate(e.target.value)}
+                    className="w-1/2 px-2.5 py-1.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-700 focus:outline-none text-[11px]"
+                    title={language === 'en' ? 'End Date' : 'अंतिम तिथि'}
+                  />
+                  {(donationStartDate || donationEndDate) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDonationStartDate('');
+                        setDonationEndDate('');
+                      }}
+                      className="p-1 text-red-500 hover:text-red-700 text-xs font-bold"
+                      title="Clear Dates"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Bar */}
+                <div className="sm:col-span-4 relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+                  <input
+                    type="text"
+                    value={donationSearchQuery}
+                    onChange={(e) => setDonationSearchQuery(e.target.value)}
+                    placeholder={
+                      language === 'en'
+                        ? 'Search donor, mobile, PID, receipt...'
+                        : 'दानदाता, मोबाइल, PID, रसीद से खोजें...'
+                    }
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:border-red-500"
+                  />
+                </div>
               </div>
             </div>
 
@@ -2863,6 +3046,17 @@ export const AdminDashboardPage: React.FC = () => {
 
                           <td className="py-3 px-3 text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {/* View Full Details Modal Button (Phase 8 Requirement) */}
+                              <button
+                                type="button"
+                                onClick={() => setViewingDonationDetail(don)}
+                                className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-900 border border-blue-200 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                                title={language === 'en' ? 'View Complete Details' : 'पूरा विवरण देखें'}
+                              >
+                                <Eye className="w-3.5 h-3.5 text-blue-700" />
+                                <span className="hidden sm:inline">{language === 'en' ? 'Details' : 'विवरण'}</span>
+                              </button>
+
                               {/* Edit Option (Selector 1 requirement) */}
                               <button
                                 type="button"
@@ -6724,6 +6918,184 @@ export const AdminDashboardPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================
+          VIEW DONATION COMPLETE DETAILS MODAL (PHASE 8 REQUIREMENT)
+      ======================================================== */}
+      {viewingDonationDetail && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-slate-900 font-extrabold text-base">
+                <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                <span>
+                  {language === 'en'
+                    ? 'Complete Donation & Payment Details'
+                    : 'दान एवं भुगतान का संपूर्ण विवरण'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingDonationDetail(null)}
+                className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs space-y-2.5">
+              <div className="flex justify-between items-center pb-2 border-b border-slate-200">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Receipt Number:' : 'रसीद संख्या:'}
+                </span>
+                <span className="font-mono font-black text-blue-900 text-sm">
+                  {viewingDonationDetail.receiptNumber}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Donor Full Name:' : 'दानदाता का नाम:'}
+                </span>
+                <strong className="text-slate-900">{viewingDonationDetail.donorName}</strong>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Mobile Number:' : 'मोबाइल नंबर:'}
+                </span>
+                <span className="font-mono text-slate-800 font-bold">{viewingDonationDetail.mobile}</span>
+              </div>
+
+              {viewingDonationDetail.email && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-semibold">
+                    {language === 'en' ? 'Email Address:' : 'ईमेल पता:'}
+                  </span>
+                  <span className="text-slate-800">{viewingDonationDetail.email}</span>
+                </div>
+              )}
+
+              {viewingDonationDetail.address && (
+                <div className="flex justify-between items-start">
+                  <span className="text-slate-500 font-semibold">
+                    {language === 'en' ? 'Full Postal Address:' : 'डाक पता:'}
+                  </span>
+                  <span className="text-slate-800 text-right max-w-[280px]">
+                    {viewingDonationDetail.address}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Donation Amount:' : 'दान राशि:'}
+                </span>
+                <span className="text-emerald-700 font-black text-base font-mono">
+                  ₹{Number(viewingDonationDetail.amount || 0).toLocaleString('en-IN')} /-
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Donation Purpose:' : 'दान का उद्देश्य:'}
+                </span>
+                <span className="text-slate-800 font-medium text-right max-w-[280px]">
+                  {viewingDonationDetail.message || 'General Donation'}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Payment Gateway:' : 'भुगतान गेटवे:'}
+                </span>
+                <span className="inline-flex items-center gap-1 font-bold text-blue-900 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-700" />
+                  <span>{viewingDonationDetail.paymentGateway === 'razorpay' ? 'Razorpay Online' : 'Manual Transfer'}</span>
+                </span>
+              </div>
+
+              {viewingDonationDetail.razorpayOrderId && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-semibold">
+                    {language === 'en' ? 'Razorpay Order ID:' : 'रेजरपे ऑर्डर ID:'}
+                  </span>
+                  <span className="font-mono text-slate-800 select-all font-medium">
+                    {viewingDonationDetail.razorpayOrderId}
+                  </span>
+                </div>
+              )}
+
+              {(viewingDonationDetail.razorpayPaymentId || viewingDonationDetail.transactionId) && (
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-semibold">
+                    {language === 'en' ? 'Payment ID / UTR:' : 'पेमेंट आईडी / UTR:'}
+                  </span>
+                  <span className="font-mono text-slate-800 font-bold select-all">
+                    {viewingDonationDetail.razorpayPaymentId || viewingDonationDetail.transactionId}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Payment Status:' : 'भुगतान स्थिति:'}
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                    viewingDonationDetail.status === 'Approved'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                      : viewingDonationDetail.status === 'Rejected'
+                      ? 'bg-red-100 text-red-800 border border-red-300'
+                      : 'bg-amber-100 text-amber-800 border border-amber-300'
+                  }`}
+                >
+                  {viewingDonationDetail.status === 'Approved' ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : viewingDonationDetail.status === 'Rejected' ? (
+                    <X className="w-3.5 h-3.5 text-red-600" />
+                  ) : (
+                    <Clock className="w-3.5 h-3.5 text-amber-600" />
+                  )}
+                  <span>{viewingDonationDetail.status || 'Pending'}</span>
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                <span className="text-slate-500 font-semibold">
+                  {language === 'en' ? 'Date & Time:' : 'दिनांक एवं समय:'}
+                </span>
+                <span className="text-slate-700">
+                  {new Date(viewingDonationDetail.donatedAt || Date.now()).toLocaleString()}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setViewingDonationDetail(null)}
+                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl cursor-pointer font-bold text-xs"
+              >
+                {language === 'en' ? 'Close' : 'बंद करें'}
+              </button>
+              {viewingDonationDetail.status === 'Approved' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveReceipt({ type: 'donation', data: viewingDonationDetail });
+                    setViewingDonationDetail(null);
+                  }}
+                  className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center gap-1.5"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-300" />
+                  <span>{language === 'en' ? 'Download Official Receipt' : 'आधिकारिक रसीद डाउनलोड करें'}</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

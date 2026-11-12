@@ -424,6 +424,7 @@ CREATE TABLE IF NOT EXISTS public.id_card_orders (
 );
 
 -- E. Extend donations table safely
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT;
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT;
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'manual';
@@ -779,6 +780,7 @@ export const SupabaseService = {
         donorName: row.donor_name || row.raw_data?.donorName,
         mobile: row.mobile || row.raw_data?.mobile,
         email: row.email || row.raw_data?.email,
+        address: row.address || row.raw_data?.address,
         panCard: row.pan_card || row.pan_or_aadhaar || row.raw_data?.panCard,
         amount: Number(row.amount ?? row.raw_data?.amount ?? 0),
         paymentMethod: row.payment_mode || row.raw_data?.paymentMethod || 'UPI',
@@ -802,6 +804,7 @@ export const SupabaseService = {
         donor_name: d.donorName,
         mobile: d.mobile,
         email: d.email,
+        address: d.address,
         pan_card: d.panCard,
         amount: d.amount,
         payment_mode: d.paymentMethod,
