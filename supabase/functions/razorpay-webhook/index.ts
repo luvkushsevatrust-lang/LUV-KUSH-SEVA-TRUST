@@ -85,10 +85,10 @@ serve(async (req: Request) => {
       });
 
       // 3. Handle specific event types
-      if (eventType === 'payment.captured' && paymentEntity) {
-        const amountRs = paymentEntity.amount / 100;
+      if ((eventType === 'payment.captured' || eventType === 'order.paid') && paymentEntity) {
+        const amountRs = (paymentEntity.amount || 0) / 100;
         const notes = paymentEntity.notes || {};
-        const purpose = notes.purpose || 'charitable_donation';
+        const purpose = notes.purpose || 'donation';
 
         // Update razorpay_orders
         if (orderId) {
@@ -98,36 +98,41 @@ serve(async (req: Request) => {
             .eq('order_id', orderId);
         }
 
-        // Record payment
-        await supabase.from('razorpay_payments').upsert({
-          id: `LKST-PAY-${Date.now()}`,
-          payment_id: paymentId,
-          order_id: orderId || `order_auto_${Date.now()}`,
-          signature: signatureHeader || 'webhook_captured',
-          amount: amountRs,
-          currency: paymentEntity.currency || 'INR',
-          status: 'captured',
-          method: paymentEntity.method || 'online',
-          vpa: paymentEntity.vpa || null,
-          bank: paymentEntity.bank || null,
-          fee: paymentEntity.fee ? paymentEntity.fee / 100 : 0,
-          tax: paymentEntity.tax ? paymentEntity.tax / 100 : 0,
-          verified_via: 'webhook',
-          created_at: new Date().toISOString(),
-        });
+        // Record payment idempotently
+        if (paymentId) {
+          await supabase.from('razorpay_payments').upsert(
+            {
+              id: `LKST-PAY-${Date.now()}`,
+              payment_id: paymentId,
+              order_id: orderId || `order_auto_${Date.now()}`,
+              signature: signatureHeader || 'webhook_captured',
+              amount: amountRs,
+              currency: paymentEntity.currency || 'INR',
+              status: 'captured',
+              method: paymentEntity.method || 'online',
+              vpa: paymentEntity.vpa || null,
+              bank: paymentEntity.bank || null,
+              fee: paymentEntity.fee ? paymentEntity.fee / 100 : 0,
+              tax: paymentEntity.tax ? paymentEntity.tax / 100 : 0,
+              verified_via: 'webhook',
+              created_at: new Date().toISOString(),
+            },
+            { onConflict: 'payment_id' }
+          );
+        }
 
-        // Ensure donation is marked Approved if charitable
-        if (purpose === 'charitable_donation') {
+        // Ensure donation is marked Approved without duplicates
+        if (paymentId && (purpose === 'donation' || purpose === 'charitable_donation')) {
           const { data: existingDon } = await supabase
             .from('donations')
             .select('id')
-            .eq('transaction_id', paymentId)
+            .or(`razorpay_payment_id.eq.${paymentId},transaction_id.eq.${paymentId}`)
             .maybeSingle();
 
           if (!existingDon) {
-            const receiptNumber = `LKST-REC-2026-${Math.floor(100 + Math.random() * 900)}`;
+            const receiptNumber = `LKST-REC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
             const donorName = notes.donorName || paymentEntity.email || 'Donor';
-            const mobile = notes.mobile || paymentEntity.contact || '9470635412';
+            const mobile = notes.mobile || notes.contact || paymentEntity.contact || '';
             const nowIso = new Date().toISOString();
 
             await supabase.from('donations').insert({
@@ -136,13 +141,14 @@ serve(async (req: Request) => {
               donor_name: donorName,
               mobile,
               email: paymentEntity.email || null,
+              address: notes.address || null,
               amount: amountRs,
               payment_mode: 'Razorpay',
               transaction_id: paymentId,
               purpose: notes.cause || 'Charitable Donation for Humanity & Welfare',
               is_verified: true,
               status: 'Approved',
-              approval_remarks: 'Confirmed via Razorpay Webhook (payment.captured)',
+              approval_remarks: `Confirmed via Razorpay Webhook (${eventType})`,
               approved_at: nowIso,
               approved_by: 'Razorpay Webhook',
               donated_at: nowIso,
@@ -153,6 +159,7 @@ serve(async (req: Request) => {
                 donorName,
                 mobile,
                 email: paymentEntity.email || '',
+                address: notes.address || '',
                 amount: amountRs,
                 receiptNumber,
                 paymentMethod: 'Online (Razorpay)',

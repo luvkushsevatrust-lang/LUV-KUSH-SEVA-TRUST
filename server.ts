@@ -226,15 +226,28 @@ async function startServer() {
         });
       }
 
-      // Verify HMAC-SHA256 signature
+      if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
+        return res.status(500).json({
+          success: false,
+          error: 'Razorpay credentials not configured on server.',
+          code: 'RAZORPAY_CONFIG_ERROR',
+        });
+      }
+
+      // Verify HMAC-SHA256 signature with timing-safe comparison
       const payloadToSign = `${razorpayOrderId}|${razorpayPaymentId}`;
       const expectedSignature = crypto
         .createHmac('sha256', RAZORPAY_KEY_SECRET)
         .update(payloadToSign)
         .digest('hex');
 
-      if (expectedSignature !== razorpaySignature.trim()) {
-        console.warn('HMAC-SHA256 signature mismatch:', { expectedSignature, received: razorpaySignature });
+      const receivedSig = String(razorpaySignature).trim();
+      const sigValid =
+        expectedSignature.length === receivedSig.length &&
+        crypto.timingSafeEqual(Buffer.from(expectedSignature, 'utf8'), Buffer.from(receivedSig, 'utf8'));
+
+      if (!sigValid) {
+        console.warn('HMAC-SHA256 signature mismatch for order:', razorpayOrderId);
         return res.status(400).json({
           success: false,
           error: 'Invalid payment signature. Payment could not be verified.',
@@ -247,7 +260,54 @@ async function startServer() {
       const cleanDonorName = (donorName || 'Supporter').trim().slice(0, 100);
       const cleanMobile = (mobile || '').replace(/\D/g, '').slice(0, 15);
       const cleanAddress = (address || '').trim().slice(0, 250);
-      const cleanAmount = Number(amount) || (isSmartId ? 200 : 100);
+      let cleanAmount = Number(amount) || (isSmartId ? 200 : 100);
+      let paymentMethodLabel = 'Online (Razorpay)';
+      let paymentVpa: string | null = null;
+      let paymentBank: string | null = null;
+
+      // Cross-verify genuine payment status, order_id, currency, and amount on Razorpay API
+      try {
+        const authHeader = `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`;
+        const payRes = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(razorpayPaymentId)}`, {
+          method: 'GET',
+          headers: { Authorization: authHeader },
+        });
+        if (payRes.ok) {
+          const payEntity = await payRes.json();
+          if (payEntity?.order_id && payEntity.order_id !== razorpayOrderId) {
+            return res.status(400).json({
+              success: false,
+              error: 'Payment order mismatch detected.',
+              code: 'ORDER_MISMATCH',
+            });
+          }
+          if (payEntity?.currency && payEntity.currency !== 'INR') {
+            return res.status(400).json({
+              success: false,
+              error: 'Invalid payment currency.',
+              code: 'CURRENCY_MISMATCH',
+            });
+          }
+          if (payEntity?.status && !['captured', 'authorized'].includes(payEntity.status)) {
+            return res.status(400).json({
+              success: false,
+              error: `Payment is not completed (status: ${payEntity.status}).`,
+              code: 'PAYMENT_NOT_CAPTURED',
+            });
+          }
+          if (typeof payEntity?.amount === 'number' && payEntity.amount > 0) {
+            cleanAmount = payEntity.amount / 100;
+          }
+          if (payEntity?.method) {
+            paymentMethodLabel = `Online (Razorpay - ${String(payEntity.method).toUpperCase()})`;
+          }
+          paymentVpa = payEntity?.vpa || null;
+          paymentBank = payEntity?.bank || null;
+        }
+      } catch (rzpVerifyErr) {
+        console.warn('Could not cross-fetch payment from Razorpay API after HMAC pass:', rzpVerifyErr);
+      }
+
       const nowIso = new Date().toISOString();
       let generatedReceiptNumber = `LKST-REC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -263,11 +323,13 @@ async function startServer() {
               id: `LKST-PAY-${Date.now()}`,
               payment_id: razorpayPaymentId,
               order_id: razorpayOrderId,
-              signature: razorpaySignature,
+              signature: receivedSig,
               amount: cleanAmount,
               currency: 'INR',
               status: 'captured',
               method: 'razorpay',
+              vpa: paymentVpa,
+              bank: paymentBank,
               verified_via: 'server_hmac',
               created_at: nowIso,
             },
@@ -275,63 +337,84 @@ async function startServer() {
           );
 
           if (cleanPurpose === 'donation') {
-            const { data: insertedDonation } = await supabase
+            // Prevent duplicate donations and duplicate receipt numbers
+            const { data: existingDonation } = await supabase
               .from('donations')
-              .insert({
-                id: `don-${Date.now()}`,
-                receipt_number: generatedReceiptNumber,
-                donor_name: cleanDonorName,
-                mobile: cleanMobile,
-                email: email ? String(email).trim().slice(0, 100) : null,
-                address: cleanAddress || null,
-                amount: cleanAmount,
-                payment_mode: 'Razorpay',
-                transaction_id: razorpayPaymentId,
-                purpose: causeOrService || 'Charitable Donation for Humanity & Welfare',
-                is_verified: true,
-                status: 'Approved',
-                approval_remarks: 'Verified automatically via Razorpay server-side signature',
-                approved_at: nowIso,
-                approved_by: 'Razorpay System',
-                donated_at: nowIso,
-                razorpay_order_id: razorpayOrderId,
-                razorpay_payment_id: razorpayPaymentId,
-                payment_gateway: 'razorpay',
-                raw_data: {
-                  donorName: cleanDonorName,
-                  mobile: cleanMobile,
-                  email: email || '',
-                  address: cleanAddress,
-                  amount: cleanAmount,
-                  receiptNumber: generatedReceiptNumber,
-                  paymentMethod: 'Online (Razorpay)',
-                  transactionId: razorpayPaymentId,
-                  isVerified: true,
-                  status: 'Approved',
-                  donatedAt: nowIso,
-                },
-              })
-              .select()
-              .single();
+              .select('id, receipt_number')
+              .or(`razorpay_payment_id.eq.${razorpayPaymentId},transaction_id.eq.${razorpayPaymentId}`)
+              .maybeSingle();
 
-            if (insertedDonation?.receipt_number) {
-              generatedReceiptNumber = insertedDonation.receipt_number;
+            if (existingDonation?.receipt_number) {
+              generatedReceiptNumber = existingDonation.receipt_number;
+            } else {
+              const { data: insertedDonation, error: donErr } = await supabase
+                .from('donations')
+                .insert({
+                  id: `don-${Date.now()}`,
+                  receipt_number: generatedReceiptNumber,
+                  donor_name: cleanDonorName,
+                  mobile: cleanMobile,
+                  email: email ? String(email).trim().slice(0, 100) : null,
+                  address: cleanAddress || null,
+                  amount: cleanAmount,
+                  payment_mode: 'Razorpay',
+                  transaction_id: razorpayPaymentId,
+                  purpose: causeOrService || 'Charitable Donation for Humanity & Welfare',
+                  is_verified: true,
+                  status: 'Approved',
+                  approval_remarks: 'Verified automatically via Razorpay server-side signature',
+                  approved_at: nowIso,
+                  approved_by: 'Razorpay System',
+                  donated_at: nowIso,
+                  razorpay_order_id: razorpayOrderId,
+                  razorpay_payment_id: razorpayPaymentId,
+                  payment_gateway: 'razorpay',
+                  raw_data: {
+                    donorName: cleanDonorName,
+                    mobile: cleanMobile,
+                    email: email || '',
+                    address: cleanAddress,
+                    amount: cleanAmount,
+                    receiptNumber: generatedReceiptNumber,
+                    paymentMethod: paymentMethodLabel,
+                    transactionId: razorpayPaymentId,
+                    isVerified: true,
+                    status: 'Approved',
+                    donatedAt: nowIso,
+                  },
+                })
+                .select('receipt_number')
+                .single();
+
+              if (donErr) {
+                console.error('Error inserting verified donation in Supabase:', donErr);
+              } else if (insertedDonation?.receipt_number) {
+                generatedReceiptNumber = insertedDonation.receipt_number;
+              }
             }
           } else if (isSmartId) {
-            await supabase.from('id_card_orders').upsert({
-              id: `LKST-IDORD-${Date.now()}`,
-              registration_id: referenceId || `APP-${Date.now()}`,
-              registration_type: 'service_application',
-              tier: 'special_service_200',
-              fee_amount: 200.0,
-              payment_status: 'paid',
-              razorpay_order_id: razorpayOrderId,
-              razorpay_payment_id: razorpayPaymentId,
-              admin_approval_status: 'Pending',
-              id_card_issued: false,
-              created_at: nowIso,
-              updated_at: nowIso,
-            });
+            const { data: existingIdOrder } = await supabase
+              .from('id_card_orders')
+              .select('id')
+              .or(`razorpay_payment_id.eq.${razorpayPaymentId},razorpay_order_id.eq.${razorpayOrderId}`)
+              .maybeSingle();
+
+            if (!existingIdOrder) {
+              await supabase.from('id_card_orders').insert({
+                id: `LKST-IDORD-${Date.now()}`,
+                registration_id: referenceId || `APP-${Date.now()}`,
+                registration_type: 'service_application',
+                tier: 'special_service_200',
+                fee_amount: 200.0,
+                payment_status: 'paid',
+                razorpay_order_id: razorpayOrderId,
+                razorpay_payment_id: razorpayPaymentId,
+                admin_approval_status: 'Pending',
+                id_card_issued: false,
+                created_at: nowIso,
+                updated_at: nowIso,
+              });
+            }
           }
         } catch (dbErr) {
           console.warn('Database write error during payment verification:', dbErr);
@@ -362,7 +445,7 @@ async function startServer() {
   // 3. Webhook Endpoint: POST /api/razorpay-webhook
   app.post('/api/razorpay-webhook', async (req: any, res: Response) => {
     try {
-      const signature = req.headers['x-razorpay-signature'] as string;
+      const signature = String(req.headers['x-razorpay-signature'] || '').trim();
       const rawBody = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
 
       // Verify webhook signature if secret configured
@@ -372,7 +455,11 @@ async function startServer() {
           .update(rawBody)
           .digest('hex');
 
-        if (expectedSignature !== signature) {
+        const isValid =
+          signature.length === expectedSignature.length &&
+          crypto.timingSafeEqual(Buffer.from(expectedSignature, 'utf8'), Buffer.from(signature, 'utf8'));
+
+        if (!isValid) {
           console.warn('Webhook signature mismatch');
           return res.status(400).json({ error: 'Invalid webhook signature' });
         }
@@ -398,6 +485,7 @@ async function startServer() {
         if (paymentEntity && supabase) {
           const notes = paymentEntity.notes || {};
           const cleanAmount = (paymentEntity.amount || 0) / 100;
+          const purpose = notes.purpose || 'donation';
 
           // Update order status
           if (orderId) {
@@ -407,12 +495,32 @@ async function startServer() {
               .eq('order_id', orderId);
           }
 
-          // Check if donation already recorded to prevent duplicates
           if (paymentId) {
+            await supabase.from('razorpay_payments').upsert(
+              {
+                id: `LKST-PAY-${Date.now()}`,
+                payment_id: paymentId,
+                order_id: orderId || `order_auto_${Date.now()}`,
+                signature: signature || 'webhook_verified',
+                amount: cleanAmount,
+                currency: paymentEntity.currency || 'INR',
+                status: 'captured',
+                method: paymentEntity.method || 'razorpay',
+                vpa: paymentEntity.vpa || null,
+                bank: paymentEntity.bank || null,
+                verified_via: 'webhook',
+                created_at: new Date().toISOString(),
+              },
+              { onConflict: 'payment_id' }
+            );
+          }
+
+          // Check if donation already recorded to prevent duplicates
+          if (paymentId && (purpose === 'donation' || purpose === 'charitable_donation')) {
             const { data: existing } = await supabase
               .from('donations')
               .select('id')
-              .eq('transaction_id', paymentId)
+              .or(`razorpay_payment_id.eq.${paymentId},transaction_id.eq.${paymentId}`)
               .maybeSingle();
 
             if (!existing) {
@@ -422,16 +530,16 @@ async function startServer() {
                 id: `don-${Date.now()}`,
                 receipt_number: receiptNumber,
                 donor_name: notes.donorName || paymentEntity.email || 'Anonymous Supporter',
-                mobile: notes.mobile || paymentEntity.contact || '',
+                mobile: notes.mobile || notes.contact || paymentEntity.contact || '',
                 email: paymentEntity.email || null,
                 address: notes.address || null,
                 amount: cleanAmount,
                 payment_mode: 'Razorpay',
                 transaction_id: paymentId,
-                purpose: notes.purpose || 'Charitable Donation for Humanity & Welfare',
+                purpose: notes.cause || notes.purpose || 'Charitable Donation for Humanity & Welfare',
                 is_verified: true,
                 status: 'Approved',
-                approval_remarks: 'Confirmed via Razorpay Webhook (payment.captured)',
+                approval_remarks: 'Confirmed via Razorpay Webhook',
                 approved_at: nowIso,
                 approved_by: 'Razorpay Webhook',
                 donated_at: nowIso,
@@ -441,6 +549,15 @@ async function startServer() {
               });
             }
           }
+        }
+      } else if (eventType === 'payment.failed') {
+        const paymentEntity = event?.payload?.payment?.entity;
+        const orderId = paymentEntity?.order_id;
+        if (orderId && supabase) {
+          await supabase
+            .from('razorpay_orders')
+            .update({ status: 'failed', updated_at: new Date().toISOString() })
+            .eq('order_id', orderId);
         }
       }
 

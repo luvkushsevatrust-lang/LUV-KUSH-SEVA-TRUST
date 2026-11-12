@@ -1284,7 +1284,15 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setDonations((prev) => {
-      const updated = [newDon, ...prev.filter((d) => d.razorpayPaymentId !== params.paymentId)];
+      const updated = [
+        newDon,
+        ...prev.filter(
+          (d) =>
+            d.razorpayPaymentId !== params.paymentId &&
+            d.transactionId !== params.paymentId &&
+            d.razorpayOrderId !== params.orderId
+        ),
+      ];
       safeSetItem('lkst_donations', JSON.stringify(updated));
       return updated;
     });

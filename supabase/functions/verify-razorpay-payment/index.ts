@@ -65,6 +65,7 @@ serve(async (req: Request) => {
       donorName,
       mobile,
       email,
+      address,
       amount,
       causeOrService,
       referenceId,
@@ -101,6 +102,7 @@ serve(async (req: Request) => {
     const cleanPurpose = isSmartId ? 'smart_id_card' : 'donation';
     const cleanDonorName = (donorName || 'Supporter').trim().slice(0, 100);
     const cleanMobile = (mobile || '').replace(/\D/g, '').slice(0, 15);
+    const cleanAddress = (address || '').trim().slice(0, 250);
     const cleanAmount = Number(amount) || (isSmartId ? 200 : 100);
     const nowIso = new Date().toISOString();
 
@@ -138,73 +140,92 @@ serve(async (req: Request) => {
       console.error('Error inserting razorpay_payments record:', payInsertErr);
     }
 
-    // 3. Strict Ledger Separation
+    // 3. Strict Ledger Separation + Duplicate Prevention
     if (cleanPurpose === 'donation') {
-      // Record in public.donations with status 'Approved'
-      const donationRecord = {
-        id: `don-${Date.now()}`,
-        receipt_number: generatedReceiptNumber,
-        donor_name: cleanDonorName,
-        mobile: cleanMobile,
-        email: email ? String(email).trim().slice(0, 100) : null,
-        amount: cleanAmount,
-        payment_mode: 'Razorpay',
-        transaction_id: razorpayPaymentId,
-        purpose: causeOrService || 'Charitable Donation for Humanity & Welfare',
-        is_verified: true,
-        status: 'Approved',
-        approval_remarks: 'Verified automatically via Razorpay server-side signature',
-        approved_at: nowIso,
-        approved_by: 'Razorpay System',
-        donated_at: nowIso,
-        razorpay_order_id: razorpayOrderId,
-        razorpay_payment_id: razorpayPaymentId,
-        payment_gateway: 'razorpay',
-        raw_data: {
-          donorName: cleanDonorName,
-          mobile: cleanMobile,
-          email: email || '',
-          amount: cleanAmount,
-          receiptNumber: generatedReceiptNumber,
-          paymentMethod: 'Online (Razorpay)',
-          transactionId: razorpayPaymentId,
-          razorpayOrderId,
-          isVerified: true,
-          status: 'Approved',
-          donatedAt: nowIso,
-        },
-      };
-
-      const { data: insertedDonation, error: donErr } = await supabase
+      const { data: existingDonation } = await supabase
         .from('donations')
-        .insert(donationRecord)
-        .select()
-        .single();
+        .select('id, receipt_number')
+        .or(`razorpay_payment_id.eq.${razorpayPaymentId},transaction_id.eq.${razorpayPaymentId}`)
+        .maybeSingle();
 
-      if (donErr) {
-        console.error('Error inserting verified donation in Supabase:', donErr);
-      } else if (insertedDonation?.receipt_number) {
-        generatedReceiptNumber = insertedDonation.receipt_number;
+      if (existingDonation?.receipt_number) {
+        generatedReceiptNumber = existingDonation.receipt_number;
+      } else {
+        // Record in public.donations with status 'Approved'
+        const donationRecord = {
+          id: `don-${Date.now()}`,
+          receipt_number: generatedReceiptNumber,
+          donor_name: cleanDonorName,
+          mobile: cleanMobile,
+          email: email ? String(email).trim().slice(0, 100) : null,
+          address: cleanAddress || null,
+          amount: cleanAmount,
+          payment_mode: 'Razorpay',
+          transaction_id: razorpayPaymentId,
+          purpose: causeOrService || 'Charitable Donation for Humanity & Welfare',
+          is_verified: true,
+          status: 'Approved',
+          approval_remarks: 'Verified automatically via Razorpay server-side signature',
+          approved_at: nowIso,
+          approved_by: 'Razorpay System',
+          donated_at: nowIso,
+          razorpay_order_id: razorpayOrderId,
+          razorpay_payment_id: razorpayPaymentId,
+          payment_gateway: 'razorpay',
+          raw_data: {
+            donorName: cleanDonorName,
+            mobile: cleanMobile,
+            email: email || '',
+            address: cleanAddress,
+            amount: cleanAmount,
+            receiptNumber: generatedReceiptNumber,
+            paymentMethod: 'Online (Razorpay)',
+            transactionId: razorpayPaymentId,
+            razorpayOrderId,
+            isVerified: true,
+            status: 'Approved',
+            donatedAt: nowIso,
+          },
+        };
+
+        const { data: insertedDonation, error: donErr } = await supabase
+          .from('donations')
+          .insert(donationRecord)
+          .select('receipt_number')
+          .single();
+
+        if (donErr) {
+          console.error('Error inserting verified donation in Supabase:', donErr);
+        } else if (insertedDonation?.receipt_number) {
+          generatedReceiptNumber = insertedDonation.receipt_number;
+        }
       }
     } else if (isSmartId) {
-      // Record strictly in public.id_card_orders (never counted in donations ledger)
-      const { error: idCardErr } = await supabase.from('id_card_orders').upsert({
-        id: `LKST-IDORD-${Date.now()}`,
-        registration_id: referenceId || `APP-${Date.now()}`,
-        registration_type: 'service_application',
-        tier: 'special_service_200',
-        fee_amount: 200.0,
-        payment_status: 'paid',
-        razorpay_order_id: razorpayOrderId,
-        razorpay_payment_id: razorpayPaymentId,
-        admin_approval_status: 'Pending', // Hard lock: Admin must review before ID issuance
-        id_card_issued: false,
-        created_at: nowIso,
-        updated_at: nowIso,
-      });
+      const { data: existingIdOrder } = await supabase
+        .from('id_card_orders')
+        .select('id')
+        .or(`razorpay_payment_id.eq.${razorpayPaymentId},razorpay_order_id.eq.${razorpayOrderId}`)
+        .maybeSingle();
 
-      if (idCardErr) {
-        console.error('Error recording id_card_orders:', idCardErr);
+      if (!existingIdOrder) {
+        const { error: idCardErr } = await supabase.from('id_card_orders').insert({
+          id: `LKST-IDORD-${Date.now()}`,
+          registration_id: referenceId || `APP-${Date.now()}`,
+          registration_type: 'service_application',
+          tier: 'special_service_200',
+          fee_amount: 200.0,
+          payment_status: 'paid',
+          razorpay_order_id: razorpayOrderId,
+          razorpay_payment_id: razorpayPaymentId,
+          admin_approval_status: 'Pending', // Hard lock: Admin must review before ID issuance
+          id_card_issued: false,
+          created_at: nowIso,
+          updated_at: nowIso,
+        });
+
+        if (idCardErr) {
+          console.error('Error recording id_card_orders:', idCardErr);
+        }
       }
     }
 
