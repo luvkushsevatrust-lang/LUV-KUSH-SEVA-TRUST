@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { useTrust } from '../context/TrustContext';
-import { Shield, Key, AlertCircle, LogIn } from 'lucide-react';
+import { Shield, Key, AlertCircle, LogIn, Loader2 } from 'lucide-react';
 
 export const AdminLoginPage: React.FC = () => {
   const { adminLogin, setCurrentPage, language, t } = useTrust();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg('');
+
     if (!username.trim() || !password.trim()) {
       setErrorMsg(
         language === 'en'
@@ -19,15 +22,21 @@ export const AdminLoginPage: React.FC = () => {
       return;
     }
 
-    const ok = adminLogin(username, password);
-    if (ok) {
-      setCurrentPage('admin-dashboard');
-    } else {
-      setErrorMsg(
-        language === 'en'
-          ? 'Invalid username or password!'
-          : 'अमान्य यूजरनेम अथवा पासवर्ड!'
-      );
+    setIsSubmitting(true);
+    try {
+      const result = await adminLogin(username, password);
+      if (result.success) {
+        setCurrentPage('admin-dashboard');
+      } else {
+        setErrorMsg(
+          result.error ||
+            (language === 'en'
+              ? 'Invalid username or password!'
+              : 'अमान्य यूजरनेम अथवा पासवर्ड!')
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -88,10 +97,11 @@ export const AdminLoginPage: React.FC = () => {
 
             <button
               type="submit"
-              className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-sm rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isSubmitting}
+              className="w-full py-3 bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white font-bold text-sm rounded-xl shadow-md transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
-              <LogIn className="w-4 h-4" />
-              <span>{t.admin.loginBtn}</span>
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
+              <span>{isSubmitting ? (language === 'en' ? 'Verifying...' : 'सत्यापन जारी...') : t.admin.loginBtn}</span>
             </button>
           </form>
         </div>

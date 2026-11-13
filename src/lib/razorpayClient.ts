@@ -122,11 +122,15 @@ export async function createRazorpayOrder(
     if (localRes.ok) {
       const data = await localRes.json();
       if (data?.success && isValidRazorpayOrderId(data.orderId)) {
+        const resolvedKey = data.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || '';
+        if (!resolvedKey) {
+          throw new Error('Razorpay public key ID is not configured.');
+        }
         return {
           orderId: data.orderId,
           amount: data.amount,
           amountPaise: data.amountPaise,
-          keyId: data.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || 'rzp_live_Tyq0rHJ0l5nvAb',
+          keyId: resolvedKey,
         };
       }
       if (data?.error) {
@@ -165,11 +169,15 @@ export async function createRazorpayOrder(
     const edgeData = await edgeRes.json().catch(() => null);
 
     if (edgeRes.ok && edgeData?.success && isValidRazorpayOrderId(edgeData.orderId)) {
+      const resolvedKey = edgeData.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || '';
+      if (!resolvedKey) {
+        throw new Error('Razorpay public key ID is not configured.');
+      }
       return {
         orderId: edgeData.orderId,
         amount: edgeData.amount,
         amountPaise: edgeData.amountPaise,
-        keyId: edgeData.keyId || (import.meta.env.VITE_RAZORPAY_KEY_ID as string) || 'rzp_live_Tyq0rHJ0l5nvAb',
+        keyId: resolvedKey,
       };
     }
 

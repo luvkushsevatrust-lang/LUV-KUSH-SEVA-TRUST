@@ -30,6 +30,7 @@ import {
   ID_CARD_CATEGORY_CONFIG,
 } from '../data/mockData';
 import { INITIAL_JOB_VACANCIES, INITIAL_PLACEMENT_ADDRESS } from '../data/mockJobs';
+import { supabase } from '../lib/supabase';
 import { SupabaseService } from '../lib/supabaseService';
 import { SupabaseCareerService } from '../lib/supabaseCareerService';
 import { resolveAssetUrl, TRUST_EMBLEM_LOGO } from '../assets';
@@ -160,7 +161,7 @@ interface TrustContextType {
   studentLogout: () => void;
 
   isAdmin: boolean;
-  adminLogin: (user: string, pass: string) => boolean;
+  adminLogin: (user: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   adminLogout: () => void;
 
   // Navigation
@@ -444,9 +445,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return INITIAL_PLACEMENT_ADDRESS;
   });
 
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('lkst_is_admin') === 'true';
-  });
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
   // Helper to determine initial page from browser URL pathname
   const getInitialPageFromUrl = (): string => {
@@ -514,17 +513,44 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Initial Cloud Hydration from Supabase on App Mount
+  // Initial Cloud Hydration + Server-Verified Admin Session Check on Mount
   useEffect(() => {
     let isMounted = true;
     const loadFromSupabase = async () => {
       try {
+        // Verify stored admin session token with server before unlocking dashboard
+        let verifiedAdmin = false;
+        const storedToken = localStorage.getItem('lkst_admin_token');
+        if (storedToken) {
+          try {
+            const sessionRes = await fetch('/api/admin/session', {
+              headers: { Authorization: `Bearer ${storedToken}` },
+            });
+            if (sessionRes.ok) {
+              verifiedAdmin = true;
+            } else if (sessionRes.status === 401) {
+              safeRemoveItem('lkst_admin_token');
+            }
+          } catch {
+            // Check Supabase Auth session if local Express server is unavailable
+            const { data: sbSession } = await supabase.auth.getSession();
+            if (sbSession?.session?.user?.app_metadata?.role === 'admin') {
+              verifiedAdmin = true;
+              safeSetItem('lkst_admin_token', sbSession.session.access_token);
+            }
+          }
+        }
+        if (isMounted) {
+          setIsAdmin(verifiedAdmin);
+        }
+
         const [
           cloudApps,
           cloudStudents,
           cloudCards,
           cloudVols,
           cloudDonations,
+          cloudIdCardOrders,
           cloudAnnouncements,
           cloudSettings,
           cloudJobs,
@@ -535,7 +561,8 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           SupabaseService.fetchStudents(),
           SupabaseService.fetchIdCards(),
           SupabaseService.fetchVolunteers(),
-          SupabaseService.fetchDonations(),
+          verifiedAdmin ? SupabaseService.fetchDonations() : Promise.resolve(null),
+          verifiedAdmin ? SupabaseService.fetchIdCardOrders() : Promise.resolve(null),
           SupabaseService.fetchAnnouncements(),
           SupabaseService.fetchSettings(),
           SupabaseCareerService.getJobs(),
@@ -559,6 +586,9 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (cloudDonations && cloudDonations.length > 0) {
           setDonations(cloudDonations);
+        }
+        if (cloudIdCardOrders && cloudIdCardOrders.length > 0) {
+          setIdCardOrders(cloudIdCardOrders);
         }
         if (cloudAnnouncements && cloudAnnouncements.length > 0) {
           setAnnouncements(cloudAnnouncements);
@@ -647,7 +677,9 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [currentStudent]);
 
   useEffect(() => {
-    safeSetItem('lkst_is_admin', isAdmin ? 'true' : 'false');
+    if (!isAdmin) {
+      safeRemoveItem('lkst_is_admin');
+    }
   }, [isAdmin]);
 
   // Listen to browser Back/Forward navigation
@@ -1297,7 +1329,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return updated;
     });
 
-    SupabaseService.saveDonation(newDon);
+    // Authoritative donation record is already written server-side by verify-razorpay-payment
     setActiveReceipt({ type: 'donation', data: newDon });
     return newDon;
   };
@@ -1493,21 +1525,89 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCurrentPage('home');
   };
 
-  const adminLogin = (user: string, pass: string): boolean => {
-    const cleanUser = user.trim().toLowerCase();
+  const adminLogin = async (
+    user: string,
+    pass: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    const cleanUser = user.trim();
     const cleanPass = pass.trim();
-    if (
-      (cleanUser === 'satyendra' && cleanPass === 'kumar@1989@') ||
-      (cleanUser === 'admin' && (cleanPass === 'kumar@1989@' || cleanPass === 'admin123')) ||
-      (cleanUser === 'luvkushsevatrust@gmail.com' && (cleanPass === 'kumar@1989@' || cleanPass === 'admin123'))
-    ) {
-      setIsAdmin(true);
-      return true;
+
+    if (!cleanUser || !cleanPass) {
+      return { success: false, error: 'Username and password are required.' };
     }
-    return false;
+
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanUser, password: cleanPass }),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      if (res.ok && data?.success && data?.token) {
+        safeSetItem('lkst_admin_token', data.token);
+        setIsAdmin(true);
+        const [adminDonations, adminOrders] = await Promise.all([
+          SupabaseService.fetchDonations(),
+          SupabaseService.fetchIdCardOrders(),
+        ]);
+        if (adminDonations) setDonations(adminDonations);
+        if (adminOrders) setIdCardOrders(adminOrders);
+        return { success: true };
+      }
+
+      if (res.status === 401) {
+        return { success: false, error: data?.error || 'Invalid admin credentials.' };
+      }
+
+      if (res.status === 503 && !cleanUser.includes('@')) {
+        return {
+          success: false,
+          error: data?.error || 'Server admin authentication is not configured.',
+        };
+      }
+    } catch {
+      // Backend proxy unreachable; fall back to Supabase Auth admin sign-in below
+    }
+
+    // Fallback: Supabase Auth admin sign-in when deployed without Express server
+    if (cleanUser.includes('@')) {
+      const { data: authData, error: authErr } = await supabase.auth.signInWithPassword({
+        email: cleanUser,
+        password: cleanPass,
+      });
+      if (
+        !authErr &&
+        authData?.session &&
+        authData.user?.app_metadata?.role === 'admin'
+      ) {
+        safeSetItem('lkst_admin_token', authData.session.access_token);
+        setIsAdmin(true);
+        const [adminDonations, adminOrders] = await Promise.all([
+          SupabaseService.fetchDonations(),
+          SupabaseService.fetchIdCardOrders(),
+        ]);
+        if (adminDonations) setDonations(adminDonations);
+        if (adminOrders) setIdCardOrders(adminOrders);
+        return { success: true };
+      }
+      return {
+        success: false,
+        error: authErr?.message || 'Invalid admin credentials or missing admin role.',
+      };
+    }
+
+    return {
+      success: false,
+      error: 'Unable to authenticate admin account. Check backend configuration.',
+    };
   };
 
   const adminLogout = () => {
+    safeRemoveItem('lkst_admin_token');
+    safeRemoveItem('lkst_is_admin');
+    supabase.auth.signOut().catch(() => {});
     setIsAdmin(false);
     setCurrentPage('home');
   };

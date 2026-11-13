@@ -7,7 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-// Validate Razorpay Key ID format: rzp_test_... or rzp_live_...
+function jsonResponse(payload: Record<string, unknown>, status: number): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+}
+
+function timingSafeEqualString(a: string, b: string): boolean {
+  if (a.length !== b.length || a.length === 0) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
+}
+
 function isValidRazorpayKeyId(keyId: string | null | undefined): boolean {
   if (!keyId) return false;
   const trimmed = keyId.trim();
@@ -22,7 +37,6 @@ function isValidRazorpayKeyId(keyId: string | null | undefined): boolean {
   return /^rzp_(test|live)_[a-zA-Z0-9]{10,}$/.test(trimmed);
 }
 
-// Validate Razorpay Key Secret format (at least 16 alphanumeric characters, non-placeholder)
 function isValidRazorpaySecret(secret: string | null | undefined): boolean {
   if (!secret) return false;
   const trimmed = secret.trim();
@@ -37,222 +51,317 @@ function isValidRazorpaySecret(secret: string | null | undefined): boolean {
   return /^[a-zA-Z0-9_-]{16,}$/.test(trimmed);
 }
 
+/**
+ * In-function request authentication when gateway `verify_jwt = false`.
+ * Requires a valid project `apikey` (including `sb_publishable_...` or anon key)
+ * or authenticated user Bearer JWT, while rejecting secret keys.
+ */
+async function authorizeClientRequest(req: Request, supabaseUrl: string): Promise<boolean> {
+  const apiKeyHeader = (req.headers.get('apikey') || '').trim();
+  const authHeader = (req.headers.get('authorization') || '').trim();
+  const bearerToken = authHeader.toLowerCase().startsWith('bearer ')
+    ? authHeader.slice(7).trim()
+    : '';
+
+  const candidateKey = apiKeyHeader || bearerToken;
+  if (!candidateKey || candidateKey.startsWith('sb_secret_')) {
+    return false;
+  }
+
+  const configuredAnon = (Deno.env.get('SUPABASE_ANON_KEY') || '').trim();
+  const configuredPublishable = (Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || '').trim();
+
+  if (configuredAnon && timingSafeEqualString(candidateKey, configuredAnon)) {
+    return true;
+  }
+  if (configuredPublishable && timingSafeEqualString(candidateKey, configuredPublishable)) {
+    return true;
+  }
+
+  // Verify presented publishable key / JWT directly against Supabase Auth settings
+  try {
+    const verifyHeaders: Record<string, string> = { apikey: candidateKey };
+    if (bearerToken && bearerToken.split('.').length === 3) {
+      verifyHeaders['Authorization'] = `Bearer ${bearerToken}`;
+    }
+    const authCheckRes = await fetch(`${supabaseUrl}/auth/v1/settings`, {
+      method: 'GET',
+      headers: verifyHeaders,
+    });
+    return authCheckRes.ok;
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  if (req.method !== 'POST') {
+    return jsonResponse(
+      { success: false, error: 'Method not allowed. Use POST.', code: 'METHOD_NOT_ALLOWED' },
+      405
+    );
+  }
+
   try {
-    const rawKeyId = Deno.env.get('RAZORPAY_KEY_ID') || '';
-    const rawKeySecret = Deno.env.get('RAZORPAY_KEY_SECRET') || '';
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || 'https://yjbowhkgwatrwmuyvkja.supabase.co';
-    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const rawKeyId = (Deno.env.get('RAZORPAY_KEY_ID') || '').trim();
+    const rawKeySecret = (Deno.env.get('RAZORPAY_KEY_SECRET') || '').trim();
+    const SUPABASE_URL = (Deno.env.get('SUPABASE_URL') || '').trim();
+    const SUPABASE_SERVICE_ROLE_KEY = (Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '').trim();
 
-    // 1 & 2 & 3: Validate credentials. NEVER accept placeholders. NEVER generate mock IDs.
     if (!isValidRazorpayKeyId(rawKeyId) || !isValidRazorpaySecret(rawKeySecret)) {
-      console.error('Razorpay API configuration missing or invalid in Supabase Edge Function environment');
-      return new Response(
-        JSON.stringify({
+      console.error('Razorpay API credentials missing or invalid in Edge Function environment.');
+      return jsonResponse(
+        {
           success: false,
-          error: 'Razorpay payment gateway credentials not configured or invalid.',
+          error: 'Payment gateway configuration error.',
           code: 'RAZORPAY_CONFIG_ERROR',
-          message:
-            'A valid RAZORPAY_KEY_ID (rzp_test_... or rzp_live_...) and RAZORPAY_KEY_SECRET must be configured in Supabase Edge Function secrets.',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        },
+        500
       );
     }
 
-    // 7: Do not use SUPABASE_ANON_KEY as substitute for SUPABASE_SERVICE_ROLE_KEY
-    if (!SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY.includes('placeholder')) {
-      console.error('SUPABASE_SERVICE_ROLE_KEY is required for privileged order record insertion');
-      return new Response(
-        JSON.stringify({
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || SUPABASE_SERVICE_ROLE_KEY.includes('placeholder')) {
+      console.error('SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY missing in Edge Function environment.');
+      return jsonResponse(
+        {
           success: false,
-          error: 'Database configuration error: SUPABASE_SERVICE_ROLE_KEY is missing.',
+          error: 'Server configuration error.',
           code: 'SUPABASE_CONFIG_ERROR',
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
+        },
+        500
       );
     }
 
-    const body = await req.json();
-    const { amount, purpose, donorName, mobile, email, notes, referenceId } = body;
+    const authorized = await authorizeClientRequest(req, SUPABASE_URL);
+    if (!authorized) {
+      return jsonResponse(
+        {
+          success: false,
+          error: 'Unauthorized request.',
+          code: 'UNAUTHORIZED',
+        },
+        401
+      );
+    }
 
-    // 9: Validate amount and paise calculations
-    const parsedAmount = Number(amount);
-    if (!parsedAmount || isNaN(parsedAmount) || !isFinite(parsedAmount) || parsedAmount < 1) {
-      return new Response(
-        JSON.stringify({
+    let body: Record<string, any>;
+    try {
+      const parsed = await req.json();
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return jsonResponse(
+          { success: false, error: 'Invalid JSON request body.', code: 'INVALID_JSON' },
+          400
+        );
+      }
+      body = parsed;
+    } catch {
+      return jsonResponse(
+        { success: false, error: 'Malformed JSON request body.', code: 'INVALID_JSON' },
+        400
+      );
+    }
+
+    const { amount, purpose, donorName, mobile, email, address, notes, referenceId } = body;
+
+    const rawAmount = Number(amount);
+    if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
+      return jsonResponse(
+        {
           success: false,
           error: 'Valid donation amount is required (minimum ₹1.00).',
           code: 'INVALID_AMOUNT',
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        },
+        400
       );
     }
 
-    if (parsedAmount > 5000000) {
-      return new Response(
-        JSON.stringify({
+    // Normalize to exactly two decimal places before converting to paise
+    const normalizedAmount = Math.round(rawAmount * 100) / 100;
+    const amountPaise = Math.round(normalizedAmount * 100);
+
+    if (amountPaise < 100) {
+      return jsonResponse(
+        {
+          success: false,
+          error: 'Valid donation amount is required (minimum ₹1.00).',
+          code: 'INVALID_AMOUNT',
+        },
+        400
+      );
+    }
+
+    if (normalizedAmount > 5000000) {
+      return jsonResponse(
+        {
           success: false,
           error: 'Amount exceeds maximum allowed transaction limit of ₹50,00,000.',
           code: 'AMOUNT_EXCEEDS_LIMIT',
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        },
+        400
       );
     }
 
-    // Strict validation for purpose
     const isSmartId = purpose === 'smart_id_card' || purpose === 'smart_id_card_fee';
-    if (isSmartId) {
-      if (parsedAmount !== 200) {
-        return new Response(
-          JSON.stringify({
-            success: false,
-            error: 'Special Service Smart ID card fee must be exactly ₹200.00.',
-            code: 'INVALID_FEE_AMOUNT',
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+    if (isSmartId && amountPaise !== 20000) {
+      return jsonResponse(
+        {
+          success: false,
+          error: 'Special Service Smart ID card fee must be exactly ₹200.00.',
+          code: 'INVALID_FEE_AMOUNT',
+        },
+        400
+      );
     }
 
     const cleanPurpose = isSmartId ? 'smart_id_card' : 'donation';
-    const amountPaise = Math.round(parsedAmount * 100);
-    const cleanDonorName = (donorName || 'Supporter').trim().slice(0, 100);
-    const cleanMobile = (mobile || '').replace(/\D/g, '').slice(0, 15);
-    const cleanEmail = (email || '').trim().slice(0, 100);
+    const cleanDonorName = String(donorName || 'Supporter').trim().slice(0, 100) || 'Supporter';
+    const cleanMobile = String(mobile || '').replace(/\D/g, '').slice(0, 15) || '0000000000';
+    const cleanEmail = String(email || '').trim().slice(0, 100);
+    const cleanAddress = String(address || '').trim().slice(0, 250);
     const receiptCode = `LKST_${isSmartId ? 'ID' : 'DON'}_${Date.now()}`;
 
-    // 4: Call official Razorpay Orders API
-    const basicAuth = btoa(`${rawKeyId.trim()}:${rawKeySecret.trim()}`);
+    const sanitizedNotes: Record<string, string> = {};
+    if (notes && typeof notes === 'object' && !Array.isArray(notes)) {
+      for (const [k, v] of Object.entries(notes)) {
+        if (typeof v === 'string' || typeof v === 'number' || typeof v === 'boolean') {
+          sanitizedNotes[String(k).slice(0, 40)] = String(v).slice(0, 200);
+        }
+      }
+    }
+
+    const basicAuth = btoa(`${rawKeyId}:${rawKeySecret}`);
     const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
       method: 'POST',
       headers: {
-        'Authorization': `Basic ${basicAuth}`,
+        Authorization: `Basic ${basicAuth}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         amount: amountPaise,
         currency: 'INR',
         receipt: receiptCode.slice(0, 40),
-        payment_capture: 1, // Crucial for instant dynamic UPI QR and Intent auto-capture
+        payment_capture: 1,
         notes: {
+          ...sanitizedNotes,
           organization: 'Luv Kush Seva Trust',
           purpose: cleanPurpose,
           donorName: cleanDonorName,
           mobile: cleanMobile,
           email: cleanEmail,
-          referenceId: referenceId || '',
-          ...(notes || {}),
+          address: cleanAddress,
+          referenceId: referenceId ? String(referenceId).slice(0, 80) : '',
         },
       }),
     });
 
     if (!rzpRes.ok) {
       const errText = await rzpRes.text();
-      console.error('Razorpay Orders API error response:', errText);
-      let parsedErr: any = null;
+      console.error('Razorpay Orders API error:', rzpRes.status, errText);
+      let safeGatewayCode = 'RAZORPAY_API_ERROR';
       try {
-        parsedErr = JSON.parse(errText);
-      } catch (_) {
-        parsedErr = { error: { description: errText } };
+        const parsedErr = JSON.parse(errText);
+        if (parsedErr?.error?.code) {
+          safeGatewayCode = String(parsedErr.error.code);
+        }
+      } catch {
+        // ignore parse error
       }
 
-      // 10: Never expose private credentials, sanitize error
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           success: false,
-          error: parsedErr?.error?.description || 'Failed to create Razorpay order.',
-          code: parsedErr?.error?.code || 'RAZORPAY_API_ERROR',
-        }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          error: 'Failed to create payment order with gateway.',
+          code: safeGatewayCode,
+        },
+        502
       );
     }
 
     const rzpData = await rzpRes.json();
     const razorpayOrderId = rzpData?.id;
 
-    if (!razorpayOrderId || typeof razorpayOrderId !== 'string' || !razorpayOrderId.startsWith('order_')) {
+    if (
+      !razorpayOrderId ||
+      typeof razorpayOrderId !== 'string' ||
+      !/^order_[a-zA-Z0-9]{10,}$/.test(razorpayOrderId)
+    ) {
       console.error('Invalid order response structure from Razorpay API:', rzpData);
-      return new Response(
-        JSON.stringify({
+      return jsonResponse(
+        {
           success: false,
-          error: 'Razorpay returned an invalid order identifier.',
+          error: 'Payment gateway returned an invalid order identifier.',
           code: 'MALFORMED_ORDER_RESPONSE',
-        }),
-        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        },
+        502
       );
     }
 
-    // 5 & 6 & 8: Check Supabase database insertion errors; do not ignore them; ensure unique order record
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const nowIso = new Date().toISOString();
+
+    // Omit `id` so PostgreSQL gen_random_uuid() generates valid UUID PK
     const { error: dbError } = await supabase.from('razorpay_orders').upsert(
       {
-        id: `LKST-ORD-${Date.now()}`,
         order_id: razorpayOrderId,
-        amount: parsedAmount,
+        purpose: cleanPurpose,
+        amount: normalizedAmount,
         amount_paise: amountPaise,
         currency: 'INR',
-        purpose: cleanPurpose,
-        donor_or_applicant_name: cleanDonorName,
-        email: cleanEmail || null,
-        mobile: cleanMobile || null,
-        reference_id: referenceId || null,
         status: 'created',
-        receipt_code: receiptCode,
-        metadata: {
-          notes,
+        donor_name: cleanDonorName,
+        email: cleanEmail || null,
+        contact: cleanMobile,
+        receipt_number: receiptCode,
+        notes: {
+          ...sanitizedNotes,
+          address: cleanAddress,
+          referenceId: referenceId ? String(referenceId).slice(0, 80) : null,
           createdVia: 'supabase_edge_function',
           rzpCreatedAt: rzpData.created_at,
         },
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: nowIso,
+        updated_at: nowIso,
       },
       { onConflict: 'order_id' }
     );
 
     if (dbError) {
-      console.error('Supabase database error in razorpay_orders insertion:', dbError);
-      return new Response(
-        JSON.stringify({
+      console.error('Database error recording razorpay_orders:', dbError.code, dbError.message);
+      return jsonResponse(
+        {
           success: false,
-          error: 'Database ledger error while recording order.',
-          code: 'DATABASE_INSERTION_ERROR',
-          details: dbError.message,
-        }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          error: 'Unable to initialize payment order record.',
+          code: 'DATABASE_ERROR',
+        },
+        500
       );
     }
 
-    // Return real order details for client checkout
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: true,
         orderId: razorpayOrderId,
-        amount: parsedAmount,
+        amount: normalizedAmount,
         amountPaise,
         currency: 'INR',
-        keyId: rawKeyId.trim(),
+        keyId: rawKeyId,
         purpose: cleanPurpose,
-      }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      },
+      200
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Unhandled exception in create-razorpay-order:', error);
-    return new Response(
-      JSON.stringify({
+    return jsonResponse(
+      {
         success: false,
-        error: error.message || 'Internal server error processing payment order.',
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        error: 'Internal server error processing payment order.',
+        code: 'INTERNAL_ERROR',
+      },
+      500
     );
   }
 });

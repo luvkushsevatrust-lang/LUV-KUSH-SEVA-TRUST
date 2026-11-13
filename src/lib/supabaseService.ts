@@ -124,13 +124,22 @@ CREATE TABLE IF NOT EXISTS public.donations (
   receipt_number TEXT UNIQUE NOT NULL,
   donor_name TEXT NOT NULL,
   pan_or_aadhaar TEXT,
+  pan_card TEXT,
   mobile TEXT NOT NULL,
   email TEXT,
+  address TEXT,
   amount NUMERIC NOT NULL,
   payment_mode TEXT,
   transaction_id TEXT,
   purpose TEXT,
   is_verified BOOLEAN DEFAULT TRUE,
+  status TEXT DEFAULT 'Approved',
+  approval_remarks TEXT,
+  approved_at TIMESTAMPTZ,
+  approved_by TEXT,
+  razorpay_order_id TEXT,
+  razorpay_payment_id TEXT,
+  payment_gateway TEXT DEFAULT 'manual',
   donated_at TIMESTAMPTZ DEFAULT NOW(),
   raw_data JSONB
 );
@@ -189,8 +198,12 @@ BEGIN
     CREATE POLICY "Allow public access volunteers" ON public.volunteers FOR ALL USING (true) WITH CHECK (true);
   END IF;
 
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access donations') THEN
-    CREATE POLICY "Allow public access donations" ON public.donations FOR ALL USING (true) WITH CHECK (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'donations' AND policyname = 'Service role full access donations') THEN
+    CREATE POLICY "Service role full access donations" ON public.donations FOR ALL TO service_role USING (true) WITH CHECK (true);
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'donations' AND policyname = 'Authenticated admins manage donations') THEN
+    CREATE POLICY "Authenticated admins manage donations" ON public.donations FOR ALL TO authenticated USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin') WITH CHECK ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
   END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'Allow public access announcements') THEN
@@ -404,7 +417,7 @@ CREATE TABLE IF NOT EXISTS public.razorpay_webhooks (
 -- D. Smart ID Card Orders (अलग सर्विस फीस टेबल)
 CREATE TABLE IF NOT EXISTS public.id_card_orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id TEXT NOT NULL REFERENCES public.razorpay_orders(order_id),
+  order_id TEXT REFERENCES public.razorpay_orders(order_id),
   payment_id TEXT REFERENCES public.razorpay_payments(payment_id),
   tier TEXT NOT NULL CHECK (tier IN ('special_service_200', 'general_associate_free')),
   applicant_id TEXT REFERENCES public.applications(id) ON DELETE SET NULL,
@@ -423,44 +436,65 @@ CREATE TABLE IF NOT EXISTS public.id_card_orders (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- E. Extend donations table safely
+-- E. Extend donations table safely + unique receipt generator
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS address TEXT;
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS razorpay_order_id TEXT;
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS razorpay_payment_id TEXT;
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS payment_gateway TEXT DEFAULT 'manual';
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS pan_card TEXT;
 ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Approved';
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS approval_remarks TEXT;
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;
+ALTER TABLE public.donations ADD COLUMN IF NOT EXISTS approved_by TEXT;
 
--- Indexes
+CREATE SEQUENCE IF NOT EXISTS public.donation_receipt_seq START WITH 2000 INCREMENT BY 1;
+
+-- Indexes & Duplicate Prevention
 CREATE INDEX IF NOT EXISTS idx_razorpay_orders_purpose ON public.razorpay_orders(purpose);
 CREATE INDEX IF NOT EXISTS idx_razorpay_orders_status ON public.razorpay_orders(status);
 CREATE INDEX IF NOT EXISTS idx_razorpay_payments_order ON public.razorpay_payments(order_id);
 CREATE INDEX IF NOT EXISTS idx_id_card_orders_applicant ON public.id_card_orders(applicant_id);
 CREATE INDEX IF NOT EXISTS idx_id_card_orders_paid ON public.id_card_orders(is_paid);
 CREATE INDEX IF NOT EXISTS idx_donations_rzp_payment ON public.donations(razorpay_payment_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_donations_razorpay_payment_id ON public.donations(razorpay_payment_id) WHERE razorpay_payment_id IS NOT NULL AND razorpay_payment_id <> '';
+CREATE UNIQUE INDEX IF NOT EXISTS uq_donations_razorpay_order_id ON public.donations(razorpay_order_id) WHERE razorpay_order_id IS NOT NULL AND razorpay_order_id <> '';
 
--- Enable RLS
+-- Enable Hardened RLS (service_role only for payment ledgers; no anon access)
 ALTER TABLE public.razorpay_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.razorpay_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.razorpay_webhooks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.id_card_orders ENABLE ROW LEVEL SECURITY;
 
+REVOKE ALL ON public.donations FROM anon;
+REVOKE ALL ON public.razorpay_orders FROM anon, authenticated;
+REVOKE ALL ON public.razorpay_payments FROM anon, authenticated;
+REVOKE ALL ON public.razorpay_webhooks FROM anon, authenticated;
+REVOKE ALL ON public.id_card_orders FROM anon, authenticated;
+
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_orders' AND policyname = 'Allow service role all razorpay_orders') THEN
-    CREATE POLICY "Allow service role all razorpay_orders" ON public.razorpay_orders FOR ALL USING (true) WITH CHECK (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_orders' AND policyname = 'Service role only razorpay_orders') THEN
+    CREATE POLICY "Service role only razorpay_orders" ON public.razorpay_orders FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_payments' AND policyname = 'Allow service role all razorpay_payments') THEN
-    CREATE POLICY "Allow service role all razorpay_payments" ON public.razorpay_payments FOR ALL USING (true) WITH CHECK (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_payments' AND policyname = 'Service role only razorpay_payments') THEN
+    CREATE POLICY "Service role only razorpay_payments" ON public.razorpay_payments FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_webhooks' AND policyname = 'Allow service role all razorpay_webhooks') THEN
-    CREATE POLICY "Allow service role all razorpay_webhooks" ON public.razorpay_webhooks FOR ALL USING (true) WITH CHECK (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'razorpay_webhooks' AND policyname = 'Service role only razorpay_webhooks') THEN
+    CREATE POLICY "Service role only razorpay_webhooks" ON public.razorpay_webhooks FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'id_card_orders' AND policyname = 'Allow service role all id_card_orders') THEN
-    CREATE POLICY "Allow service role all id_card_orders" ON public.id_card_orders FOR ALL USING (true) WITH CHECK (true);
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'id_card_orders' AND policyname = 'Service role only id_card_orders') THEN
+    CREATE POLICY "Service role only id_card_orders" ON public.id_card_orders FOR ALL TO service_role USING (true) WITH CHECK (true);
   END IF;
 END $$;
 `;
+
+function getAdminToken(): string | null {
+  try {
+    return localStorage.getItem('lkst_admin_token');
+  } catch {
+    return null;
+  }
+}
 
 // Helper to safely execute Supabase calls without breaking offline / unconfigured apps
 async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {
@@ -771,7 +805,27 @@ export const SupabaseService = {
   // --- DONATIONS ---
   async fetchDonations(): Promise<Donation[] | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('donations').select('*').order('donated_at', { ascending: false });
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const res = await fetch('/api/admin/donations', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const payload = await res.json();
+            if (payload?.success && Array.isArray(payload.donations)) {
+              return payload.donations;
+            }
+          }
+        } catch {
+          // fall through to Supabase Auth client if server proxy unreachable
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('donations')
+        .select('*')
+        .order('donated_at', { ascending: false });
       if (error || !data) return null;
       return data.map((row: any) => ({
         ...(row.raw_data || {}),
@@ -788,6 +842,9 @@ export const SupabaseService = {
         message: row.purpose || row.raw_data?.message,
         isVerified: row.is_verified ?? row.raw_data?.isVerified ?? true,
         status: (row.status || row.raw_data?.status || (row.is_verified ? 'Approved' : 'Pending')) as any,
+        approvalRemarks: row.approval_remarks || row.raw_data?.approvalRemarks,
+        approvedAt: row.approved_at || row.raw_data?.approvedAt,
+        approvedBy: row.approved_by || row.raw_data?.approvedBy,
         paymentGateway: (row.payment_gateway || row.raw_data?.paymentGateway || (row.razorpay_payment_id ? 'razorpay' : 'manual')) as any,
         razorpayOrderId: row.razorpay_order_id || row.raw_data?.razorpayOrderId,
         razorpayPaymentId: row.razorpay_payment_id || row.raw_data?.razorpayPaymentId,
@@ -796,9 +853,73 @@ export const SupabaseService = {
     });
   },
 
+  async lookupApprovedReceipt(query: string): Promise<Donation | null> {
+    const cleanQ = query.trim();
+    if (cleanQ.length < 6) return null;
+
+    // 1. Server exact-match endpoint (works with locked-down RLS)
+    try {
+      const res = await fetch(`/api/receipt-lookup?q=${encodeURIComponent(cleanQ)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.success && data.donation) {
+          return data.donation as Donation;
+        }
+        if (data?.success && data.donation === null) {
+          return null;
+        }
+      }
+    } catch {
+      // fall through to Supabase SECURITY DEFINER RPC
+    }
+
+    // 2. Direct Supabase RPC fallback (used on static Vercel hosting without Express server)
+    return safeQuery(async () => {
+      const { data, error } = await supabase.rpc('lookup_approved_donation_receipt', {
+        p_query: cleanQ,
+      });
+      if (error || !data || !Array.isArray(data) || data.length === 0) return null;
+      const row = data[0];
+      return {
+        id: row.id,
+        receiptNumber: row.receipt_number,
+        donorName: row.donor_name,
+        mobile: row.mobile,
+        amount: Number(row.amount || 0),
+        paymentMethod: row.payment_mode || 'Razorpay',
+        transactionId: row.transaction_id,
+        message: row.purpose,
+        isVerified: Boolean(row.is_verified),
+        status: row.status || 'Approved',
+        donatedAt: row.donated_at,
+        approvedAt: row.approved_at,
+        razorpayOrderId: row.razorpay_order_id,
+        razorpayPaymentId: row.razorpay_payment_id,
+        paymentGateway: row.payment_gateway || 'razorpay',
+      } as Donation;
+    });
+  },
+
   async saveDonation(d: Donation): Promise<boolean> {
     const res = await safeQuery(async () => {
-      const payload = {
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const apiRes = await fetch('/api/admin/donations', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(d),
+          });
+          if (apiRes.ok) return true;
+        } catch {
+          // fall through to Supabase Auth client
+        }
+      }
+
+      const payload: Record<string, any> = {
         id: d.id,
         receipt_number: d.receiptNumber,
         donor_name: d.donorName,
@@ -812,13 +933,27 @@ export const SupabaseService = {
         purpose: d.message,
         is_verified: d.isVerified,
         status: d.status || (d.isVerified ? 'Approved' : 'Pending'),
+        approval_remarks: d.approvalRemarks || null,
+        approved_at: d.approvedAt || null,
+        approved_by: d.approvedBy || null,
         payment_gateway: d.paymentGateway || (d.razorpayPaymentId ? 'razorpay' : 'manual'),
         razorpay_order_id: d.razorpayOrderId,
         razorpay_payment_id: d.razorpayPaymentId,
         donated_at: d.donatedAt || new Date().toISOString(),
         raw_data: d,
       };
-      const { error } = await supabase.from('donations').upsert(payload);
+      let { error } = await supabase.from('donations').upsert(payload);
+      if (error && (error.code === 'PGRST204' || String(error.message || '').includes('column'))) {
+        const {
+          address: _a,
+          approval_remarks: _r,
+          approved_at: _at,
+          approved_by: _by,
+          ...compatPayload
+        } = payload;
+        const retry = await supabase.from('donations').upsert(compatPayload);
+        error = retry.error;
+      }
       return !error;
     });
     return Boolean(res);
@@ -826,6 +961,18 @@ export const SupabaseService = {
 
   async deleteDonation(id: string): Promise<boolean> {
     const res = await safeQuery(async () => {
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const apiRes = await fetch(`/api/admin/donations/${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (apiRes.ok) return true;
+        } catch {
+          // fall through
+        }
+      }
       const { error } = await supabase.from('donations').delete().eq('id', id);
       return !error;
     });
@@ -835,11 +982,31 @@ export const SupabaseService = {
   // --- SMART ID CARD ORDERS (Separated Service Fee Ledger) ---
   async fetchIdCardOrders(): Promise<IdCardOrder[] | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('id_card_orders').select('*').order('created_at', { ascending: false });
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const apiRes = await fetch('/api/admin/id-card-orders', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (apiRes.ok) {
+            const payload = await apiRes.json();
+            if (payload?.success && Array.isArray(payload.orders)) {
+              return payload.orders;
+            }
+          }
+        } catch {
+          // fall through
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('id_card_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
       if (error || !data) return null;
       return data.map((row: any) => ({
         id: row.id,
-        orderId: row.order_id,
+        orderId: row.order_id || row.id,
         paymentId: row.payment_id,
         tier: row.tier,
         applicantId: row.applicant_id,
@@ -862,25 +1029,71 @@ export const SupabaseService = {
 
   async saveIdCardOrder(order: Partial<IdCardOrder>): Promise<boolean> {
     const res = await safeQuery(async () => {
+      const token = getAdminToken();
+      if (token && (order.adminApproved || order.cardIssued) && (order.orderId || order.id)) {
+        try {
+          const targetId = order.orderId || order.id || '';
+          const apiRes = await fetch(`/api/admin/id-card-orders/${encodeURIComponent(targetId)}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              adminApproved: Boolean(order.adminApproved),
+              cardIssued: Boolean(order.cardIssued),
+              idCardId: order.idCardId || null,
+              adminName: order.adminApprovedBy || 'Admin',
+            }),
+          });
+          if (apiRes.ok) return true;
+        } catch {
+          // fall through
+        }
+      }
+
+      try {
+        const regRes = await fetch('/api/id-card-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: order.orderId,
+            paymentId: order.paymentId,
+            tier: order.tier,
+            applicantId: order.applicantId,
+            fullName: order.fullName,
+            mobile: order.mobile,
+            email: order.email,
+            serviceCategory: order.serviceCategory,
+          }),
+        });
+        if (regRes.ok) return true;
+      } catch {
+        // fall through
+      }
+
       const payload: any = {
-        order_id: order.orderId,
-        payment_id: order.paymentId,
+        order_id: order.orderId && String(order.orderId).startsWith('order_') ? order.orderId : null,
+        payment_id: order.paymentId || null,
         tier: order.tier,
-        applicant_id: order.applicantId,
+        applicant_id: order.applicantId || null,
         full_name: order.fullName,
         mobile: order.mobile,
-        email: order.email,
-        service_category: order.serviceCategory,
+        email: order.email || null,
+        service_category: order.serviceCategory || null,
         amount_fee: order.amountFee ?? (order.tier === 'special_service_200' ? 200 : 0),
         is_paid: order.isPaid ?? false,
         admin_approved: order.adminApproved ?? false,
-        admin_approved_at: order.adminApprovedAt,
-        admin_approved_by: order.adminApprovedBy,
+        admin_approved_at: order.adminApprovedAt || null,
+        admin_approved_by: order.adminApprovedBy || null,
         card_issued: order.cardIssued ?? false,
-        id_card_id: order.idCardId,
+        id_card_id: order.idCardId || null,
         updated_at: new Date().toISOString(),
       };
-      if (order.id) payload.id = order.id;
+      // Only pass id when it's a valid UUID (never non-UUID strings like ico-...)
+      if (order.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order.id)) {
+        payload.id = order.id;
+      }
       const { error } = await supabase.from('id_card_orders').upsert(payload);
       return !error;
     });
@@ -889,6 +1102,25 @@ export const SupabaseService = {
 
   async updateIdCardOrderApproval(orderId: string, approved: boolean, adminName: string = 'Admin'): Promise<boolean> {
     const res = await safeQuery(async () => {
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const apiRes = await fetch(`/api/admin/id-card-orders/${encodeURIComponent(orderId)}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              adminApproved: approved,
+              adminName,
+            }),
+          });
+          if (apiRes.ok) return true;
+        } catch {
+          // fall through
+        }
+      }
       const { error } = await supabase
         .from('id_card_orders')
         .update({

@@ -1,0 +1,28 @@
+# Supabase Project Configuration – Luv Kush Seva Trust
+# Project ID: yjbowhkgwatrwmuyvkja
+
+project_id = "yjbowhkgwatrwmuyvkja"
+
+# Browser-invoked payment order creation:
+# Gateway JWT check is disabled because public donors do not sign into Supabase Auth
+# and the frontend uses the Supabase publishable key format (`sb_publishable_...`).
+# Request authentication (`apikey` verification against Supabase Auth) and strict
+# amount/purpose validation are enforced inside the function.
+[functions.create-razorpay-order]
+verify_jwt = false
+
+# Browser-invoked payment signature verification:
+# Gateway JWT check is disabled for the same anonymous donor + `sb_publishable_...`
+# client flow. Inside the function, caller `apikey` verification, timing-safe
+# Razorpay HMAC-SHA256 signature verification, authoritative DB order matching,
+# and live Razorpay Payments API capture verification are enforced.
+[functions.verify-razorpay-payment]
+verify_jwt = false
+
+# Server-to-server Razorpay webhook receiver:
+# Razorpay webhook deliveries never carry a Supabase JWT. Gateway JWT verification
+# MUST be disabled here; every request is authenticated strictly inside the function
+# via timing-safe HMAC-SHA256 verification of `x-razorpay-signature` over the exact
+# raw request body using `RAZORPAY_WEBHOOK_SECRET`.
+[functions.razorpay-webhook]
+verify_jwt = false

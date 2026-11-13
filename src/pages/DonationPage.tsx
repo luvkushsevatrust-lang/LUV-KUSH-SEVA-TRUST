@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { Donation } from '../types';
 import { openRazorpayCheckout } from '../lib/razorpayClient';
+import { SupabaseService } from '../lib/supabaseService';
 
 export const DONATION_PURPOSES = [
   {
@@ -116,36 +117,43 @@ export const DonationPage: React.FC = () => {
     setErrorMsg('');
   };
 
-  const handleSearchReceipt = (e: React.FormEvent) => {
+  const handleSearchReceipt = async (e: React.FormEvent) => {
     e.preventDefault();
-    const q = searchReceiptQuery.trim().toLowerCase();
-    if (!q) {
+    const rawQuery = searchReceiptQuery.trim();
+    const q = rawQuery.toLowerCase();
+    if (!q || q.length < 6) {
       setSearchStatusMsg({
         text:
           language === 'en'
-            ? 'Please enter your receipt number, mobile number, or Razorpay payment ID.'
-            : 'कृपया रसीद संख्या, मोबाइल नंबर या रेजरपे पेमेंट आईडी दर्ज करें।',
+            ? 'Please enter your complete receipt number, 10-digit mobile number, or Razorpay payment ID.'
+            : 'कृपया पूर्ण रसीद संख्या, 10 अंकों का मोबाइल नंबर या रेजरपे पेमेंट आईडी दर्ज करें।',
         type: 'error',
       });
       return;
     }
 
-    const found = donations.find(
-      (d) =>
-        d.receiptNumber.toLowerCase() === q ||
-        d.receiptNumber.toLowerCase().includes(q) ||
-        d.mobile.includes(q) ||
-        (d.transactionId && d.transactionId.toLowerCase().includes(q)) ||
-        (d.razorpayPaymentId && d.razorpayPaymentId.toLowerCase().includes(q))
-    );
+    // 1. Check secure exact-match lookup API / Supabase RPC first
+    let found = await SupabaseService.lookupApprovedReceipt(rawQuery);
+
+    // 2. Fallback to current browser session donations if completed just now
+    if (!found) {
+      found =
+        donations.find(
+          (d) =>
+            d.receiptNumber.toLowerCase() === q ||
+            d.mobile === rawQuery.replace(/\D/g, '') ||
+            (d.transactionId && d.transactionId.toLowerCase() === q) ||
+            (d.razorpayPaymentId && d.razorpayPaymentId.toLowerCase() === q)
+        ) || null;
+    }
 
     if (!found) {
       setSearchedDonation(null);
       setSearchStatusMsg({
         text:
           language === 'en'
-            ? 'No donation record found. Please verify your receipt number or mobile.'
-            : 'इस विवरण से कोई दान रिकॉर्ड नहीं मिला। कृपया रसीद संख्या या मोबाइल नंबर पुनः जांचें।',
+            ? 'No approved donation record found for that exact receipt number, mobile number, or payment ID.'
+            : 'इस रसीद संख्या, मोबाइल नंबर या पेमेंट आईडी से कोई स्वीकृत दान रिकॉर्ड नहीं मिला।',
         type: 'error',
       });
       return;
