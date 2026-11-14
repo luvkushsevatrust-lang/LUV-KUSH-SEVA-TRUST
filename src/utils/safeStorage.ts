@@ -18,8 +18,8 @@ function sanitizePayloadForStorage(jsonString: string): string {
           cleaned[prop] = '';
         }
       }
-      // If photoUrl is massive (>80KB raw base64), drop or truncate it in storage copy
-      if (typeof cleaned.photoUrl === 'string' && cleaned.photoUrl.startsWith('data:image') && cleaned.photoUrl.length > 80000) {
+      // If photoUrl is massive (>250KB raw base64), drop or truncate it in storage copy
+      if (typeof cleaned.photoUrl === 'string' && cleaned.photoUrl.startsWith('data:image') && cleaned.photoUrl.length > 250000) {
         cleaned.photoUrl = '';
       }
       return cleaned;

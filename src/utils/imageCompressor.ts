@@ -44,20 +44,9 @@ export async function compressImageFile(
           let { width, height } = img;
 
           // Calculate scaled dimensions maintaining aspect ratio
-          if (width > maxWidth || height > maxHeight) {
-            if (width / height > maxWidth / maxHeight) {
-              height = Math.round((height * maxWidth) / width);
-              width = maxWidth;
-            } else {
-              width = Math.round((width * maxHeight) / height);
-              maxHeight = Math.round(maxHeight);
-              height = Math.round((height * maxWidth) / img.width);
-            }
-          }
-
-          // Ensure minimum valid dimension
-          width = Math.max(1, Math.round(width));
-          height = Math.max(1, Math.round(height));
+          const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+          width = Math.max(1, Math.round(width * ratio));
+          height = Math.max(1, Math.round(height * ratio));
 
           const canvas = document.createElement('canvas');
           canvas.width = width;

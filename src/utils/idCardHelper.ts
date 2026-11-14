@@ -140,24 +140,51 @@ export function getCardPhotoUrl(card: {
  */
 export function loadImageSafe(src: string): Promise<HTMLImageElement | null> {
   return new Promise((resolve) => {
-    if (!src) {
+    if (!src || typeof src !== 'string') {
       resolve(null);
       return;
     }
-    const resolved = resolveAssetUrl(src);
+    const resolved = src.startsWith('data:') || src.startsWith('blob:') ? src : resolveAssetUrl(src);
     const img = new Image();
-    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+    let settled = false;
+    const finish = (result: HTMLImageElement | null) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+
+    if (
+      (resolved.startsWith('http://') || resolved.startsWith('https://')) &&
+      typeof window !== 'undefined' &&
+      !resolved.startsWith(window.location.origin)
+    ) {
       img.crossOrigin = 'anonymous';
     }
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
+
+    img.onload = async () => {
+      try {
+        if (typeof img.decode === 'function') {
+          await img.decode().catch(() => {});
+        }
+      } catch {
+        // ignore decode rejection if image already completed
+      }
+      if ((img.naturalWidth || img.width) > 0) {
+        finish(img);
+      } else {
+        finish(null);
+      }
+    };
+    img.onerror = () => finish(null);
     img.src = resolved;
+
+    if (img.complete && (img.naturalWidth || img.width) > 0) {
+      finish(img);
+    }
 
     // 5-second timeout safeguard
     setTimeout(() => {
-      if (!img.complete) {
-        resolve(null);
-      }
+      finish(img.complete && (img.naturalWidth || img.width) > 0 ? img : null);
     }, 5000);
   });
 }
@@ -441,10 +468,20 @@ export async function renderIdCardSideToCanvas(
     ctx.stroke();
     ctx.clip();
 
-    const photoUrl = getCardPhotoUrl(card);
-    const photoImg = await loadImageSafe(photoUrl);
+    const uploadedUrl = card.photoUrl && card.photoUrl.trim().length > 0 ? card.photoUrl.trim() : '';
+    let photoImg = uploadedUrl ? await loadImageSafe(uploadedUrl) : null;
+    if (!photoImg) {
+      photoImg = await loadImageSafe(getCardPhotoUrl({ ...card, photoUrl: '' }));
+    }
     if (photoImg) {
-      ctx.drawImage(photoImg, photoX, photoY, photoW, photoH);
+      const iw = photoImg.naturalWidth || photoImg.width || photoW;
+      const ih = photoImg.naturalHeight || photoImg.height || photoH;
+      const scale = Math.max(photoW / iw, photoH / ih);
+      const drawW = iw * scale;
+      const drawH = ih * scale;
+      const drawX = photoX + (photoW - drawW) / 2;
+      const drawY = photoY + (photoH - drawH) / 2;
+      ctx.drawImage(photoImg, drawX, drawY, drawW, drawH);
     }
 
     // Verified Seal at bottom of photo
@@ -1372,9 +1409,9 @@ export async function downloadReceiptDirectPdf(
 
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxW = pageWidth - margin * 2;
-      const maxH = pageHeight - margin * 2;
+      const margin = 12;
+      const maxW = Math.min(pageWidth - margin * 2, 145);
+      const maxH = Math.min(pageHeight - margin * 2, 220);
       const ratio = Math.min(maxW / imgWidth, maxH / imgHeight);
 
       const finalW = imgWidth * ratio;
@@ -1400,12 +1437,12 @@ export async function downloadReceiptDirectPdf(
     });
 
     const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
-    const margin = 15;
-    const contentW = pageWidth - margin * 2; // 180mm
+    const margin = 20;
+    const contentW = pageWidth - margin * 2; // 170mm compact printable slip width
 
     // Top Red Header Stripe
     doc.setFillColor(185, 28, 28); // #b91c1c
-    doc.rect(0, 0, 210, 8, 'F');
+    doc.rect(margin, 10, contentW, 5, 'F');
 
     // Trust Title
     doc.setFont('helvetica', 'bold');
@@ -1595,10 +1632,17 @@ export async function downloadReceiptDirectPdf(
     doc.setTextColor(100, 116, 139);
     doc.text('Authorized Signatory / Chairperson', pageWidth - margin - 22, currentY + 25, { align: 'center' });
 
-    // Footer note
+    // Footer note & dashed cut-out border around the compact slip
     doc.setFontSize(7.5);
     doc.setTextColor(148, 163, 184);
-    doc.text('This is a verified computer-generated document | Luv Kush Seva Trust | Rajgir, Nalanda, Bihar - 803116', pageWidth / 2, 285, { align: 'center' });
+    const slipBottomY = currentY + 34;
+    doc.text('Computer-generated official slip | Luv Kush Seva Trust | Rajgir, Nalanda, Bihar - 803116', pageWidth / 2, slipBottomY - 3, { align: 'center' });
+
+    doc.setDrawColor(148, 163, 184);
+    doc.setLineWidth(0.4);
+    doc.setLineDashPattern([2, 2], 0);
+    doc.roundedRect(margin - 3, 8, contentW + 6, slipBottomY - 8, 2, 2, 'S');
+    doc.setLineDashPattern([], 0);
 
     doc.save(finalName);
     return true;

@@ -153,15 +153,15 @@ export const PrintableReceipt: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex items-start justify-center p-2 sm:p-3 print:static print:inset-auto print:bg-white print:p-0 print:overflow-visible">
       {/* Container with responsive compact or normal width */}
       <div
         className={`bg-white rounded-2xl shadow-2xl ${
-          isCompact ? 'max-w-lg' : 'max-w-2xl'
-        } w-full overflow-hidden border border-slate-300 print-page my-3 transition-all duration-200`}
+          isCompact ? 'max-w-md' : 'max-w-xl'
+        } w-full my-auto flex flex-col max-h-[94vh] overflow-hidden border border-slate-300 print-page print:max-h-none print:overflow-visible print:my-0 print:max-w-full print:border-none print:shadow-none transition-all duration-200`}
       >
         {/* Actions Bar (Hidden during print) */}
-        <div className="no-print bg-slate-900 px-4 py-2.5 text-white flex flex-wrap items-center justify-between gap-2 border-b border-slate-700">
+        <div className="no-print shrink-0 bg-slate-900 px-3 sm:px-4 py-2 text-white flex flex-wrap items-center justify-between gap-2 border-b border-slate-700">
           <span className="font-bold text-xs text-amber-300 flex items-center gap-1.5">
             <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
             <span>
@@ -307,7 +307,7 @@ export const PrintableReceipt: React.FC = () => {
 
         {/* Warning bar if unapproved record */}
         {!isApproved && (
-          <div className="no-print bg-amber-500 text-slate-950 font-black text-xs px-4 py-2.5 flex items-center justify-between border-b border-amber-600 shadow-sm">
+          <div className="no-print shrink-0 bg-amber-500 text-slate-950 font-black text-xs px-4 py-2 flex items-center justify-between border-b border-amber-600 shadow-sm">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-slate-950 shrink-0 animate-pulse" />
               <span>
@@ -321,7 +321,7 @@ export const PrintableReceipt: React.FC = () => {
 
         {/* Action Status Feedback Toast Bar */}
         {actionToast && (
-          <div className="no-print bg-emerald-600 text-white text-xs font-semibold px-4 py-2 flex items-center justify-between border-b border-emerald-500 shadow-inner">
+          <div className="no-print shrink-0 bg-emerald-600 text-white text-xs font-semibold px-4 py-2 flex items-center justify-between border-b border-emerald-500 shadow-inner">
             <span className="flex items-center gap-1.5">
               <CheckCircle className="w-4 h-4 text-amber-300 shrink-0" />
               <span>{actionToast}</span>
@@ -335,13 +335,20 @@ export const PrintableReceipt: React.FC = () => {
           </div>
         )}
 
-        {/* Printable Official Slip Document (Clean, Compact, Well-Proportioned) */}
+        {/* Scrollable Receipt Area */}
+        <div className="overflow-y-auto flex-1 min-h-0 p-1.5 sm:p-2.5 bg-slate-100/70 print:overflow-visible print:p-0 print:bg-white">
+        {/* Printable Official Slip Document (Clean, Compact, Cut-Ready) */}
         <div
           ref={receiptRef}
-          className={`p-4 sm:p-5 bg-white text-slate-800 space-y-3.5 border-2 border-amber-600/30 m-2 sm:m-3 rounded-xl relative text-xs ${
+          className={`p-3 sm:p-3.5 bg-white text-slate-800 space-y-2 border-2 border-dashed border-amber-700/60 rounded-lg relative text-[11px] mx-auto ${
             !isApproved ? 'unapproved-receipt-locked' : ''
           }`}
         >
+          {/* Subtle Cut Line Indicator */}
+          <div className="flex items-center justify-between text-[8.5px] font-mono text-slate-400 border-b border-dotted border-slate-200 pb-1 -mt-0.5">
+            <span>✂ {language === 'en' ? 'Cut along dashed border' : 'काटने की रेखा (Cut Line)'}</span>
+            <span>{language === 'en' ? 'Official Trust Slip' : 'आधिकारिक पावती'}</span>
+          </div>
           {/* Unapproved Status Diagonal Watermark Overlay */}
           {!isApproved && (
             <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none overflow-hidden select-none">
@@ -361,14 +368,14 @@ export const PrintableReceipt: React.FC = () => {
             <SafeImage
               src={settings?.logoUrl || TRUST_EMBLEM_LOGO}
               alt="Seal"
-              className="w-48 h-48 object-contain"
+              className="w-36 h-36 object-contain"
             />
           </div>
 
           {/* Top Trust Header */}
-          <div className="text-center pb-2.5 border-b-2 border-slate-800">
-            <div className="flex items-center justify-center gap-2.5 mb-1">
-              <div className="w-11 h-11 rounded-full border border-amber-500 p-0.5 bg-white shadow-2xs overflow-hidden flex items-center justify-center shrink-0">
+          <div className="text-center pb-1.5 border-b border-slate-800">
+            <div className="flex items-center justify-center gap-2 mb-0.5">
+              <div className="w-9 h-9 rounded-full border border-amber-500 p-0.5 bg-white shadow-2xs overflow-hidden flex items-center justify-center shrink-0">
                 <SafeImage
                   src={settings?.logoUrl || TRUST_EMBLEM_LOGO}
                   alt="Luv Kush Seva Trust Official Emblem"
@@ -376,37 +383,37 @@ export const PrintableReceipt: React.FC = () => {
                 />
               </div>
               <div className="text-left">
-                <h2 className="text-lg sm:text-xl font-black text-red-600 tracking-tight leading-none">
+                <h2 className="text-base sm:text-lg font-black text-red-600 tracking-tight leading-none">
                   LUV KUSH SEVA TRUST
                 </h2>
-                <h3 className="text-xs sm:text-sm font-bold text-blue-900 leading-tight">
+                <h3 className="text-[11px] sm:text-xs font-bold text-blue-900 leading-tight">
                   {language === 'en' ? 'Luv Kush Seva Trust, Rajgir' : 'लव कुश सेवा ट्रस्ट, राजगीर'}
                 </h3>
               </div>
             </div>
 
-            <p className="text-[10px] font-bold text-red-700 uppercase tracking-wider">
+            <p className="text-[9px] font-bold text-red-700 uppercase tracking-wider leading-tight">
               " {language === 'en' ? 'Dedicated to Service, Education, Health and Humanity' : settings.tagline} "
             </p>
-            <p className="text-[9.5px] text-slate-600 mt-0.5 font-medium">
-              {t.banner.regNumberLabel} : <strong className="font-mono text-slate-900">{settings.registrationNumber}</strong> | {language === 'en' ? 'Chairperson' : 'अध्यक्ष'}: <strong className="text-slate-900">{language === 'en' ? 'Satyendra Kumar' : settings.chairpersonName}</strong>
+            <p className="text-[8.5px] text-slate-600 mt-0.5 font-medium leading-tight">
+              {t.banner.regNumberLabel}: <strong className="font-mono text-slate-900">{settings.registrationNumber}</strong> | {language === 'en' ? 'Chairperson' : 'अध्यक्ष'}: <strong className="text-slate-900">{language === 'en' ? 'Satyendra Kumar' : settings.chairpersonName}</strong>
             </p>
-            <p className="text-[9px] text-slate-500">
-              {language === 'en' ? 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address} | {t.contact.phoneTitle}: {settings.phone}
+            <p className="text-[8.5px] text-slate-500 leading-tight">
+              {language === 'en' ? 'Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar' : settings.address} | {settings.phone}
             </p>
           </div>
 
           {/* Document Title Badge */}
-          <div className="flex items-center justify-between bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-300">
+          <div className="flex items-center justify-between bg-slate-100 px-2.5 py-1 rounded-md border border-slate-300">
             <div>
-              <span className="text-[10px] text-slate-500 uppercase block font-bold">
+              <span className="text-[9px] text-slate-500 uppercase block font-bold leading-none">
                 {type === 'donation'
                   ? (language === 'en' ? 'Receipt Number' : 'रसीद संख्या')
                   : type === 'membership'
                   ? (language === 'en' ? 'Membership / Receipt No.' : 'सदस्यता / रसीद संख्या')
                   : (language === 'en' ? 'Application ID' : 'आवेदन संख्या')}
               </span>
-              <span className="text-sm font-bold font-mono text-blue-900">
+              <span className="text-xs font-bold font-mono text-blue-900">
                 {type === 'donation'
                   ? data.receiptNumber
                   : type === 'membership'
@@ -415,13 +422,13 @@ export const PrintableReceipt: React.FC = () => {
               </span>
             </div>
             <div className="text-right">
-              <span className="text-[10px] text-slate-500 uppercase block font-bold">
+              <span className="text-[9px] text-slate-500 uppercase block font-bold leading-none">
                 {language === 'en' ? 'Date' : 'दिनांक'}
               </span>
-              <span className="text-xs font-semibold text-slate-800">
+              <span className="text-[11px] font-semibold text-slate-800">
                 {new Date(data.paidAt || data.donatedAt || data.submittedAt || data.createdAt || Date.now()).toLocaleDateString(language === 'en' ? 'en-IN' : 'hi-IN', {
                   day: 'numeric',
-                  month: 'long',
+                  month: 'short',
                   year: 'numeric',
                 })}
               </span>
@@ -435,70 +442,70 @@ export const PrintableReceipt: React.FC = () => {
                 <table className="w-full text-left border-collapse">
                   <tbody>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 w-1/3 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 w-1/3 text-[11px]">
                         {language === 'en' ? 'Donor Name:' : 'दानदाता का नाम:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-semibold text-slate-900">{data.donorName}</td>
+                      <td className="py-1 px-2 font-semibold text-slate-900">{data.donorName}</td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Mobile Number:' : 'मोबाइल नंबर:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-mono text-slate-800">{data.mobile}</td>
+                      <td className="py-1 px-2 font-mono text-slate-800">{data.mobile}</td>
                     </tr>
                     {data.email && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Email:' : 'ईमेल:'}
                         </td>
-                        <td className="py-1.5 px-2.5 text-slate-800">{data.email}</td>
+                        <td className="py-1 px-2 text-slate-800">{data.email}</td>
                       </tr>
                     )}
                     {data.address && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Address:' : 'डाक पता:'}
                         </td>
-                        <td className="py-1.5 px-2.5 text-slate-800">{data.address}</td>
+                        <td className="py-1 px-2 text-slate-800">{data.address}</td>
                       </tr>
                     )}
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Payment Method:' : 'भुगतान माध्यम:'}
                       </td>
-                      <td className="py-1.5 px-2.5 text-slate-800">{data.paymentMethod}</td>
+                      <td className="py-1 px-2 text-slate-800">{data.paymentMethod}</td>
                     </tr>
                     {data.razorpayOrderId && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Razorpay Order ID:' : 'रेजरपे ऑर्डर ID:'}
                         </td>
-                        <td className="py-1.5 px-2.5 font-mono text-slate-800">{data.razorpayOrderId}</td>
+                        <td className="py-1 px-2 font-mono text-slate-800">{data.razorpayOrderId}</td>
                       </tr>
                     )}
                     {(data.razorpayPaymentId || data.transactionId) && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Payment ID / UTR:' : 'पेमेंट आईडी / UTR:'}
                         </td>
-                        <td className="py-1.5 px-2.5 font-mono text-slate-800 font-bold">
+                        <td className="py-1 px-2 font-mono text-slate-800 font-bold">
                           {data.razorpayPaymentId || data.transactionId}
                         </td>
                       </tr>
                     )}
                     {data.message && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Purpose / Message:' : 'उद्देश्य / सन्देश:'}
                         </td>
-                        <td className="py-1.5 px-2.5 text-slate-800">{data.message}</td>
+                        <td className="py-1 px-2 text-slate-800">{data.message}</td>
                       </tr>
                     )}
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Approval & Verification:' : 'सत्यापन एवं स्वीकृति:'}
                       </td>
-                      <td className="py-1.5 px-2.5">
+                      <td className="py-1 px-2">
                         {isApproved ? (
                           <span className="inline-flex items-center gap-1 font-bold text-emerald-800 text-[11px] bg-emerald-100 px-2 py-0.5 rounded-md border border-emerald-300">
                             <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
@@ -516,19 +523,19 @@ export const PrintableReceipt: React.FC = () => {
                       </td>
                     </tr>
                     <tr className="bg-amber-50/80 font-bold">
-                      <td className="py-2 px-2.5 text-slate-900 text-xs">
+                      <td className="py-1.5 px-2 text-slate-900 text-[11px]">
                         {isApproved
                           ? (language === 'en' ? 'Approved Amount Received:' : 'स्वीकृत एवं प्राप्त दान राशि:')
                           : (language === 'en' ? 'Donation Amount (Under Review):' : 'दान राशि (सत्यापन प्रक्रियाधीन):')}
                       </td>
-                      <td className="py-2 px-2.5 text-red-700 text-base font-black flex items-center justify-between">
+                      <td className="py-1.5 px-2 text-red-700 text-sm font-black flex items-center justify-between">
                         <span>₹ {Number(data.amount || 0).toLocaleString('en-IN')} /-</span>
                         {isApproved ? (
-                          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          <span className="text-[9.5px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                             {language === 'en' ? '✓ Verified' : '✓ मान्य एवं स्वीकृत'}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                          <span className="text-[9.5px] text-amber-800 font-bold uppercase tracking-wider bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">
                             {language === 'en' ? '⏳ Pending Approval' : '⏳ व्यवस्थापक अप्रूवल प्रतीक्षारत'}
                           </span>
                         )}
@@ -538,8 +545,8 @@ export const PrintableReceipt: React.FC = () => {
                 </table>
               </div>
 
-              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-[10.5px] leading-relaxed text-emerald-900 flex items-start gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-lg text-[10px] leading-snug text-emerald-900 flex items-start gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
                   {language === 'en'
                     ? 'Luv Kush Seva Trust expresses heartfelt gratitude for your generous support. Your contribution is utilized transparently for the welfare of the underprivileged, children and senior citizens.'
@@ -548,62 +555,62 @@ export const PrintableReceipt: React.FC = () => {
               </div>
             </div>
           ) : isMembership ? (
-            <div className="space-y-3">
-              <div className="border border-slate-300 rounded-lg overflow-hidden text-xs">
+            <div className="space-y-2">
+              <div className="border border-slate-300 rounded-lg overflow-hidden text-[11px]">
                 <table className="w-full text-left border-collapse">
                   <tbody>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 w-1/3 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 w-1/3 text-[11px]">
                         {language === 'en' ? 'Membership Number:' : 'सदस्यता संख्या:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-mono font-bold text-blue-900">
+                      <td className="py-1 px-2 font-mono font-bold text-blue-900">
                         {data.membershipNumber || 'PENDING'}
                       </td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Receipt Number:' : 'रसीद संख्या:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-mono font-semibold text-slate-900">
+                      <td className="py-1 px-2 font-mono font-semibold text-slate-900">
                         {data.receiptNumber || '—'}
                       </td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Member Name:' : 'सदस्य का पूरा नाम:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-semibold text-slate-900">{data.fullName}</td>
+                      <td className="py-1 px-2 font-semibold text-slate-900">{data.fullName}</td>
                     </tr>
                     {data.fatherOrHusbandName && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Father / Husband Name:' : 'पिता / पति का नाम:'}
                         </td>
-                        <td className="py-1.5 px-2.5 text-slate-800">{data.fatherOrHusbandName}</td>
+                        <td className="py-1 px-2 text-slate-800">{data.fatherOrHusbandName}</td>
                       </tr>
                     )}
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Membership Type:' : 'सदस्यता श्रेणी:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-bold text-emerald-800">
+                      <td className="py-1 px-2 font-bold text-emerald-800">
                         {data.membershipType || 'Life Member'}
                       </td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Mobile / Email:' : 'मोबाइल / ईमेल:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-mono text-slate-800">
+                      <td className="py-1 px-2 font-mono text-slate-800">
                         {data.mobile} {data.email ? `| ${data.email}` : ''}
                       </td>
                     </tr>
                     {data.address && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Address:' : 'पूरा पता:'}
                         </td>
-                        <td className="py-1.5 px-2.5 text-slate-800">
+                        <td className="py-1 px-2 text-slate-800">
                           {data.address}
                           {data.district ? `, ${data.district}` : ''}
                           {data.state ? `, ${data.state}` : ''}
@@ -613,25 +620,25 @@ export const PrintableReceipt: React.FC = () => {
                     )}
                     {data.razorpayOrderId && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Razorpay Order ID:' : 'रेजरपे ऑर्डर ID:'}
                         </td>
-                        <td className="py-1.5 px-2.5 font-mono text-slate-800">{data.razorpayOrderId}</td>
+                        <td className="py-1 px-2 font-mono text-slate-800">{data.razorpayOrderId}</td>
                       </tr>
                     )}
                     {data.razorpayPaymentId && (
                       <tr className="border-b border-slate-200">
-                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                           {language === 'en' ? 'Razorpay Payment ID:' : 'पेमेंट आईडी:'}
                         </td>
-                        <td className="py-1.5 px-2.5 font-mono font-bold text-slate-900">{data.razorpayPaymentId}</td>
+                        <td className="py-1 px-2 font-mono font-bold text-slate-900">{data.razorpayPaymentId}</td>
                       </tr>
                     )}
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Audit Verification:' : 'ऑडिट स्थिति:'}
                       </td>
-                      <td className="py-1.5 px-2.5">
+                      <td className="py-1 px-2">
                         <span className={`inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded-md border ${
                           data.auditStatus === 'Audited & Verified'
                             ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -645,17 +652,17 @@ export const PrintableReceipt: React.FC = () => {
                       </td>
                     </tr>
                     <tr className="bg-amber-50/80 font-bold">
-                      <td className="py-2 px-2.5 text-slate-900 text-xs">
+                      <td className="py-1.5 px-2 text-slate-900 text-[11px]">
                         {language === 'en' ? 'Membership Fee Paid:' : 'स्वीकृत सदस्यता शुल्क राशि:'}
                       </td>
-                      <td className="py-2 px-2.5 text-red-700 text-base font-black flex items-center justify-between">
+                      <td className="py-1.5 px-2 text-red-700 text-sm font-black flex items-center justify-between">
                         <span>₹ {Number(data.feeAmount || 5000).toLocaleString('en-IN')} /-</span>
                         {isApproved ? (
-                          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          <span className="text-[9.5px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
                             {language === 'en' ? '✓ Confirmed Member' : '✓ पुष्ट सदस्य'}
                           </span>
                         ) : (
-                          <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                          <span className="text-[9.5px] text-amber-800 font-bold uppercase tracking-wider bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">
                             {language === 'en' ? '⏳ Payment Pending' : '⏳ भुगतान लंबित'}
                           </span>
                         )}
@@ -665,8 +672,8 @@ export const PrintableReceipt: React.FC = () => {
                 </table>
               </div>
 
-              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-[10.5px] leading-relaxed text-emerald-900 flex items-start gap-2">
-                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div className="bg-emerald-50 border border-emerald-200 p-2 rounded-lg text-[10px] leading-snug text-emerald-900 flex items-start gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
                 <span>
                   {language === 'en'
                     ? 'Heartfelt welcome to Luv Kush Seva Trust! Your Life Membership contribution (₹5,000) is verified, confirmed, and logged in our official Supabase Trust Audit Ledger.'
@@ -675,67 +682,67 @@ export const PrintableReceipt: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="border border-slate-300 rounded-lg overflow-hidden text-xs">
+            <div className="space-y-2">
+              <div className="border border-slate-300 rounded-lg overflow-hidden text-[11px]">
                 <table className="w-full text-left border-collapse">
                   <tbody>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 w-1/3 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 w-1/3 text-[11px]">
                         {language === 'en' ? 'Service Applied:' : 'सेवा का प्रकार:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-bold text-blue-900">{data.serviceTitleHi}</td>
+                      <td className="py-1 px-2 font-bold text-blue-900">{data.serviceTitleHi}</td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Applicant Name:' : 'आवेदक का पूरा नाम:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-semibold text-slate-900">{data.fullName}</td>
+                      <td className="py-1 px-2 font-semibold text-slate-900">{data.fullName}</td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Father / Husband Name:' : 'पिता / पति का नाम:'}
                       </td>
-                      <td className="py-1.5 px-2.5 text-slate-800">{data.fatherOrHusbandName}</td>
+                      <td className="py-1 px-2 text-slate-800">{data.fatherOrHusbandName}</td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Mother Name:' : 'माता का नाम:'}
                       </td>
-                      <td className="py-1.5 px-2.5 text-slate-800">{data.motherName}</td>
+                      <td className="py-1 px-2 text-slate-800">{data.motherName}</td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Date of Birth / Gender:' : 'जन्मतिथि / लिंग:'}
                       </td>
-                      <td className="py-1.5 px-2.5 text-slate-800">{data.dob} ({data.gender})</td>
+                      <td className="py-1 px-2 text-slate-800">{data.dob} ({data.gender})</td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Mobile / Emergency:' : 'मोबाइल / आपातकालीन:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-mono text-slate-800">
+                      <td className="py-1 px-2 font-mono text-slate-800">
                         {data.mobile} {data.emergencyContact ? `(इमर्जेंसी: ${data.emergencyContact})` : ''}
                       </td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Complete Address:' : 'पूरा पता:'}
                       </td>
-                      <td className="py-1.5 px-2.5 text-slate-800">
+                      <td className="py-1 px-2 text-slate-800">
                         {data.address}, {data.village}, {data.district} - {data.pinCode} ({data.state})
                       </td>
                     </tr>
                     <tr className="border-b border-slate-200">
-                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 bg-slate-50 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Description of Need:' : 'आवश्यकता का विवरण:'}
                       </td>
-                      <td className="py-1.5 px-2.5 text-slate-700">{data.description}</td>
+                      <td className="py-1 px-2 text-slate-700">{data.description}</td>
                     </tr>
                     <tr className="bg-slate-50">
-                      <td className="py-1.5 px-2.5 font-bold text-slate-700 text-[11px]">
+                      <td className="py-1 px-2 font-bold text-slate-700 text-[11px]">
                         {language === 'en' ? 'Current Application Status:' : 'आवेदन की वर्तमान स्थिति:'}
                       </td>
-                      <td className="py-1.5 px-2.5 font-bold text-blue-900">{data.status}</td>
+                      <td className="py-1 px-2 font-bold text-blue-900">{data.status}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -816,38 +823,39 @@ export const PrintableReceipt: React.FC = () => {
           )}
 
           {/* Signatures & Seal Section */}
-          <div className="pt-3 flex items-end justify-between border-t border-slate-200 text-xs">
+          <div className="pt-2 flex items-end justify-between border-t border-slate-200 text-[11px]">
             <div className="text-center">
-              <div className="w-14 h-14 rounded-full border border-red-700 text-red-700 flex flex-col items-center justify-center p-0.5 uppercase font-bold text-[7.5px] leading-tight rotate-[-6deg] opacity-80">
+              <div className="w-11 h-11 rounded-full border border-red-700 text-red-700 flex flex-col items-center justify-center p-0.5 uppercase font-bold text-[6.5px] leading-tight rotate-[-6deg] opacity-80">
                 <span>{language === 'en' ? 'LUV KUSH' : 'लव कुश'}</span>
-                <span className="text-[6.5px]">★ RAJGIR ★</span>
-                <span className="text-[7px] font-mono">SEAL</span>
+                <span className="text-[5.5px]">★ RAJGIR ★</span>
+                <span className="text-[6px] font-mono">SEAL</span>
               </div>
-              <span className="block mt-0.5 text-[9px] text-slate-400">
+              <span className="block mt-0.5 text-[8.5px] text-slate-400">
                 {language === 'en' ? 'Official Seal' : 'आधिकारिक मुहर'}
               </span>
             </div>
 
             <div className="text-center">
-              <div className="border-b border-slate-800 w-28 mb-0.5">
-                <span className="font-serif italic font-bold text-xs text-blue-900">
+              <div className="border-b border-slate-800 w-24 mb-0.5">
+                <span className="font-serif italic font-bold text-[11px] text-blue-900">
                   Satyendra Kr.
                 </span>
               </div>
-              <span className="block font-bold text-slate-800 text-[11px]">
+              <span className="block font-bold text-slate-800 text-[10px]">
                 {language === 'en' ? 'Satyendra Kumar' : 'सत्येन्द्र कुमार'}
               </span>
-              <span className="text-[9px] text-slate-400">
+              <span className="text-[8.5px] text-slate-400">
                 {t.idCard.authorizedSignature}
               </span>
             </div>
           </div>
 
-          <div className="text-center text-[9px] text-slate-400 pt-1 border-t border-dashed border-slate-200">
+          <div className="text-center text-[8.5px] text-slate-400 pt-1 border-t border-dashed border-slate-200">
             {language === 'en'
-              ? 'This is a computer-generated official slip | LUV KUSH SEVA TRUST | Rajgir, Nalanda, Bihar'
+              ? 'Computer-generated official slip | LUV KUSH SEVA TRUST | Rajgir, Nalanda, Bihar'
               : 'यह एक कंप्यूटर जनरेटेड आधिकारिक रसीद है | LUV KUSH SEVA TRUST | राजगीर, नालंदा, बिहार'}
           </div>
+        </div>
         </div>
       </div>
     </div>

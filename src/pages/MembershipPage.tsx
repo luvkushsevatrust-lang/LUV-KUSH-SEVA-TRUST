@@ -103,9 +103,9 @@ export const MembershipPage: React.FC = () => {
     setErrorMsg('');
     setIsCompressingPhoto(true);
     try {
-      const compressed = await compressImageFile(file, 420, 480, 0.72);
-      if (compressed.length > 420000) {
-        const ultraCompressed = await compressImageFile(file, 320, 360, 0.58);
+      const compressed = await compressImageFile(file, 360, 440, 0.72);
+      if (compressed.length > 180000) {
+        const ultraCompressed = await compressImageFile(file, 280, 340, 0.55);
         setPhotoUrl(ultraCompressed);
       } else {
         setPhotoUrl(compressed);
@@ -396,9 +396,17 @@ export const MembershipPage: React.FC = () => {
         <div className="bg-emerald-50 border-2 border-emerald-400 rounded-3xl p-6 sm:p-8 shadow-lg space-y-5 animate-in fade-in">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-emerald-200 pb-4">
             <div className="flex items-start gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow">
-                <CheckCircle className="w-7 h-7" />
-              </div>
+              {confirmedMembership.photoUrl ? (
+                <SafeImage
+                  src={confirmedMembership.photoUrl}
+                  alt={confirmedMembership.fullName}
+                  className="w-14 h-16 rounded-xl object-cover border-2 border-emerald-500 shadow shrink-0"
+                />
+              ) : (
+                <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow">
+                  <CheckCircle className="w-7 h-7" />
+                </div>
+              )}
               <div>
                 <span className="text-xs font-bold uppercase tracking-wider text-emerald-700">
                   {language === 'en' ? 'Membership Confirmed!' : 'सदस्यता सफलतापूर्वक पुष्ट हुई!'}
@@ -972,7 +980,7 @@ export const MembershipPage: React.FC = () => {
 
             {lookupResult && (
               <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 space-y-2 text-xs">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2">
                   <span className="font-mono font-black text-blue-900">
                     {lookupResult.membershipNumber}
                   </span>
@@ -980,12 +988,23 @@ export const MembershipPage: React.FC = () => {
                     ✓ {lookupResult.status}
                   </span>
                 </div>
-                <div className="font-bold text-slate-900 text-sm">{lookupResult.fullName}</div>
-                <div className="text-slate-600 font-mono text-[11px]">
-                  Mobile: {lookupResult.mobile} • ₹{Number(lookupResult.feeAmount || 5000).toLocaleString('en-IN')}
-                </div>
-                <div className="text-[11px] text-slate-600">
-                  Audit: <strong>{lookupResult.auditStatus}</strong>
+                <div className="flex items-center gap-3">
+                  {lookupResult.photoUrl && (
+                    <SafeImage
+                      src={lookupResult.photoUrl}
+                      alt={lookupResult.fullName}
+                      className="w-11 h-14 rounded-lg object-cover border border-emerald-400 shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <div className="font-bold text-slate-900 text-sm truncate">{lookupResult.fullName}</div>
+                    <div className="text-slate-600 font-mono text-[11px]">
+                      Mobile: {lookupResult.mobile} • ₹{Number(lookupResult.feeAmount || 5000).toLocaleString('en-IN')}
+                    </div>
+                    <div className="text-[11px] text-slate-600">
+                      Audit: <strong>{lookupResult.auditStatus}</strong>
+                    </div>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
                   <button

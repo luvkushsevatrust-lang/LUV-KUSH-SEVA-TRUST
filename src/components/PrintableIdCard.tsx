@@ -41,12 +41,17 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [printNotice, setPrintNotice] = useState(false);
   const cardSheetRef = useRef<HTMLDivElement>(null);
 
   if (!card) return null;
 
   const cardPhoto = getCardPhotoUrl(card);
+  const isCrossOriginHttp =
+    cardPhoto.startsWith('http') &&
+    typeof window !== 'undefined' &&
+    !cardPhoto.startsWith(window.location.origin);
 
   const categoryCfg =
     ID_CARD_CATEGORY_CONFIG[card.category] || ID_CARD_CATEGORY_CONFIG.beneficiary;
@@ -62,7 +67,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
   const handlePrint = async () => {
     if (!card) return;
     if (!isActive) {
-      alert(
+      setActionError(
         language === 'en'
           ? `Print Locked: This ID card is currently ${card.status}. Only officially Active ID cards can be printed.`
           : `प्रिंट वर्जित: यह पहचान पत्र अभी सक्रिय (Active) नहीं है (स्थिति: ${card.status === 'Pending' ? 'लंबित' : card.status})। ट्रस्ट द्वारा सक्रिय (Active) होने के उपरांत ही प्रिंट किया जा सकता है।`
@@ -106,7 +111,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
   const handleDownloadImage = async () => {
     if (!card) return;
     if (!isActive) {
-      alert(
+      setActionError(
         language === 'en'
           ? `Download Locked: This ID card is currently ${card.status}. Only officially Active ID cards can be downloaded.`
           : `डाउनलोड वर्जित: यह पहचान पत्र अभी सक्रिय (Active) नहीं है (स्थिति: ${card.status === 'Pending' ? 'लंबित' : card.status})। सक्रिय होने के बाद ही डाउनलोड संभव है।`
@@ -140,7 +145,7 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
   const handleDownloadPdf = async () => {
     if (!card) return;
     if (!isActive) {
-      alert(
+      setActionError(
         language === 'en'
           ? `PDF Download Locked: This ID card is currently ${card.status}. Only officially Active ID cards can be downloaded.`
           : `PDF डाउनलोड वर्जित: यह पहचान पत्र अभी सक्रिय (Active) नहीं है (स्थिति: ${card.status === 'Pending' ? 'लंबित' : card.status})। सक्रिय होने के बाद ही डाउनलोड संभव है।`
@@ -179,11 +184,11 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
   )}`;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-3 print:static print:bg-transparent print:p-0 print:overflow-visible print:inset-auto print-id-modal-container">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-300 print-id-modal my-2 print:my-0 print:border-none print:shadow-none print:max-w-none">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/80 backdrop-blur-sm flex items-start justify-center p-2 sm:p-3 print:static print:bg-transparent print:p-0 print:overflow-visible print:inset-auto print-id-modal-container">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden border border-slate-300 print-id-modal my-auto flex flex-col max-h-[94vh] print:max-h-none print:overflow-visible print:my-0 print:border-none print:shadow-none print:max-w-none">
         
         {/* Top Control Bar (Hidden on print) */}
-        <div className="no-print bg-slate-900 px-3 sm:px-4 py-2 text-white flex flex-wrap items-center justify-between gap-2 border-b border-slate-700">
+        <div className="no-print shrink-0 bg-slate-900 px-3 sm:px-4 py-2 text-white flex flex-wrap items-center justify-between gap-2 border-b border-slate-700">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-amber-400'}`} />
             <div>
@@ -427,8 +432,24 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
           </div>
         )}
 
+        {/* Inline Action Error Banner */}
+        {actionError && (
+          <div className="no-print shrink-0 bg-red-600 text-white px-4 py-1.5 flex items-center justify-between text-xs font-bold">
+            <div className="flex items-center gap-1.5">
+              <AlertTriangle className="w-3.5 h-3.5 text-amber-200 shrink-0" />
+              <span className="text-[11px]">{actionError}</span>
+            </div>
+            <button
+              onClick={() => setActionError(null)}
+              className="text-red-100 hover:text-white p-0.5 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Modal Printable Workspace */}
-        <div className="p-3 sm:p-4 bg-slate-100 flex flex-col items-center justify-center space-y-2.5">
+        <div className="p-3 sm:p-4 bg-slate-100 flex flex-col items-center space-y-2.5 overflow-y-auto flex-1 min-h-0 print:overflow-visible print:bg-white print:p-0">
           
           <div className="no-print text-center text-[10.5px] text-slate-500">
             {language === 'en'
@@ -539,7 +560,14 @@ export const PrintableIdCard: React.FC<PrintableIdCardProps> = ({ card, onClose 
                         src={cardPhoto}
                         alt={card.fullName}
                         className="w-full h-full object-cover"
-                        crossOrigin={cardPhoto.startsWith('http') ? 'anonymous' : undefined}
+                        crossOrigin={isCrossOriginHttp ? 'anonymous' : undefined}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          if (card.photoUrl) {
+                            target.onerror = null;
+                            target.src = getCardPhotoUrl({ ...card, photoUrl: '' });
+                          }
+                        }}
                       />
                       {/* Approved Seal Badge on Photo */}
                       {isActive ? (

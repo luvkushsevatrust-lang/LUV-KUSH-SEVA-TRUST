@@ -186,15 +186,21 @@ CREATE POLICY "Admins insert membership audit logs"
   WITH CHECK ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 -- 7. Privacy-Safe Public Confirmed Membership Verification RPC
+DROP FUNCTION IF EXISTS public.lookup_confirmed_membership(TEXT);
 CREATE OR REPLACE FUNCTION public.lookup_confirmed_membership(p_query TEXT)
 RETURNS TABLE (
   id UUID,
   membership_number TEXT,
   receipt_number TEXT,
   full_name TEXT,
+  father_or_husband_name TEXT,
+  dob TEXT,
+  gender TEXT,
   mobile TEXT,
   district TEXT,
   state TEXT,
+  pin_code TEXT,
+  photo_url TEXT,
   membership_type TEXT,
   fee_amount NUMERIC,
   payment_status TEXT,
@@ -225,6 +231,9 @@ BEGIN
     m.membership_number,
     m.receipt_number,
     m.full_name,
+    m.father_or_husband_name,
+    m.dob,
+    m.gender,
     CASE
       WHEN LENGTH(REGEXP_REPLACE(COALESCE(m.mobile, ''), '\D', '', 'g')) >= 4
         THEN REPEAT('X', GREATEST(0, LENGTH(REGEXP_REPLACE(COALESCE(m.mobile, ''), '\D', '', 'g')) - 4))
@@ -233,6 +242,8 @@ BEGIN
     END AS mobile,
     m.district,
     m.state,
+    m.pin_code,
+    m.photo_url,
     m.membership_type,
     m.fee_amount,
     m.payment_status,

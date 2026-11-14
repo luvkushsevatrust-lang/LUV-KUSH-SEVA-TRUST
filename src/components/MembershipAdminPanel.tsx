@@ -724,8 +724,8 @@ export const MembershipAdminPanel: React.FC = () => {
 
       {/* Audit Inspection & Verification Modal */}
       {selectedMember && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/75 backdrop-blur-xs flex items-center justify-center p-3 sm:p-5">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 my-4 flex flex-col max-h-[92vh]">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/75 backdrop-blur-xs flex items-start justify-center p-3 sm:p-5">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full overflow-hidden border border-slate-200 my-auto flex flex-col max-h-[92vh]">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-blue-950 to-slate-900 px-5 py-4 text-white flex items-center justify-between">
               <div className="flex items-center gap-2.5">
