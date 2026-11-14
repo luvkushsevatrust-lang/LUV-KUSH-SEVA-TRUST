@@ -210,6 +210,8 @@ export async function verifyRazorpayPayment(
   success: boolean;
   verified: boolean;
   receiptNumber: string;
+  membershipNumber?: string | null;
+  emailSent?: boolean;
   paymentId: string;
   orderId: string;
 }> {
@@ -232,6 +234,8 @@ export async function verifyRazorpayPayment(
           success: true,
           verified: true,
           receiptNumber: data.receiptNumber,
+          membershipNumber: data.membershipNumber || null,
+          emailSent: Boolean(data.emailSent),
           paymentId: data.paymentId || params.razorpayPaymentId,
           orderId: data.orderId || params.razorpayOrderId,
         };
@@ -277,6 +281,8 @@ export async function verifyRazorpayPayment(
     success: true,
     verified: true,
     receiptNumber: data.receiptNumber,
+    membershipNumber: data.membershipNumber || null,
+    emailSent: Boolean(data.emailSent),
     paymentId: data.paymentId || params.razorpayPaymentId,
     orderId: data.orderId || params.razorpayOrderId,
   };
@@ -296,6 +302,7 @@ export async function openRazorpayCheckout(options: {
   panCard?: string;
   causeOrService?: string;
   referenceId?: string;
+  applicantDetails?: Record<string, any>;
   notes?: Record<string, string>;
   onSuccess: (paymentResult: {
     razorpay_order_id: string;
@@ -304,6 +311,8 @@ export async function openRazorpayCheckout(options: {
     orderId: string;
     paymentId: string;
     receiptNumber: string;
+    membershipNumber?: string | null;
+    emailSent?: boolean;
   }) => void;
   onFailure?: (error: any) => void;
   onDismiss?: () => void;
@@ -343,6 +352,7 @@ export async function openRazorpayCheckout(options: {
         email: trimmedEmail,
         address: options.address,
         referenceId: options.referenceId,
+        applicantDetails: options.applicantDetails,
         notes: {
           cause: options.causeOrService || 'Charitable Donation',
           purpose: options.purpose,
@@ -358,7 +368,14 @@ export async function openRazorpayCheckout(options: {
     }
 
     const isSmartId = options.purpose === 'smart_id_card' || options.purpose === 'smart_id_card_fee';
+    const isMembership = options.purpose === 'membership' || options.purpose === 'trust_membership';
     let callbackHandled = false;
+
+    const checkoutDescription = isSmartId
+      ? 'Special Service Smart ID Card Registration Fee (₹200)'
+      : isMembership
+      ? 'Luv Kush Seva Trust Life Membership Fee (₹5,000)'
+      : `Charitable Donation for Humanity & Welfare (₹${options.amount})`;
 
     // 2. Configure Razorpay Standard Checkout modal:
     //    - E.164 +91 contact & non-blank email ensure Dynamic UPI QR & Intent requests validate cleanly.
@@ -369,9 +386,7 @@ export async function openRazorpayCheckout(options: {
       amount: order.amountPaise,
       currency: 'INR',
       name: 'Luv Kush Seva Trust',
-      description: isSmartId
-        ? 'Special Service Smart ID Card Registration Fee (₹200)'
-        : `Charitable Donation for Humanity & Welfare (₹${options.amount})`,
+      description: checkoutDescription,
       image: resolveCheckoutLogoUrl(),
       order_id: order.orderId,
       prefill: {
@@ -388,7 +403,7 @@ export async function openRazorpayCheckout(options: {
         ...(options.notes || {}),
       },
       theme: {
-        color: isSmartId ? '#1e3a8a' : '#c2410c',
+        color: isSmartId || isMembership ? '#1e3a8a' : '#c2410c',
         backdrop_color: 'rgba(15, 23, 42, 0.75)',
       },
       modal: {
@@ -452,6 +467,8 @@ export async function openRazorpayCheckout(options: {
             orderId: rzpOrderId,
             paymentId: rzpPaymentId,
             receiptNumber: verification.receiptNumber,
+            membershipNumber: verification.membershipNumber,
+            emailSent: verification.emailSent,
           });
         } catch (verErr: any) {
           console.error('Payment verification error:', verErr);

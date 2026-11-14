@@ -51,7 +51,8 @@ export type IdCardCategory =
   | 'medical' // Medical Assistance ID Card (चिकित्सा सहायता पहचान पत्र)
   | 'volunteer' // Volunteer ID Card (स्वयंसेवक पहचान पत्र)
   | 'student' // Student ID Card (विद्यार्थी पहचान पत्र)
-  | 'beneficiary'; // Beneficiary ID Card (सामान्य लाभार्थी पहचान पत्र)
+  | 'beneficiary' // Beneficiary ID Card (सामान्य लाभार्थी पहचान पत्र)
+  | 'membership'; // Life Member ID Card (आजीवन सदस्य पहचान पत्र)
 
 export type IdCardStatus =
   | 'Pending'
@@ -64,8 +65,8 @@ export type IdCardStatus =
 export interface IdCard {
   id: string; // e.g. LKST-IDC-001
   cardNumber: string; // Unique ID Card Number: LKST-2026-000001
-  sourceType: 'application' | 'student' | 'volunteer';
-  sourceId: string; // ID of application, student, or volunteer
+  sourceType: 'application' | 'student' | 'volunteer' | 'membership';
+  sourceId: string; // ID of application, student, volunteer, or membership
   registrationNumber: string; // Registration/Application ID
 
   fullName: string;
@@ -238,6 +239,60 @@ export interface TrustSettings {
     chairpersonDesignation: string;
     emergencyHelpline: string;
   };
+}
+
+export type MembershipPaymentStatus = 'Pending' | 'Paid' | 'Failed' | 'Refunded';
+export type MembershipRecordStatus = 'Pending Payment' | 'Confirmed' | 'Suspended' | 'Cancelled';
+export type MembershipAuditStatus = 'Pending Audit' | 'Audited & Verified' | 'Flagged';
+
+export interface MembershipApplication {
+  id: string;
+  membershipNumber?: string;
+  receiptNumber?: string;
+  fullName: string;
+  fatherOrHusbandName?: string;
+  dob?: string;
+  gender?: 'Male' | 'Female' | 'Other' | string;
+  mobile: string;
+  email: string;
+  address: string;
+  district?: string;
+  state?: string;
+  pinCode?: string;
+  aadhaarNumber?: string;
+  panCard?: string;
+  occupation?: string;
+  qualification?: string;
+  photoUrl?: string;
+  membershipType: string;
+  feeAmount: number; // 5000.00
+  paymentStatus: MembershipPaymentStatus;
+  status: MembershipRecordStatus;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  paymentMode?: string;
+  paidAt?: string;
+  receiptEmailSent: boolean;
+  receiptEmailSentAt?: string;
+  receiptEmailId?: string;
+  auditStatus: MembershipAuditStatus;
+  auditNotes?: string;
+  auditedBy?: string;
+  auditedAt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface MembershipAuditLog {
+  id: string;
+  membershipId: string;
+  membershipNumber?: string;
+  action: string;
+  previousAuditStatus?: string;
+  newAuditStatus?: string;
+  auditNotes?: string;
+  auditedBy: string;
+  createdAt: string;
 }
 
 export type BgTheme = 'sandalwood' | 'amber' | 'sand' | 'sage' | 'sky' | 'white';

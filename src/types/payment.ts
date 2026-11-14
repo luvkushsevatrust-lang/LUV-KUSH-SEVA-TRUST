@@ -1,4 +1,10 @@
-export type PaymentPurpose = 'donation' | 'smart_id_card' | 'charitable_donation' | 'smart_id_card_fee';
+export type PaymentPurpose =
+  | 'donation'
+  | 'smart_id_card'
+  | 'charitable_donation'
+  | 'smart_id_card_fee'
+  | 'membership'
+  | 'trust_membership';
 
 export type RazorpayOrderStatus = 'created' | 'attempted' | 'paid' | 'failed' | 'tampered';
 
@@ -102,6 +108,7 @@ export interface CreateOrderParams {
   address?: string;
   notes?: Record<string, string>;
   referenceId?: string;
+  applicantDetails?: Record<string, any>;
 }
 
 export interface VerifyPaymentParams {

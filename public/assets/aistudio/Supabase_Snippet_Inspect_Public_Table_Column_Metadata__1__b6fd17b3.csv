@@ -1,0 +1,9 @@
+tablename,policyname,cmd,roles
+donations,Authenticated admins manage donations,ALL,{authenticated}
+donations,Service role full access donations,ALL,{service_role}
+id_card_orders,Authenticated admins read id_card_orders,SELECT,{authenticated}
+id_card_orders,Authenticated admins update id_card_orders,UPDATE,{authenticated}
+id_card_orders,Service role only id_card_orders,ALL,{service_role}
+razorpay_orders,Service role only razorpay_orders,ALL,{service_role}
+razorpay_payments,Service role only razorpay_payments,ALL,{service_role}
+razorpay_webhooks,Service role only razorpay_webhooks,ALL,{service_role}

@@ -122,6 +122,289 @@ async function findExistingDonation(
   return data;
 }
 
+async function generateMembershipNumber(supabase: any, orderId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase.rpc('generate_unique_membership_number');
+    if (!error && typeof data === 'string' && data.startsWith('LKST-MEM-')) {
+      return data;
+    }
+  } catch {
+    // Fallback if sequence RPC not yet deployed
+  }
+  const yr = getCurrentYearIST();
+  const suffix = orderId.replace(/^order_/, '').slice(-8).toUpperCase();
+  return `LKST-MEM-${yr}-${suffix}`;
+}
+
+async function generateMembershipReceiptNumber(supabase: any, orderId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase.rpc('generate_unique_membership_receipt_number');
+    if (!error && typeof data === 'string' && data.startsWith('LKST-MEM-REC-')) {
+      return data;
+    }
+  } catch {
+    // Fallback if sequence RPC not yet deployed
+  }
+  const yr = getCurrentYearIST();
+  const suffix = orderId.replace(/^order_/, '').slice(-8).toUpperCase();
+  return `LKST-MEM-REC-${yr}-${suffix}`;
+}
+
+async function findExistingMembership(
+  supabase: any,
+  razorpayPaymentId: string,
+  razorpayOrderId: string
+): Promise<{
+  id: string;
+  membership_number: string | null;
+  receipt_number: string | null;
+  payment_status: string | null;
+  membership_type: string | null;
+} | null> {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('id, membership_number, receipt_number, payment_status, membership_type')
+    .or(`razorpay_payment_id.eq.${razorpayPaymentId},razorpay_order_id.eq.${razorpayOrderId}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error querying existing membership:', error.code, error.message);
+    return null;
+  }
+  return data;
+}
+
+function escapeHtml(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatDateIST(isoDate: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(new Date(isoDate));
+  } catch {
+    return isoDate;
+  }
+}
+
+async function sendReceiptEmailOnce(
+  supabase: any,
+  params: {
+    isSmartId: boolean;
+    isMembership?: boolean;
+    membershipNumber?: string;
+    membershipType?: string;
+    paymentId: string;
+    orderId: string;
+    receiptNumber: string;
+    donorName: string;
+    donorEmail: string;
+    amount: number;
+    paymentMethodLabel: string;
+    purposeText: string;
+    paidAtIso: string;
+  }
+): Promise<boolean> {
+  try {
+    const resendKey = (Deno.env.get('RESEND_API_KEY') || '').trim();
+    const cleanEmail = String(params.donorEmail || '').trim();
+    if (!resendKey || resendKey.includes('placeholder') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return false;
+    }
+
+    const table = params.isMembership
+      ? 'memberships'
+      : params.isSmartId
+      ? 'id_card_orders'
+      : 'donations';
+    const matchCol = params.isSmartId ? 'payment_id' : 'razorpay_payment_id';
+
+    // Atomically claim email delivery slot so concurrent verify + webhook never double-email
+    const { data: claimedRows, error: claimErr } = await supabase
+      .from(table)
+      .update({
+        receipt_email_sent: true,
+        receipt_email_sent_at: new Date().toISOString(),
+      })
+      .eq(matchCol, params.paymentId)
+      .eq('receipt_email_sent', false)
+      .select('id');
+
+    if (claimErr) {
+      console.warn('Receipt email claim skipped:', claimErr.code, claimErr.message);
+      return false;
+    }
+
+    if (!claimedRows || claimedRows.length === 0) {
+      return false;
+    }
+
+    const fromAddress =
+      (Deno.env.get('RECEIPT_FROM_EMAIL') || '').trim() ||
+      'Luv Kush Seva Trust <onboarding@resend.dev>';
+
+    const title = params.isMembership
+      ? 'Membership Confirmation & Receipt'
+      : params.isSmartId
+      ? 'Smart ID Card Payment Receipt'
+      : 'Official Donation Receipt';
+    const subject = params.isMembership
+      ? `Membership Confirmed (${params.membershipNumber || params.receiptNumber}) – Luv Kush Seva Trust`
+      : params.isSmartId
+      ? `Smart ID Card Payment Receipt (${params.receiptNumber}) – Luv Kush Seva Trust`
+      : `Official Donation Receipt (${params.receiptNumber}) – Luv Kush Seva Trust`;
+
+    const formattedAmount = `₹${Number(params.amount || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+    const formattedDate = `${formatDateIST(params.paidAtIso)} IST`;
+
+    const introParagraph = params.isMembership
+      ? `Heartiest congratulations and welcome to <strong>Luv Kush Seva Trust</strong>! Your application for <strong>${escapeHtml(
+          params.membershipType || 'Life Member'
+        )}</strong> membership and fee payment of <strong>${escapeHtml(
+          formattedAmount
+        )}</strong> have been verified and confirmed.`
+      : `Thank you for your generous support to <strong>Luv Kush Seva Trust</strong>. Your online payment has been verified and recorded successfully.`;
+
+    const membershipRowsHtml = params.isMembership
+      ? `
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Membership Number</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;color:#1e3a8a;text-align:right;">${escapeHtml(
+            params.membershipNumber || 'Confirmed'
+          )}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Membership Category</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;text-align:right;">${escapeHtml(
+            params.membershipType || 'Life Member'
+          )}</td>
+        </tr>`
+      : '';
+
+    const verifyNoteHtml = params.isMembership
+      ? `You can verify your Membership &amp; Payment Receipt anytime on <a href="https://www.luvkushsevatrust.in" style="color:#1d4ed8;">https://www.luvkushsevatrust.in</a> using Membership No. <strong>${escapeHtml(
+          params.membershipNumber || params.receiptNumber
+        )}</strong> or Receipt No. <strong>${escapeHtml(params.receiptNumber)}</strong>.`
+      : `You can verify this receipt anytime on <a href="https://www.luvkushsevatrust.in" style="color:#1d4ed8;">https://www.luvkushsevatrust.in</a> using your Receipt Number <strong>${escapeHtml(
+          params.receiptNumber
+        )}</strong>.`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+    <div style="background:#0f172a;color:#ffffff;padding:24px;text-align:center;">
+      <div style="font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:#fbbf24;font-weight:bold;">
+        Luv Kush Seva Trust, Rajgir
+      </div>
+      <h1 style="margin:8px 0 4px;font-size:22px;">${escapeHtml(title)}</h1>
+      <p style="margin:0;font-size:13px;color:#cbd5e1;">लव कुश सेवा ट्रस्ट, राजगीर (नालंदा, बिहार)</p>
+    </div>
+    <div style="padding:24px;">
+      <p style="margin:0 0 16px;font-size:15px;">Dear <strong>${escapeHtml(params.donorName)}</strong>,</p>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#334155;">
+        ${introParagraph}
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px;">
+        ${membershipRowsHtml}
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Receipt Number</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;text-align:right;">${escapeHtml(params.receiptNumber)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Amount Paid</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;color:#15803d;text-align:right;">${escapeHtml(formattedAmount)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Purpose</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${escapeHtml(params.purposeText)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Payment Mode</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${escapeHtml(params.paymentMethodLabel)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Payment ID</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-family:monospace;text-align:right;">${escapeHtml(params.paymentId)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Order ID</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-family:monospace;text-align:right;">${escapeHtml(params.orderId)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;color:#64748b;">Date &amp; Time</td>
+          <td style="padding:10px;text-align:right;">${escapeHtml(formattedDate)}</td>
+        </tr>
+      </table>
+      <div style="background:#f1f5f9;border-radius:8px;padding:12px 16px;font-size:12px;color:#475569;line-height:1.5;">
+        ${verifyNoteHtml}
+      </div>
+    </div>
+    <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 24px;font-size:12px;color:#64748b;text-align:center;">
+      Luv Kush Seva Trust • Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar<br />
+      Email: luvkushsevatrust@gmail.com | Web: https://www.luvkushsevatrust.in
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [cleanEmail],
+        reply_to: 'luvkushsevatrust@gmail.com',
+        subject,
+        html,
+      }),
+    });
+
+    if (!resendRes.ok) {
+      const errBody = await resendRes.text();
+      console.error('Resend email API failed:', resendRes.status, errBody);
+      await supabase
+        .from(table)
+        .update({ receipt_email_sent: false, receipt_email_sent_at: null })
+        .eq(matchCol, params.paymentId);
+      return false;
+    }
+
+    const resJson = await resendRes.json().catch(() => null);
+    if (resJson?.id) {
+      await supabase
+        .from(table)
+        .update({ receipt_email_id: String(resJson.id) })
+        .eq(matchCol, params.paymentId);
+    }
+    return true;
+  } catch (err) {
+    console.error('Unhandled error sending receipt email:', err);
+    return false;
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -379,9 +662,26 @@ serve(async (req: Request) => {
 
     const effectivePurpose = orderRow.purpose || purpose;
     const isSmartId = effectivePurpose === 'smart_id_card' || effectivePurpose === 'smart_id_card_fee';
-    const cleanPurpose = isSmartId ? 'smart_id_card' : 'donation';
-    const cleanDonorName = String(donorName || orderRow.donor_name || 'Supporter').trim().slice(0, 100);
-    const cleanAddress = String(address || orderRow?.notes?.address || '').trim().slice(0, 250);
+    const isMembership = effectivePurpose === 'membership' || effectivePurpose === 'trust_membership';
+    const cleanPurpose = isSmartId
+      ? 'smart_id_card'
+      : isMembership
+      ? 'membership'
+      : 'donation';
+
+    if (isMembership && Number(payEntity.amount) !== 500000) {
+      return jsonResponse(
+        {
+          success: false,
+          error: 'Membership fee verification mismatch (expected ₹5,000.00).',
+          code: 'AMOUNT_MISMATCH',
+        },
+        400
+      );
+    }
+
+    const cleanDonorName = String(donorName || orderRow.donor_name || 'Supporter').trim().slice(0, 120);
+    const cleanAddress = String(address || orderRow?.notes?.address || '').trim().slice(0, 300);
     const paymentMethodLabel = payEntity?.method
       ? `Online (Razorpay - ${String(payEntity.method).toUpperCase()})`
       : 'Online (Razorpay)';
@@ -439,6 +739,8 @@ serve(async (req: Request) => {
     }
 
     let generatedReceiptNumber = '';
+    let generatedMembershipNumber = '';
+    let resolvedMembershipType = String(orderRow?.notes?.membershipType || 'Life Member');
 
     // 7. Strict Ledger Separation + Atomic Concurrency / 23505 Handling
     if (cleanPurpose === 'donation') {
@@ -561,6 +863,108 @@ serve(async (req: Request) => {
           );
         }
       }
+    } else if (isMembership) {
+      const existingMem = await findExistingMembership(supabase, cleanPaymentId, cleanOrderId);
+
+      if (existingMem && existingMem.payment_status === 'Paid' && existingMem.membership_number && existingMem.receipt_number) {
+        generatedMembershipNumber = existingMem.membership_number;
+        generatedReceiptNumber = existingMem.receipt_number;
+        if (existingMem.membership_type) {
+          resolvedMembershipType = existingMem.membership_type;
+        }
+      } else {
+        generatedMembershipNumber =
+          existingMem?.membership_number || (await generateMembershipNumber(supabase, cleanOrderId));
+        generatedReceiptNumber =
+          existingMem?.receipt_number || (await generateMembershipReceiptNumber(supabase, cleanOrderId));
+
+        if (existingMem?.membership_type) {
+          resolvedMembershipType = existingMem.membership_type;
+        }
+
+        let confirmedMemId = existingMem?.id || null;
+
+        if (existingMem?.id) {
+          const { error: memUpdErr } = await supabase
+            .from('memberships')
+            .update({
+              membership_number: generatedMembershipNumber,
+              receipt_number: generatedReceiptNumber,
+              razorpay_payment_id: cleanPaymentId,
+              payment_status: 'Paid',
+              status: 'Confirmed',
+              payment_mode: paymentMethodLabel,
+              paid_at: nowIso,
+              updated_at: nowIso,
+            })
+            .eq('id', existingMem.id);
+
+          if (memUpdErr) {
+            console.error('Error confirming membership row:', memUpdErr.code, memUpdErr.message);
+            return jsonResponse(
+              {
+                success: false,
+                error: 'Failed to confirm membership payment status.',
+                code: 'MEMBERSHIP_CONFIRM_ERROR',
+              },
+              500
+            );
+          }
+        } else {
+          const { data: insertedMem, error: memInsErr } = await supabase
+            .from('memberships')
+            .insert({
+              membership_number: generatedMembershipNumber,
+              receipt_number: generatedReceiptNumber,
+              full_name: cleanDonorName,
+              mobile: cleanMobile || '0000000000',
+              email: cleanEmail || 'luvkushsevatrust@gmail.com',
+              address: cleanAddress || 'Rajgir, Nalanda, Bihar',
+              membership_type: resolvedMembershipType,
+              fee_amount: 5000.0,
+              payment_status: 'Paid',
+              status: 'Confirmed',
+              razorpay_order_id: cleanOrderId,
+              razorpay_payment_id: cleanPaymentId,
+              payment_mode: paymentMethodLabel,
+              paid_at: nowIso,
+              audit_status: 'Pending Audit',
+              created_at: nowIso,
+              updated_at: nowIso,
+            })
+            .select('id')
+            .single();
+
+          if (memInsErr) {
+            console.error('Error inserting confirmed membership row:', memInsErr.code, memInsErr.message);
+            return jsonResponse(
+              {
+                success: false,
+                error: 'Failed to record confirmed membership.',
+                code: 'MEMBERSHIP_CONFIRM_ERROR',
+              },
+              500
+            );
+          }
+          confirmedMemId = insertedMem?.id || null;
+        }
+
+        if (confirmedMemId) {
+          const { error: logErr } = await supabase.from('membership_audit_logs').insert({
+            membership_id: confirmedMemId,
+            membership_number: generatedMembershipNumber,
+            action: 'PAYMENT_CONFIRMED',
+            previous_audit_status: null,
+            new_audit_status: 'Pending Audit',
+            audit_notes: `Membership confirmed via Razorpay (${cleanPaymentId}). Receipt ${generatedReceiptNumber} issued.`,
+            audited_by: 'Razorpay System',
+            created_at: nowIso,
+          });
+          if (logErr) {
+            console.warn('Audit log insert skipped:', logErr.code, logErr.message);
+          }
+        }
+      }
     } else if (isSmartId) {
       generatedReceiptNumber = `LKST-ID-${getCurrentYearIST()}-${cleanOrderId.replace(/^order_/, '').slice(-6).toUpperCase()}`;
 
@@ -626,6 +1030,28 @@ serve(async (req: Request) => {
       }
     }
 
+    const resolvedPurposeText = isMembership
+      ? `Trust Membership Fee (${resolvedMembershipType})`
+      : isSmartId
+      ? 'Special Service Smart ID Card Fee'
+      : String(causeOrService || 'Charitable Donation for Humanity & Welfare').trim();
+
+    const emailSent = await sendReceiptEmailOnce(supabase, {
+      isSmartId,
+      isMembership,
+      membershipNumber: generatedMembershipNumber,
+      membershipType: resolvedMembershipType,
+      paymentId: cleanPaymentId,
+      orderId: cleanOrderId,
+      receiptNumber: generatedReceiptNumber,
+      donorName: cleanDonorName,
+      donorEmail: cleanEmail,
+      amount: cleanAmount,
+      paymentMethodLabel,
+      purposeText: resolvedPurposeText,
+      paidAtIso: nowIso,
+    });
+
     return jsonResponse(
       {
         success: true,
@@ -634,10 +1060,12 @@ serve(async (req: Request) => {
         paymentId: cleanPaymentId,
         purpose: cleanPurpose,
         receiptNumber: generatedReceiptNumber,
+        membershipNumber: generatedMembershipNumber || null,
         donorName: cleanDonorName,
         amount: cleanAmount,
-        status: 'Approved',
+        status: isMembership ? 'Confirmed' : 'Approved',
         verifiedAt: nowIso,
+        emailSent,
       },
       200
     );

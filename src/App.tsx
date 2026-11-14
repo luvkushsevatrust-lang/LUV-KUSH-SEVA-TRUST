@@ -26,6 +26,7 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { CareerPage } from './pages/CareerPage';
 import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 import { TermsPage } from './pages/TermsPage';
+import { MembershipPage } from './pages/MembershipPage';
 import { BG_THEMES } from './data/bgThemeConfig';
 
 const AppContent: React.FC = () => {
@@ -63,6 +64,8 @@ const AppContent: React.FC = () => {
         return <VolunteerRegistrationPage />;
       case 'donation':
         return <DonationPage />;
+      case 'membership':
+        return <MembershipPage />;
       case 'student-registration':
         return <StudentRegistrationPage />;
       case 'student-login':

@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
-import { IdCard } from '../types';
+import { IdCard, MembershipApplication } from '../types';
 import { TRUST_EMBLEM_LOGO, resolveAssetUrl } from '../assets';
 
 /**
@@ -1334,7 +1334,7 @@ export async function downloadElementAsPdf(
  * immediately builds a crisp, official vector A4 PDF using jsPDF directly.
  */
 export async function downloadReceiptDirectPdf(
-  receipt: { type: 'donation' | 'application' | 'service'; data: any },
+  receipt: { type: 'donation' | 'application' | 'service' | 'membership'; data: any },
   settings?: any,
   language: string = 'hi',
   element?: HTMLElement | null,
@@ -1344,6 +1344,8 @@ export async function downloadReceiptDirectPdf(
     ? (fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`)
     : receipt.type === 'donation'
     ? `LKST-Donation-${receipt.data?.receiptNumber || 'Receipt'}.pdf`
+    : receipt.type === 'membership'
+    ? `LKST-Membership-${receipt.data?.membershipNumber || receipt.data?.receiptNumber || 'Receipt'}.pdf`
     : `LKST-Application-${receipt.data?.id || 'Slip'}.pdf`;
 
   // 1. Try DOM Canvas Capture first if element provided
@@ -1449,15 +1451,22 @@ export async function downloadReceiptDirectPdf(
     const docTitle =
       type === 'donation'
         ? 'OFFICIAL DONATION RECEIPT'
+        : type === 'membership'
+        ? 'OFFICIAL LIFE MEMBERSHIP RECEIPT'
         : 'OFFICIAL SERVICE APPLICATION SLIP';
     doc.text(docTitle, margin + 4, currentY + 6);
 
     doc.setFontSize(9);
     doc.setTextColor(30, 58, 138);
-    const docIdLabel = type === 'donation' ? `Receipt No: ${data?.receiptNumber || 'N/A'}` : `App ID: ${data?.id || 'N/A'}`;
+    const docIdLabel =
+      type === 'donation'
+        ? `Receipt No: ${data?.receiptNumber || 'N/A'}`
+        : type === 'membership'
+        ? `Membership No: ${data?.membershipNumber || 'PENDING'} | Receipt: ${data?.receiptNumber || 'N/A'}`
+        : `App ID: ${data?.id || 'N/A'}`;
     doc.text(docIdLabel, margin + 4, currentY + 11);
 
-    const docDate = new Date(data?.donatedAt || data?.submittedAt || Date.now()).toLocaleDateString('en-IN', {
+    const docDate = new Date(data?.paidAt || data?.donatedAt || data?.submittedAt || data?.createdAt || Date.now()).toLocaleDateString('en-IN', {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -1477,6 +1486,20 @@ export async function downloadReceiptDirectPdf(
       if (data?.transactionId) rows.push(['Transaction Reference (UTR)', String(data?.transactionId)]);
       if (data?.message) rows.push(['Donation Cause / Purpose', String(data?.message)]);
       rows.push(['Amount Donated (INR)', `Rs. ${Number(data?.amount || 0).toLocaleString('en-IN')} /-`]);
+    } else if (type === 'membership') {
+      rows.push(['Membership ID Number', String(data?.membershipNumber || 'PENDING')]);
+      rows.push(['Receipt Number', String(data?.receiptNumber || 'N/A')]);
+      rows.push(['Member Full Name', String(data?.fullName || 'N/A')]);
+      if (data?.fatherOrHusbandName) rows.push(['Father / Husband Name', String(data.fatherOrHusbandName)]);
+      rows.push(['Membership Category', String(data?.membershipType || 'Life Member')]);
+      rows.push(['Mobile Number', String(data?.mobile || 'N/A')]);
+      if (data?.email) rows.push(['Email Address', String(data.email)]);
+      if (data?.address) rows.push(['Address', String(data.address)]);
+      rows.push(['Payment Mode', String(data?.paymentMode || 'Razorpay')]);
+      if (data?.razorpayOrderId) rows.push(['Razorpay Order ID', String(data.razorpayOrderId)]);
+      if (data?.razorpayPaymentId) rows.push(['Razorpay Payment ID', String(data.razorpayPaymentId)]);
+      rows.push(['Audit Status', String(data?.auditStatus || 'Pending Audit')]);
+      rows.push(['Membership Fee Paid (INR)', `Rs. ${Number(data?.feeAmount || 5000).toLocaleString('en-IN')} /-`]);
     } else {
       rows.push(['Applied Welfare Service', String(data?.serviceTitleEn || data?.serviceTitleHi || 'Social Welfare')]);
       rows.push(['Applicant Full Name', String(data?.fullName || 'N/A')]);
@@ -1534,6 +1557,8 @@ export async function downloadReceiptDirectPdf(
     const ackText =
       type === 'donation'
         ? 'Luv Kush Seva Trust expresses heartfelt gratitude for your noble contribution toward orphan care, old-age shelter, widow welfare, free education, and healthcare.'
+        : type === 'membership'
+        ? 'Welcome as an Official Life Member of Luv Kush Seva Trust. Your Rs. 5,000 membership fee payment is verified and recorded in the Trust Audit Ledger.'
         : 'Your application has been logged into the trust official records. Please preserve this slip and application ID for future reference and verification.';
     doc.text(ackText, margin + 4, currentY + 5.5, { maxWidth: contentW - 8 });
 
@@ -1623,7 +1648,7 @@ export async function downloadReceiptDirectImage(
  * Handles printing of receipt with automatic PDF download fail-safe
  */
 export async function printReceiptDirect(
-  receipt: { type: 'donation' | 'application' | 'service'; data: any },
+  receipt: { type: 'donation' | 'application' | 'service' | 'membership'; data: any },
   settings?: any,
   language: string = 'hi',
   element?: HTMLElement | null
@@ -1631,6 +1656,8 @@ export async function printReceiptDirect(
   const filename =
     receipt.type === 'donation'
       ? `LKST-Donation-${receipt.data?.receiptNumber || 'Receipt'}.pdf`
+      : receipt.type === 'membership'
+      ? `LKST-Membership-${receipt.data?.membershipNumber || receipt.data?.receiptNumber || 'Receipt'}.pdf`
       : `LKST-Application-${receipt.data?.id || 'Slip'}.pdf`;
 
   // Always generate and download the high-resolution PDF as a fail-safe
@@ -1645,4 +1672,51 @@ export async function printReceiptDirect(
 
   return true;
 }
+
+/**
+ * Converts a confirmed MembershipApplication into an official CR80 IdCard payload
+ * for direct high-resolution PDF / PNG / Print generation.
+ */
+export function buildMemberIdCard(member: MembershipApplication): IdCard {
+  const issueIso = member.paidAt || member.createdAt || new Date().toISOString();
+  const issueDate = issueIso.includes('T') ? issueIso.split('T')[0] : issueIso.slice(0, 10);
+  const cardNum = member.membershipNumber || member.receiptNumber || `LKST-MEM-${member.id.slice(-6).toUpperCase()}`;
+
+  const genderNorm: 'Male' | 'Female' | 'Other' =
+    member.gender === 'Female' || member.gender === 'महिला'
+      ? 'Female'
+      : member.gender === 'Other'
+      ? 'Other'
+      : 'Male';
+
+  return {
+    id: `idc-mem-${member.id}`,
+    cardNumber: cardNum,
+    sourceType: 'membership',
+    sourceId: member.id,
+    registrationNumber: cardNum,
+    fullName: member.fullName || 'Trust Member',
+    fatherOrHusbandName: member.fatherOrHusbandName || '—',
+    dob: member.dob || '—',
+    gender: genderNorm,
+    mobile: member.mobile || '',
+    address: member.address || 'Rajgir, Nalanda, Bihar',
+    district: member.district || 'नालंदा',
+    state: member.state || 'बिहार',
+    pinCode: member.pinCode || '803116',
+    photoUrl: member.photoUrl,
+    category: 'membership',
+    categoryLabelHi: 'आजीवन ट्रस्ट सदस्य पहचान पत्र',
+    categoryLabelEn: 'LIFE MEMBER IDENTITY CARD',
+    cardType: 'LIFE MEMBER',
+    roleOrClass: member.membershipType || 'Life Member (आजीवन सदस्य)',
+    status: member.status === 'Suspended' ? 'Suspended' : 'Active',
+    issueDate,
+    validTill: 'आजीवन (Lifetime)',
+    verificationCode:
+      member.razorpayPaymentId || member.receiptNumber || member.membershipNumber || member.id,
+    createdAt: member.createdAt || issueIso,
+  };
+}
+
 

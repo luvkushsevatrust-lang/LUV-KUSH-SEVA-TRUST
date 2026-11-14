@@ -24,6 +24,7 @@ import {
   Info,
   Camera,
   Upload,
+  Award,
 } from 'lucide-react';
 
 export const HomePage: React.FC = () => {
@@ -78,6 +79,14 @@ export const HomePage: React.FC = () => {
               >
                 <Heart className="w-4 h-4 fill-slate-950" />
                 <span>{t.common.donateNow}</span>
+              </button>
+
+              <button
+                onClick={() => setCurrentPage('membership')}
+                className="px-6 py-3 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-sm sm:text-base rounded-xl shadow-lg transition-transform hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer border border-indigo-400/40"
+              >
+                <Award className="w-4 h-4 text-amber-300" />
+                <span>{language === 'en' ? 'Become a Member (₹5,000)' : 'सदस्य बनें (₹5,000)'}</span>
               </button>
 
               <button
@@ -306,7 +315,7 @@ export const HomePage: React.FC = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             
             {/* Box 1: Register for Support */}
             <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-blue-400 transition-all text-center space-y-3">
@@ -389,6 +398,27 @@ export const HomePage: React.FC = () => {
                 className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-lg transition-colors cursor-pointer"
               >
                 {t.common.registerNow}
+              </button>
+            </div>
+
+            {/* Box 5: Trust Life Membership (₹5,000) */}
+            <div className="bg-gradient-to-b from-indigo-50 to-white p-5 rounded-xl border border-indigo-200 shadow-sm hover:border-indigo-500 transition-all text-center space-y-3">
+              <div className="w-12 h-12 rounded-xl bg-indigo-900 text-amber-300 flex items-center justify-center mx-auto">
+                <Award className="w-6 h-6" />
+              </div>
+              <h3 className="font-bold text-base text-slate-900">
+                {language === 'en' ? 'Life Membership' : 'आजीवन सदस्यता'}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {language === 'en'
+                  ? 'Become a verified Trust Life Member (₹5,000 fee) with official receipt & email confirmation.'
+                  : '₹5,000 सदस्यता शुल्क के साथ ट्रस्ट के आधिकारिक आजीवन सदस्य बनें व ईमेल रसीद पाएं।'}
+              </p>
+              <button
+                onClick={() => setCurrentPage('membership')}
+                className="w-full py-2 bg-indigo-900 hover:bg-indigo-950 text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                {language === 'en' ? 'Become a Member' : 'सदस्य बनें (₹5,000)'}
               </button>
             </div>
 

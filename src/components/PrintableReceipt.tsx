@@ -42,8 +42,11 @@ export const PrintableReceipt: React.FC = () => {
 
   const { type, data } = activeReceipt;
   const isDonation = type === 'donation';
+  const isMembership = type === 'membership';
   const isApproved = isDonation
     ? data?.status === 'Approved'
+    : isMembership
+    ? (data?.paymentStatus === 'Paid' || data?.status === 'Confirmed')
     : (data?.status === 'Approved' || data?.status === 'Active');
 
   const handlePrint = async () => {
@@ -89,6 +92,8 @@ export const PrintableReceipt: React.FC = () => {
       const filename =
         type === 'donation'
           ? `LKST-Donation-${data.receiptNumber || 'Receipt'}.pdf`
+          : type === 'membership'
+          ? `LKST-Membership-${data.membershipNumber || data.receiptNumber || 'Receipt'}.pdf`
           : `LKST-Application-${data.id || data.registrationNumber || 'Doc'}.pdf`;
       const ok = await downloadReceiptDirectPdf(
         activeReceipt,
@@ -124,6 +129,8 @@ export const PrintableReceipt: React.FC = () => {
       const filename =
         type === 'donation'
           ? `LKST-Donation-${data.receiptNumber || 'Receipt'}.png`
+          : type === 'membership'
+          ? `LKST-Membership-${data.membershipNumber || data.receiptNumber || 'Receipt'}.png`
           : `LKST-Application-${data.id || data.registrationNumber || 'Doc'}.png`;
       const ok = await downloadReceiptDirectImage(receiptRef.current, filename);
       if (ok) {
@@ -162,6 +169,10 @@ export const PrintableReceipt: React.FC = () => {
                 ? language === 'en'
                   ? 'Official Donation Receipt'
                   : 'आधिकारिक दान पावती रसीद'
+                : type === 'membership'
+                ? language === 'en'
+                  ? 'Official Life Membership Receipt'
+                  : 'आधिकारिक आजीवन सदस्यता रसीद'
                 : language === 'en'
                 ? 'Official Application Slip'
                 : 'आधिकारिक आवेदन पावती रसीद'}
@@ -391,10 +402,16 @@ export const PrintableReceipt: React.FC = () => {
               <span className="text-[10px] text-slate-500 uppercase block font-bold">
                 {type === 'donation'
                   ? (language === 'en' ? 'Receipt Number' : 'रसीद संख्या')
+                  : type === 'membership'
+                  ? (language === 'en' ? 'Membership / Receipt No.' : 'सदस्यता / रसीद संख्या')
                   : (language === 'en' ? 'Application ID' : 'आवेदन संख्या')}
               </span>
               <span className="text-sm font-bold font-mono text-blue-900">
-                {type === 'donation' ? data.receiptNumber : data.id}
+                {type === 'donation'
+                  ? data.receiptNumber
+                  : type === 'membership'
+                  ? `${data.membershipNumber || 'PENDING'} • ${data.receiptNumber || ''}`
+                  : data.id}
               </span>
             </div>
             <div className="text-right">
@@ -402,7 +419,7 @@ export const PrintableReceipt: React.FC = () => {
                 {language === 'en' ? 'Date' : 'दिनांक'}
               </span>
               <span className="text-xs font-semibold text-slate-800">
-                {new Date(data.donatedAt || data.submittedAt || Date.now()).toLocaleDateString(language === 'en' ? 'en-IN' : 'hi-IN', {
+                {new Date(data.paidAt || data.donatedAt || data.submittedAt || data.createdAt || Date.now()).toLocaleDateString(language === 'en' ? 'en-IN' : 'hi-IN', {
                   day: 'numeric',
                   month: 'long',
                   year: 'numeric',
@@ -527,6 +544,133 @@ export const PrintableReceipt: React.FC = () => {
                   {language === 'en'
                     ? 'Luv Kush Seva Trust expresses heartfelt gratitude for your generous support. Your contribution is utilized transparently for the welfare of the underprivileged, children and senior citizens.'
                     : 'लव कुश सेवा ट्रस्ट आपके इस अमूल्य सहयोग के लिए हार्दिक आभार व्यक्त करता है। आपकी दान राशि पूर्णतः पारदर्शी रूप से दीन-दुखियों, बच्चों एवं बुजुर्गों की सेवा में उपयोग की जाती है।'}
+                </span>
+              </div>
+            </div>
+          ) : isMembership ? (
+            <div className="space-y-3">
+              <div className="border border-slate-300 rounded-lg overflow-hidden text-xs">
+                <table className="w-full text-left border-collapse">
+                  <tbody>
+                    <tr className="border-b border-slate-200">
+                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 w-1/3 text-[11px]">
+                        {language === 'en' ? 'Membership Number:' : 'सदस्यता संख्या:'}
+                      </td>
+                      <td className="py-1.5 px-2.5 font-mono font-bold text-blue-900">
+                        {data.membershipNumber || 'PENDING'}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-200">
+                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        {language === 'en' ? 'Receipt Number:' : 'रसीद संख्या:'}
+                      </td>
+                      <td className="py-1.5 px-2.5 font-mono font-semibold text-slate-900">
+                        {data.receiptNumber || '—'}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-200">
+                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        {language === 'en' ? 'Member Name:' : 'सदस्य का पूरा नाम:'}
+                      </td>
+                      <td className="py-1.5 px-2.5 font-semibold text-slate-900">{data.fullName}</td>
+                    </tr>
+                    {data.fatherOrHusbandName && (
+                      <tr className="border-b border-slate-200">
+                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                          {language === 'en' ? 'Father / Husband Name:' : 'पिता / पति का नाम:'}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-slate-800">{data.fatherOrHusbandName}</td>
+                      </tr>
+                    )}
+                    <tr className="border-b border-slate-200">
+                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        {language === 'en' ? 'Membership Type:' : 'सदस्यता श्रेणी:'}
+                      </td>
+                      <td className="py-1.5 px-2.5 font-bold text-emerald-800">
+                        {data.membershipType || 'Life Member'}
+                      </td>
+                    </tr>
+                    <tr className="border-b border-slate-200">
+                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        {language === 'en' ? 'Mobile / Email:' : 'मोबाइल / ईमेल:'}
+                      </td>
+                      <td className="py-1.5 px-2.5 font-mono text-slate-800">
+                        {data.mobile} {data.email ? `| ${data.email}` : ''}
+                      </td>
+                    </tr>
+                    {data.address && (
+                      <tr className="border-b border-slate-200">
+                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                          {language === 'en' ? 'Address:' : 'पूरा पता:'}
+                        </td>
+                        <td className="py-1.5 px-2.5 text-slate-800">
+                          {data.address}
+                          {data.district ? `, ${data.district}` : ''}
+                          {data.state ? `, ${data.state}` : ''}
+                          {data.pinCode ? ` - ${data.pinCode}` : ''}
+                        </td>
+                      </tr>
+                    )}
+                    {data.razorpayOrderId && (
+                      <tr className="border-b border-slate-200">
+                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                          {language === 'en' ? 'Razorpay Order ID:' : 'रेजरपे ऑर्डर ID:'}
+                        </td>
+                        <td className="py-1.5 px-2.5 font-mono text-slate-800">{data.razorpayOrderId}</td>
+                      </tr>
+                    )}
+                    {data.razorpayPaymentId && (
+                      <tr className="border-b border-slate-200">
+                        <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                          {language === 'en' ? 'Razorpay Payment ID:' : 'पेमेंट आईडी:'}
+                        </td>
+                        <td className="py-1.5 px-2.5 font-mono font-bold text-slate-900">{data.razorpayPaymentId}</td>
+                      </tr>
+                    )}
+                    <tr className="border-b border-slate-200">
+                      <td className="py-1.5 px-2.5 bg-slate-50 font-bold text-slate-700 text-[11px]">
+                        {language === 'en' ? 'Audit Verification:' : 'ऑडिट स्थिति:'}
+                      </td>
+                      <td className="py-1.5 px-2.5">
+                        <span className={`inline-flex items-center gap-1 font-bold text-[11px] px-2 py-0.5 rounded-md border ${
+                          data.auditStatus === 'Audited & Verified'
+                            ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                            : data.auditStatus === 'Flagged'
+                            ? 'bg-red-100 text-red-800 border-red-300'
+                            : 'bg-blue-50 text-blue-900 border-blue-200'
+                        }`}>
+                          <CheckCircle className="w-3.5 h-3.5" />
+                          <span>{data.auditStatus || 'Pending Audit'}</span>
+                        </span>
+                      </td>
+                    </tr>
+                    <tr className="bg-amber-50/80 font-bold">
+                      <td className="py-2 px-2.5 text-slate-900 text-xs">
+                        {language === 'en' ? 'Membership Fee Paid:' : 'स्वीकृत सदस्यता शुल्क राशि:'}
+                      </td>
+                      <td className="py-2 px-2.5 text-red-700 text-base font-black flex items-center justify-between">
+                        <span>₹ {Number(data.feeAmount || 5000).toLocaleString('en-IN')} /-</span>
+                        {isApproved ? (
+                          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                            {language === 'en' ? '✓ Confirmed Member' : '✓ पुष्ट सदस्य'}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-amber-800 font-bold uppercase tracking-wider bg-amber-100 px-2 py-0.5 rounded border border-amber-300">
+                            {language === 'en' ? '⏳ Payment Pending' : '⏳ भुगतान लंबित'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-lg text-[10.5px] leading-relaxed text-emerald-900 flex items-start gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span>
+                  {language === 'en'
+                    ? 'Heartfelt welcome to Luv Kush Seva Trust! Your Life Membership contribution (₹5,000) is verified, confirmed, and logged in our official Supabase Trust Audit Ledger.'
+                    : 'लव कुश सेवा ट्रस्ट परिवार में आपका हार्दिक स्वागत है! आपका ₹5,000 आजीवन सदस्यता शुल्क सत्यापित होकर ट्रस्ट के आधिकारिक ऑडिट लेजर में दर्ज हो चुका है।'}
                 </span>
               </div>
             </div>

@@ -221,7 +221,7 @@ async function startServer() {
   // 1. Create Razorpay Order API Endpoint
   app.post('/api/create-razorpay-order', async (req: Request, res: Response) => {
     try {
-      const { amount, purpose, donorName, mobile, email, address, notes, referenceId } = req.body;
+      const { amount, purpose, donorName, mobile, email, address, notes, referenceId, applicantDetails } = req.body;
 
       if (!RAZORPAY_KEY_ID || !RAZORPAY_KEY_SECRET) {
         return res.status(500).json({
@@ -235,12 +235,13 @@ async function startServer() {
       if (!parsedAmount || isNaN(parsedAmount) || !isFinite(parsedAmount) || parsedAmount < 1) {
         return res.status(400).json({
           success: false,
-          error: 'A valid donation amount of at least ₹1.00 is required.',
+          error: 'A valid payment amount of at least ₹1.00 is required.',
           code: 'INVALID_AMOUNT',
         });
       }
 
       const isSmartId = purpose === 'smart_id_card' || purpose === 'smart_id_card_fee';
+      const isMembership = purpose === 'membership' || purpose === 'trust_membership';
       if (isSmartId && parsedAmount !== 200) {
         return res.status(400).json({
           success: false,
@@ -248,14 +249,21 @@ async function startServer() {
           code: 'INVALID_FEE_AMOUNT',
         });
       }
+      if (isMembership && parsedAmount !== 5000) {
+        return res.status(400).json({
+          success: false,
+          error: 'Trust membership fee must be exactly ₹5,000.00.',
+          code: 'INVALID_MEMBERSHIP_FEE',
+        });
+      }
 
-      const cleanPurpose = isSmartId ? 'smart_id_card' : 'donation';
+      const cleanPurpose = isSmartId ? 'smart_id_card' : isMembership ? 'membership' : 'donation';
       const amountPaise = Math.round(parsedAmount * 100);
-      const cleanDonorName = (donorName || 'Supporter').trim().slice(0, 100);
+      const cleanDonorName = (donorName || 'Supporter').trim().slice(0, 120);
       const cleanMobile = (mobile || '').replace(/\D/g, '').slice(0, 15);
-      const cleanEmail = (email || '').trim().slice(0, 100);
-      const cleanAddress = (address || '').trim().slice(0, 250);
-      const receiptCode = `LKST_${isSmartId ? 'ID' : 'DON'}_${Date.now()}`;
+      const cleanEmail = (email || '').trim().slice(0, 120);
+      const cleanAddress = (address || '').trim().slice(0, 300);
+      const receiptCode = `LKST_${isSmartId ? 'ID' : isMembership ? 'MEM' : 'DON'}_${Date.now()}`;
 
       const authHeader = `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString('base64')}`;
       const rzpRes = await fetch('https://api.razorpay.com/v1/orders', {
@@ -338,6 +346,43 @@ async function startServer() {
         );
         if (dbErr) {
           console.error('Error recording razorpay_orders in Supabase:', dbErr);
+        }
+
+        if (isMembership) {
+          const details = applicantDetails && typeof applicantDetails === 'object' ? applicantDetails : {};
+          const safePhotoUrl =
+            typeof details.photoUrl === 'string' && details.photoUrl.length <= 450000
+              ? details.photoUrl
+              : null;
+          await supabase.from('memberships').upsert(
+            {
+              full_name: cleanDonorName,
+              father_or_husband_name: String(details.fatherOrHusbandName || '').trim().slice(0, 120) || null,
+              dob: String(details.dob || '').trim().slice(0, 20) || null,
+              gender: String(details.gender || '').trim().slice(0, 20) || null,
+              mobile: cleanMobile || '0000000000',
+              email: cleanEmail || 'luvkushsevatrust@gmail.com',
+              address: cleanAddress || 'Rajgir, Nalanda, Bihar',
+              district: String(details.district || '').trim().slice(0, 80) || null,
+              state: String(details.state || 'Bihar').trim().slice(0, 80) || 'Bihar',
+              pin_code: String(details.pinCode || '').replace(/\D/g, '').slice(0, 10) || null,
+              aadhaar_number: String(details.aadhaarNumber || '').replace(/\D/g, '').slice(0, 12) || null,
+              pan_card: String(details.panCard || '').trim().toUpperCase().slice(0, 12) || null,
+              occupation: String(details.occupation || '').trim().slice(0, 120) || null,
+              qualification: String(details.qualification || '').trim().slice(0, 120) || null,
+              photo_url: safePhotoUrl,
+              membership_type: String(details.membershipType || 'Life Member').trim().slice(0, 60) || 'Life Member',
+              fee_amount: 5000.0,
+              payment_status: 'Pending',
+              status: 'Pending Payment',
+              razorpay_order_id: razorpayOrderId,
+              audit_status: 'Pending Audit',
+              raw_data: details,
+              created_at: nowIso,
+              updated_at: nowIso,
+            },
+            { onConflict: 'razorpay_order_id' }
+          );
         }
       }
 
@@ -472,18 +517,20 @@ async function startServer() {
 
       const effectivePurpose = orderRow?.purpose || purpose;
       const isSmartId = effectivePurpose === 'smart_id_card' || effectivePurpose === 'smart_id_card_fee';
-      const cleanPurpose = isSmartId ? 'smart_id_card' : 'donation';
-      const cleanDonorName = (donorName || orderRow?.donor_name || 'Supporter').trim().slice(0, 100);
+      const isMembership = effectivePurpose === 'membership' || effectivePurpose === 'trust_membership';
+      const cleanPurpose = isSmartId ? 'smart_id_card' : isMembership ? 'membership' : 'donation';
+      const cleanDonorName = (donorName || orderRow?.donor_name || 'Supporter').trim().slice(0, 120);
       const cleanMobile = (mobile || orderRow?.contact || '').replace(/\D/g, '').slice(0, 15);
-      const cleanEmail = (email || orderRow?.email || payEntity?.email || '').trim().slice(0, 100);
-      const cleanAddress = (address || orderRow?.notes?.address || '').trim().slice(0, 250);
-      const cleanAmount = Number(payEntity.amount) / 100 || Number(amount) || (isSmartId ? 200 : 100);
+      const cleanEmail = (email || orderRow?.email || payEntity?.email || '').trim().slice(0, 120);
+      const cleanAddress = (address || orderRow?.notes?.address || '').trim().slice(0, 300);
+      const cleanAmount = Number(payEntity.amount) / 100 || Number(amount) || (isSmartId ? 200 : isMembership ? 5000 : 100);
       const paymentMethodLabel = payEntity?.method
         ? `Online (Razorpay - ${String(payEntity.method).toUpperCase()})`
         : 'Online (Razorpay)';
       const nowIso = new Date().toISOString();
 
       let generatedReceiptNumber = await generateUniqueReceiptNumber(razorpayOrderId);
+      let generatedMembershipNumber = '';
 
       if (supabase) {
         await supabase
@@ -613,6 +660,53 @@ async function startServer() {
               console.error('Error inserting id_card_orders:', idErr);
             }
           }
+        } else if (isMembership) {
+          const { data: existingMem } = await supabase
+            .from('memberships')
+            .select('id, membership_number, receipt_number, payment_status')
+            .or(`razorpay_payment_id.eq.${razorpayPaymentId},razorpay_order_id.eq.${razorpayOrderId}`)
+            .maybeSingle();
+
+          const yr = new Date().getFullYear();
+          const memSuffix = razorpayOrderId.replace(/^order_/, '').slice(-6).toUpperCase();
+          generatedMembershipNumber = existingMem?.membership_number || `LKST-MEM-${yr}-${memSuffix}`;
+          generatedReceiptNumber = existingMem?.receipt_number || `LKST-MEM-REC-${yr}-${memSuffix}`;
+
+          if (existingMem?.id) {
+            await supabase
+              .from('memberships')
+              .update({
+                membership_number: generatedMembershipNumber,
+                receipt_number: generatedReceiptNumber,
+                razorpay_payment_id: razorpayPaymentId,
+                payment_status: 'Paid',
+                status: 'Confirmed',
+                payment_mode: paymentMethodLabel,
+                paid_at: nowIso,
+                updated_at: nowIso,
+              })
+              .eq('id', existingMem.id);
+          } else {
+            await supabase.from('memberships').insert({
+              membership_number: generatedMembershipNumber,
+              receipt_number: generatedReceiptNumber,
+              full_name: cleanDonorName,
+              mobile: cleanMobile || '0000000000',
+              email: cleanEmail || 'luvkushsevatrust@gmail.com',
+              address: cleanAddress || 'Rajgir, Nalanda, Bihar',
+              membership_type: 'Life Member',
+              fee_amount: 5000.0,
+              payment_status: 'Paid',
+              status: 'Confirmed',
+              razorpay_order_id: razorpayOrderId,
+              razorpay_payment_id: razorpayPaymentId,
+              payment_mode: paymentMethodLabel,
+              paid_at: nowIso,
+              audit_status: 'Pending Audit',
+              created_at: nowIso,
+              updated_at: nowIso,
+            });
+          }
         }
       }
 
@@ -623,9 +717,10 @@ async function startServer() {
         paymentId: razorpayPaymentId,
         purpose: cleanPurpose,
         receiptNumber: generatedReceiptNumber,
+        membershipNumber: generatedMembershipNumber || null,
         donorName: cleanDonorName,
         amount: cleanAmount,
-        status: 'Approved',
+        status: isMembership ? 'Confirmed' : 'Approved',
         verifiedAt: nowIso,
       });
     } catch (err: any) {
@@ -1183,6 +1278,109 @@ async function startServer() {
       return res.json({ success: true });
     }
   );
+
+  // 8. Membership Verification Lookup & Admin Audit Endpoints
+  app.get('/api/membership-lookup', async (req: Request, res: Response) => {
+    try {
+      const q = String(req.query.q || '').trim();
+      if (q.length < 6) {
+        return res.status(400).json({ success: false, error: 'Query must be at least 6 characters.' });
+      }
+      if (!supabase) {
+        return res.status(503).json({ success: false, error: 'Database unavailable.' });
+      }
+      const { data, error } = await supabase.rpc('lookup_confirmed_membership', { p_query: q });
+      if (error) {
+        return res.status(500).json({ success: false, error: error.message });
+      }
+      return res.json({ success: true, membership: Array.isArray(data) ? data[0] || null : null });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.get('/api/admin/memberships', requireAdminAuth, async (_req: Request, res: Response) => {
+    if (!supabase) {
+      return res.status(503).json({ success: false, error: 'Database service role not configured.' });
+    }
+    const { data, error } = await supabase
+      .from('memberships')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.json({ success: true, memberships: data || [] });
+  });
+
+  app.get('/api/admin/memberships/:id/audit-logs', requireAdminAuth, async (req: Request, res: Response) => {
+    if (!supabase) {
+      return res.status(503).json({ success: false, error: 'Database service role not configured.' });
+    }
+    const { data, error } = await supabase
+      .from('membership_audit_logs')
+      .select('*')
+      .eq('membership_id', req.params.id)
+      .order('created_at', { ascending: false });
+    if (error) {
+      return res.status(500).json({ success: false, error: error.message });
+    }
+    return res.json({ success: true, logs: data || [] });
+  });
+
+  app.patch('/api/admin/memberships/:id/audit', requireAdminAuth, async (req: Request, res: Response) => {
+    if (!supabase) {
+      return res.status(503).json({ success: false, error: 'Database service role not configured.' });
+    }
+    const { id } = req.params;
+    const { auditStatus, auditNotes, status } = req.body || {};
+    const auditor = (req as any).adminUser || 'Admin';
+    const nowIso = new Date().toISOString();
+
+    const { data: existing } = await supabase
+      .from('memberships')
+      .select('id, membership_number, audit_status')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Membership record not found.' });
+    }
+
+    const updatePayload: Record<string, any> = {
+      audit_status: auditStatus,
+      audit_notes: auditNotes || null,
+      audited_by: auditor,
+      audited_at: nowIso,
+      updated_at: nowIso,
+    };
+    if (status) {
+      updatePayload.status = status;
+    }
+
+    const { error: updErr } = await supabase.from('memberships').update(updatePayload).eq('id', id);
+    if (updErr) {
+      return res.status(500).json({ success: false, error: updErr.message });
+    }
+
+    await supabase.from('membership_audit_logs').insert({
+      membership_id: id,
+      membership_number: existing.membership_number,
+      action:
+        auditStatus === 'Audited & Verified'
+          ? 'AUDIT_VERIFIED'
+          : auditStatus === 'Flagged'
+          ? 'AUDIT_FLAGGED'
+          : 'AUDIT_UPDATED',
+      previous_audit_status: existing.audit_status,
+      new_audit_status: auditStatus,
+      audit_notes: auditNotes || null,
+      audited_by: auditor,
+      created_at: nowIso,
+    });
+
+    return res.json({ success: true, auditedBy: auditor, auditedAt: nowIso });
+  });
 
   // Vite integration: middleware in dev, static serving in prod
   if (process.env.NODE_ENV === 'production') {

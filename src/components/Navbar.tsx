@@ -15,6 +15,7 @@ import {
   LogOut,
   Home,
   Briefcase,
+  Award,
 } from 'lucide-react';
 
 interface NavbarProps {
@@ -187,8 +188,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenStatusModal }) => {
             </button>
 
             <button
+              onClick={() => handleNavClick('membership')}
+              className={`inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold shadow-xs transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                currentPage === 'membership'
+                  ? 'bg-indigo-950 text-amber-300 ring-2 ring-amber-400'
+                  : 'bg-indigo-900 hover:bg-indigo-950 text-white'
+              }`}
+            >
+              <Award className="w-4 h-4 text-amber-300" />
+              <span>{language === 'en' ? 'Member' : 'सदस्य बनें'}</span>
+            </button>
+
+            <button
               onClick={() => handleNavClick('donation')}
-              className="inline-flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg text-sm font-semibold shadow-xs hover:from-orange-700 hover:to-amber-700 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-0.5"
+              className="inline-flex items-center space-x-1.5 px-4 py-2 bg-gradient-to-r from-orange-600 to-amber-600 text-white rounded-lg text-sm font-semibold shadow-xs hover:from-orange-700 hover:to-amber-700 hover:shadow-md transition-all cursor-pointer transform hover:-translate-y-0.5 whitespace-nowrap shrink-0"
             >
               <Heart className="w-4 h-4 fill-white" />
               <span>{t.nav.donate}</span>
@@ -263,10 +276,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenStatusModal }) => {
           </div>
 
           {/* Mobile Menu Button & Quick Actions */}
-          <div className="flex items-center space-x-2 lg:hidden">
+          <div className="flex items-center space-x-1.5 lg:hidden">
+            <button
+              onClick={() => handleNavClick('membership')}
+              className="px-2.5 py-1.5 bg-indigo-900 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 whitespace-nowrap"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-300" />
+              <span>{language === 'en' ? 'Member' : 'सदस्य बनें'}</span>
+            </button>
             <button
               onClick={() => handleNavClick('donation')}
-              className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-semibold flex items-center space-x-1"
+              className="px-3 py-1.5 bg-orange-600 text-white rounded-lg text-xs font-semibold flex items-center space-x-1 whitespace-nowrap"
             >
               <Heart className="w-3.5 h-3.5 fill-white" />
               <span>{t.nav.donate}</span>
@@ -305,6 +325,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenStatusModal }) => {
               <span>{t.nav.idCard}</span>
             </button>
           </div>
+
+          <button
+            onClick={() => handleNavClick('membership')}
+            className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-bold flex items-center gap-2 ${
+              currentPage === 'membership'
+                ? 'bg-indigo-50 text-indigo-900'
+                : 'text-indigo-900 bg-indigo-50/50'
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-600" />
+            <span>{language === 'en' ? 'Become a Life Member (₹5,000)' : 'आजीवन सदस्य बनें (₹5,000)'}</span>
+          </button>
 
           {navLinks.map((item) => (
             <button

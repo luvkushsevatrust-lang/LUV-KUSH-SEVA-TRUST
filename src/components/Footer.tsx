@@ -13,6 +13,7 @@ import {
   UserCheck,
   CheckCircle,
   Palette,
+  Award,
 } from 'lucide-react';
 import { TRUST_EMBLEM_LOGO } from '../assets';
 
@@ -151,6 +152,15 @@ export const Footer: React.FC = () => {
                 >
                   <CreditCard className="w-4 h-4 text-amber-400" />
                   <span>{t.nav.idCard}</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  onClick={() => handleNav('membership')}
+                  className="hover:text-orange-400 transition-colors text-left flex items-center space-x-1.5 text-amber-300 font-semibold cursor-pointer"
+                >
+                  <Award className="w-4 h-4 text-amber-400" />
+                  <span>{language === 'en' ? 'Become a Member (₹5,000)' : 'सदस्य बनें (₹5,000)'}</span>
                 </button>
               </li>
               <li>

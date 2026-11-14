@@ -165,14 +165,24 @@ serve(async (req: Request) => {
       );
     }
 
-    const { amount, purpose, donorName, mobile, email, address, notes, referenceId } = body;
+    const {
+      amount,
+      purpose,
+      donorName,
+      mobile,
+      email,
+      address,
+      notes,
+      referenceId,
+      applicantDetails,
+    } = body;
 
     const rawAmount = Number(amount);
     if (!Number.isFinite(rawAmount) || rawAmount <= 0) {
       return jsonResponse(
         {
           success: false,
-          error: 'Valid donation amount is required (minimum ₹1.00).',
+          error: 'Valid payment amount is required (minimum ₹1.00).',
           code: 'INVALID_AMOUNT',
         },
         400
@@ -187,7 +197,7 @@ serve(async (req: Request) => {
       return jsonResponse(
         {
           success: false,
-          error: 'Valid donation amount is required (minimum ₹1.00).',
+          error: 'Valid payment amount is required (minimum ₹1.00).',
           code: 'INVALID_AMOUNT',
         },
         400
@@ -206,6 +216,8 @@ serve(async (req: Request) => {
     }
 
     const isSmartId = purpose === 'smart_id_card' || purpose === 'smart_id_card_fee';
+    const isMembership = purpose === 'membership' || purpose === 'trust_membership';
+
     if (isSmartId && amountPaise !== 20000) {
       return jsonResponse(
         {
@@ -217,12 +229,56 @@ serve(async (req: Request) => {
       );
     }
 
-    const cleanPurpose = isSmartId ? 'smart_id_card' : 'donation';
-    const cleanDonorName = String(donorName || 'Supporter').trim().slice(0, 100) || 'Supporter';
+    if (isMembership && amountPaise !== 500000) {
+      return jsonResponse(
+        {
+          success: false,
+          error: 'Trust membership fee must be exactly ₹5,000.00.',
+          code: 'INVALID_MEMBERSHIP_FEE',
+        },
+        400
+      );
+    }
+
+    const cleanPurpose = isSmartId
+      ? 'smart_id_card'
+      : isMembership
+      ? 'membership'
+      : 'donation';
+
+    const cleanDonorName = String(donorName || 'Supporter').trim().slice(0, 120) || 'Supporter';
     const cleanMobile = String(mobile || '').replace(/\D/g, '').slice(0, 15) || '0000000000';
-    const cleanEmail = String(email || '').trim().slice(0, 100);
-    const cleanAddress = String(address || '').trim().slice(0, 250);
-    const receiptCode = `LKST_${isSmartId ? 'ID' : 'DON'}_${Date.now()}`;
+    const cleanEmail = String(email || '').trim().slice(0, 120);
+    const cleanAddress = String(address || '').trim().slice(0, 300);
+
+    if (isMembership) {
+      if (!cleanDonorName || cleanDonorName === 'Supporter' || cleanDonorName.length < 2) {
+        return jsonResponse(
+          { success: false, error: 'Applicant full name is required for membership.', code: 'INVALID_APPLICANT' },
+          400
+        );
+      }
+      if (cleanMobile.length < 10 || cleanMobile === '0000000000') {
+        return jsonResponse(
+          { success: false, error: 'Valid 10-digit mobile number is required for membership.', code: 'INVALID_MOBILE' },
+          400
+        );
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return jsonResponse(
+          { success: false, error: 'Valid email address is required for membership receipt delivery.', code: 'INVALID_EMAIL' },
+          400
+        );
+      }
+      if (!cleanAddress || cleanAddress.length < 5) {
+        return jsonResponse(
+          { success: false, error: 'Complete postal address is required for membership.', code: 'INVALID_ADDRESS' },
+          400
+        );
+      }
+    }
+
+    const receiptCode = `LKST_${isSmartId ? 'ID' : isMembership ? 'MEM' : 'DON'}_${Date.now()}`;
 
     const sanitizedNotes: Record<string, string> = {};
     if (notes && typeof notes === 'object' && !Array.isArray(notes)) {
@@ -260,7 +316,7 @@ serve(async (req: Request) => {
 
     if (!rzpRes.ok) {
       const errText = await rzpRes.text();
-      console.error('Razorpay Orders API error:', rzpRes.status, errText);
+      console.error('Razorpay Orders API error:', errText.length, rzpRes.status);
       let safeGatewayCode = 'RAZORPAY_API_ERROR';
       try {
         const parsedErr = JSON.parse(errText);
@@ -341,6 +397,69 @@ serve(async (req: Request) => {
       );
     }
 
+    let membershipId: string | null = null;
+    if (isMembership) {
+      const details = applicantDetails && typeof applicantDetails === 'object' ? applicantDetails : {};
+      const safePhotoUrl =
+        typeof details.photoUrl === 'string' && details.photoUrl.length <= 450000
+          ? details.photoUrl
+          : null;
+
+      const { data: memRow, error: memErr } = await supabase
+        .from('memberships')
+        .upsert(
+          {
+            full_name: cleanDonorName,
+            father_or_husband_name: String(details.fatherOrHusbandName || '').trim().slice(0, 120) || null,
+            dob: String(details.dob || '').trim().slice(0, 20) || null,
+            gender: String(details.gender || '').trim().slice(0, 20) || null,
+            mobile: cleanMobile,
+            email: cleanEmail,
+            address: cleanAddress,
+            district: String(details.district || '').trim().slice(0, 80) || null,
+            state: String(details.state || 'Bihar').trim().slice(0, 80) || 'Bihar',
+            pin_code: String(details.pinCode || '').replace(/\D/g, '').slice(0, 10) || null,
+            aadhaar_number: String(details.aadhaarNumber || '').replace(/\D/g, '').slice(0, 12) || null,
+            pan_card: String(details.panCard || '').trim().toUpperCase().slice(0, 12) || null,
+            occupation: String(details.occupation || '').trim().slice(0, 120) || null,
+            qualification: String(details.qualification || '').trim().slice(0, 120) || null,
+            photo_url: safePhotoUrl,
+            membership_type: String(details.membershipType || 'Life Member').trim().slice(0, 60) || 'Life Member',
+            fee_amount: 5000.0,
+            payment_status: 'Pending',
+            status: 'Pending Payment',
+            razorpay_order_id: razorpayOrderId,
+            audit_status: 'Pending Audit',
+            raw_data: {
+              ...details,
+              fullName: cleanDonorName,
+              mobile: cleanMobile,
+              email: cleanEmail,
+              address: cleanAddress,
+              photoUrl: safePhotoUrl || undefined,
+            },
+            created_at: nowIso,
+            updated_at: nowIso,
+          },
+          { onConflict: 'razorpay_order_id' }
+        )
+        .select('id')
+        .single();
+
+      if (memErr) {
+        console.error('Database error recording pending membership:', memErr.code, memErr.message);
+        return jsonResponse(
+          {
+            success: false,
+            error: 'Unable to save membership application record.',
+            code: 'MEMBERSHIP_INIT_ERROR',
+          },
+          500
+        );
+      }
+      membershipId = memRow?.id || null;
+    }
+
     return jsonResponse(
       {
         success: true,
@@ -350,6 +469,7 @@ serve(async (req: Request) => {
         currency: 'INR',
         keyId: rawKeyId,
         purpose: cleanPurpose,
+        membershipId,
       },
       200
     );

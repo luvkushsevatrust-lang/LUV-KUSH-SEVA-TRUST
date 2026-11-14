@@ -43,8 +43,10 @@ import {
   Save,
   Briefcase,
   Lock,
+  Award,
 } from 'lucide-react';
 import { CareerAdminPanel } from '../components/CareerAdminPanel';
+import { MembershipAdminPanel } from '../components/MembershipAdminPanel';
 import {
   ApplicationStatus,
   ServiceCategory,
@@ -120,10 +122,11 @@ export const AdminDashboardPage: React.FC = () => {
     idCardOrders,
     approveIdCardOrder,
     refreshIdCardOrders,
+    memberships,
   } = useTrust();
 
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'applications' | 'students' | 'id_cards' | 'donations' | 'volunteers' | 'announcements' | 'settings' | 'service_images' | 'supabase' | 'careers'
+    'overview' | 'applications' | 'students' | 'id_cards' | 'donations' | 'memberships' | 'volunteers' | 'announcements' | 'settings' | 'service_images' | 'supabase' | 'careers'
   >('overview');
 
   const [copiedSql, setCopiedSql] = useState(false);
@@ -1096,6 +1099,14 @@ export const AdminDashboardPage: React.FC = () => {
           { id: 'students', label: t.admin.tabStudents, count: totalStudents, pending: pendingStudents, icon: GraduationCap },
           { id: 'volunteers', label: t.admin.tabVolunteers, count: totalVolunteers, pending: pendingVolunteers, icon: UserCheck },
           { id: 'donations', label: t.admin.tabDonations, icon: Heart },
+          {
+            id: 'memberships',
+            label: language === 'en' ? 'Memberships & Audit' : 'सदस्यता व ऑडिट',
+            count: memberships.length,
+            pending: memberships.filter((m) => m.paymentStatus === 'Paid' && m.auditStatus === 'Pending Audit').length,
+            icon: Award,
+            highlight: true,
+          },
           { id: 'announcements', label: t.admin.tabAnnouncements, icon: Bell },
           { id: 'service_images', label: language === 'en' ? '6 Project Images' : 'सेवा छवियां (Images)', icon: ImageIcon, isImages: true },
           { id: 'settings', label: t.admin.tabSettings, icon: Settings },
@@ -4515,6 +4526,11 @@ export const AdminDashboardPage: React.FC = () => {
       {/* TAB 10: CAREERS & RECRUITMENT MANAGEMENT */}
       {activeTab === 'careers' && (
         <CareerAdminPanel />
+      )}
+
+      {/* TAB 11: TRUST MEMBERSHIPS & AUDIT */}
+      {activeTab === 'memberships' && (
+        <MembershipAdminPanel />
       )}
 
       {/* ========================================================

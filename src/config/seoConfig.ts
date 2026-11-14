@@ -87,6 +87,18 @@ export const PAGE_SEO_CONFIG: Record<string, PageSEO> = {
       'donate to NGO, support underprivileged people, charity donation India, Luv Kush Seva Trust donation, food donation, child education sponsorship',
     ogType: 'website',
   },
+  membership: {
+    path: '/membership',
+    title: 'Become a Life Member | Luv Kush Seva Trust - Official Membership Portal',
+    titleHi: 'सदस्य बनें (आजीवन सदस्यता) | लव कुश सेवा ट्रस्ट',
+    description:
+      'Apply online for Luv Kush Seva Trust Life Membership (₹5,000 fixed fee) via Razorpay and receive instant official confirmation and automated email receipt.',
+    descriptionHi:
+      'लव कुश सेवा ट्रस्ट की आजीवन सदस्यता (₹5,000 शुल्क) हेतु ऑनलाइन आवेदन करें। रेजरपे भुगतान के तुरंत बाद आधिकारिक सदस्यता संख्या व ईमेल रसीद प्राप्त करें।',
+    keywords:
+      'Luv Kush Seva Trust membership, NGO life membership, social welfare trust member Bihar, Rajgir NGO membership',
+    ogType: 'website',
+  },
   'volunteer-registration': {
     path: '/volunteer-registration',
     title: 'Join as a Volunteer | Luv Kush Seva Trust - Community Social Work',

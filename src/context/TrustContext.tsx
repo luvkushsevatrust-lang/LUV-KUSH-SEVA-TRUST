@@ -16,6 +16,9 @@ import {
   JobApplicationStatus,
   PlacementAddressInfo,
   IdCardOrder,
+  MembershipApplication,
+  MembershipAuditStatus,
+  MembershipRecordStatus,
 } from '../types';
 import { BG_THEMES } from '../data/bgThemeConfig';
 import { Language, Translations, getTranslation } from '../translations';
@@ -127,6 +130,18 @@ interface TrustContextType {
   approveIdCardOrder: (orderId: string, adminName?: string) => Promise<boolean>;
   refreshIdCardOrders: () => Promise<void>;
 
+  // Trust Memberships (₹5,000 Life Membership & Admin Audit)
+  memberships: MembershipApplication[];
+  refreshMemberships: () => Promise<void>;
+  auditMembershipRecord: (params: {
+    id: string;
+    membershipNumber?: string;
+    previousAuditStatus?: string;
+    auditStatus: MembershipAuditStatus;
+    auditNotes: string;
+    status?: MembershipRecordStatus;
+  }) => Promise<{ success: boolean; error?: string }>;
+
   announcements: Announcement[];
   addAnnouncement: (item: Omit<Announcement, 'id'>) => void;
   deleteAnnouncement: (id: string) => void;
@@ -170,8 +185,8 @@ interface TrustContextType {
   pageParams: Record<string, any>;
 
   // Receipts and Modals
-  activeReceipt: { type: 'application' | 'donation'; data: any } | null;
-  setActiveReceipt: (receipt: { type: 'application' | 'donation'; data: any } | null) => void;
+  activeReceipt: { type: 'application' | 'donation' | 'membership'; data: any } | null;
+  setActiveReceipt: (receipt: { type: 'application' | 'donation' | 'membership'; data: any } | null) => void;
 
   activeIdCard: IdCard | null;
   setActiveIdCard: (card: IdCard | null) => void;
@@ -383,6 +398,9 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return saved ? JSON.parse(saved) : [];
   });
 
+  // Trust Memberships (hydrated when authenticated as admin)
+  const [memberships, setMemberships] = useState<MembershipApplication[]>([]);
+
   // Persistent Announcements
   const [announcements, setAnnouncements] = useState<Announcement[]>(() => {
     const saved = localStorage.getItem('lkst_announcements');
@@ -462,7 +480,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Active Receipts and Modals
   const [activeReceipt, setActiveReceipt] = useState<{
-    type: 'application' | 'donation';
+    type: 'application' | 'donation' | 'membership';
     data: any;
   } | null>(null);
 
@@ -551,6 +569,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           cloudVols,
           cloudDonations,
           cloudIdCardOrders,
+          cloudMemberships,
           cloudAnnouncements,
           cloudSettings,
           cloudJobs,
@@ -563,6 +582,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           SupabaseService.fetchVolunteers(),
           verifiedAdmin ? SupabaseService.fetchDonations() : Promise.resolve(null),
           verifiedAdmin ? SupabaseService.fetchIdCardOrders() : Promise.resolve(null),
+          verifiedAdmin ? SupabaseService.fetchMemberships() : Promise.resolve(null),
           SupabaseService.fetchAnnouncements(),
           SupabaseService.fetchSettings(),
           SupabaseCareerService.getJobs(),
@@ -589,6 +609,9 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         if (cloudIdCardOrders && cloudIdCardOrders.length > 0) {
           setIdCardOrders(cloudIdCardOrders);
+        }
+        if (cloudMemberships) {
+          setMemberships(cloudMemberships);
         }
         if (cloudAnnouncements && cloudAnnouncements.length > 0) {
           setAnnouncements(cloudAnnouncements);
@@ -1548,12 +1571,14 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (res.ok && data?.success && data?.token) {
         safeSetItem('lkst_admin_token', data.token);
         setIsAdmin(true);
-        const [adminDonations, adminOrders] = await Promise.all([
+        const [adminDonations, adminOrders, adminMemberships] = await Promise.all([
           SupabaseService.fetchDonations(),
           SupabaseService.fetchIdCardOrders(),
+          SupabaseService.fetchMemberships(),
         ]);
         if (adminDonations) setDonations(adminDonations);
         if (adminOrders) setIdCardOrders(adminOrders);
+        if (adminMemberships) setMemberships(adminMemberships);
         return { success: true };
       }
 
@@ -1584,12 +1609,14 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ) {
         safeSetItem('lkst_admin_token', authData.session.access_token);
         setIsAdmin(true);
-        const [adminDonations, adminOrders] = await Promise.all([
+        const [adminDonations, adminOrders, adminMemberships] = await Promise.all([
           SupabaseService.fetchDonations(),
           SupabaseService.fetchIdCardOrders(),
+          SupabaseService.fetchMemberships(),
         ]);
         if (adminDonations) setDonations(adminDonations);
         if (adminOrders) setIdCardOrders(adminOrders);
+        if (adminMemberships) setMemberships(adminMemberships);
         return { success: true };
       }
       return {
@@ -1604,10 +1631,47 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   };
 
+  const refreshMemberships = async () => {
+    const latest = await SupabaseService.fetchMemberships();
+    if (latest) {
+      setMemberships(latest);
+    }
+  };
+
+  const auditMembershipRecord = async (params: {
+    id: string;
+    membershipNumber?: string;
+    previousAuditStatus?: string;
+    auditStatus: MembershipAuditStatus;
+    auditNotes: string;
+    status?: MembershipRecordStatus;
+  }): Promise<{ success: boolean; error?: string }> => {
+    const res = await SupabaseService.auditMembership(params);
+    if (res.success) {
+      setMemberships((prev) =>
+        prev.map((m) =>
+          m.id === params.id
+            ? {
+                ...m,
+                auditStatus: params.auditStatus,
+                auditNotes: params.auditNotes,
+                status: params.status || m.status,
+                auditedBy: res.auditedBy || 'Admin',
+                auditedAt: res.auditedAt || new Date().toISOString(),
+              }
+            : m
+        )
+      );
+      return { success: true };
+    }
+    return { success: false, error: res.error || 'Failed to update audit record.' };
+  };
+
   const adminLogout = () => {
     safeRemoveItem('lkst_admin_token');
     safeRemoveItem('lkst_is_admin');
     supabase.auth.signOut().catch(() => {});
+    setMemberships([]);
     setIsAdmin(false);
     setCurrentPage('home');
   };
@@ -1871,6 +1935,9 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         recordIdCardOrder,
         approveIdCardOrder,
         refreshIdCardOrders,
+        memberships,
+        refreshMemberships,
+        auditMembershipRecord,
         announcements,
         addAnnouncement,
         deleteAnnouncement,

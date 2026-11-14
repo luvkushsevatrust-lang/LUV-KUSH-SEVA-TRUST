@@ -8,6 +8,10 @@ import {
   Announcement,
   TrustSettings,
   IdCardOrder,
+  MembershipApplication,
+  MembershipAuditLog,
+  MembershipAuditStatus,
+  MembershipRecordStatus,
 } from '../types';
 
 /**
@@ -1133,6 +1137,317 @@ export const SupabaseService = {
       return !error;
     });
     return Boolean(res);
+  },
+
+  // --- MEMBERSHIPS & ADMIN AUDIT ---
+  async fetchMemberships(): Promise<MembershipApplication[] | null> {
+    return safeQuery(async () => {
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const apiRes = await fetch('/api/admin/memberships', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (apiRes.ok) {
+            const payload = await apiRes.json();
+            if (payload?.success && Array.isArray(payload.memberships)) {
+              return payload.memberships.map((row: any) => ({
+                id: row.id,
+                membershipNumber: row.membership_number,
+                receiptNumber: row.receipt_number,
+                fullName: row.full_name,
+                fatherOrHusbandName: row.father_or_husband_name,
+                dob: row.dob,
+                gender: row.gender,
+                mobile: row.mobile,
+                email: row.email,
+                address: row.address,
+                district: row.district,
+                state: row.state,
+                pinCode: row.pin_code,
+                aadhaarNumber: row.aadhaar_number,
+                panCard: row.pan_card,
+                occupation: row.occupation,
+                qualification: row.qualification,
+                photoUrl: row.photo_url,
+                membershipType: row.membership_type || 'Life Member',
+                feeAmount: Number(row.fee_amount || 5000),
+                paymentStatus: row.payment_status || 'Pending',
+                status: row.status || 'Pending Payment',
+                razorpayOrderId: row.razorpay_order_id,
+                razorpayPaymentId: row.razorpay_payment_id,
+                paymentMode: row.payment_mode,
+                paidAt: row.paid_at,
+                receiptEmailSent: Boolean(row.receipt_email_sent),
+                receiptEmailSentAt: row.receipt_email_sent_at,
+                receiptEmailId: row.receipt_email_id,
+                auditStatus: row.audit_status || 'Pending Audit',
+                auditNotes: row.audit_notes,
+                auditedBy: row.audited_by,
+                auditedAt: row.audited_at,
+                createdAt: row.created_at,
+                updatedAt: row.updated_at,
+              }));
+            }
+          }
+        } catch {
+          // fall through to Supabase Auth authenticated client
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('memberships')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error || !data) return null;
+      return data.map((row: any) => ({
+        id: row.id,
+        membershipNumber: row.membership_number,
+        receiptNumber: row.receipt_number,
+        fullName: row.full_name,
+        fatherOrHusbandName: row.father_or_husband_name,
+        dob: row.dob,
+        gender: row.gender,
+        mobile: row.mobile,
+        email: row.email,
+        address: row.address,
+        district: row.district,
+        state: row.state,
+        pinCode: row.pin_code,
+        aadhaarNumber: row.aadhaar_number,
+        panCard: row.pan_card,
+        occupation: row.occupation,
+        qualification: row.qualification,
+        photoUrl: row.photo_url,
+        membershipType: row.membership_type || 'Life Member',
+        feeAmount: Number(row.fee_amount || 5000),
+        paymentStatus: row.payment_status || 'Pending',
+        status: row.status || 'Pending Payment',
+        razorpayOrderId: row.razorpay_order_id,
+        razorpayPaymentId: row.razorpay_payment_id,
+        paymentMode: row.payment_mode,
+        paidAt: row.paid_at,
+        receiptEmailSent: Boolean(row.receipt_email_sent),
+        receiptEmailSentAt: row.receipt_email_sent_at,
+        receiptEmailId: row.receipt_email_id,
+        auditStatus: row.audit_status || 'Pending Audit',
+        auditNotes: row.audit_notes,
+        auditedBy: row.audited_by,
+        auditedAt: row.audited_at,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      }));
+    });
+  },
+
+  async lookupConfirmedMembership(query: string): Promise<MembershipApplication | null> {
+    const cleanQ = query.trim();
+    if (cleanQ.length < 6) return null;
+
+    try {
+      const res = await fetch(`/api/membership-lookup?q=${encodeURIComponent(cleanQ)}`);
+      if (res.ok) {
+        const payload = await res.json();
+        if (payload?.success) {
+          const row = payload.membership;
+          if (!row) return null;
+          return {
+            id: row.id,
+            membershipNumber: row.membership_number,
+            receiptNumber: row.receipt_number,
+            fullName: row.full_name,
+            mobile: row.mobile,
+            email: '',
+            address: [row.district, row.state].filter(Boolean).join(', '),
+            district: row.district,
+            state: row.state,
+            membershipType: row.membership_type || 'Life Member',
+            feeAmount: Number(row.fee_amount || 5000),
+            paymentStatus: row.payment_status,
+            status: row.status,
+            paymentMode: row.payment_mode,
+            razorpayOrderId: row.razorpay_order_id,
+            razorpayPaymentId: row.razorpay_payment_id,
+            paidAt: row.paid_at,
+            receiptEmailSent: true,
+            auditStatus: row.audit_status || 'Pending Audit',
+            auditedAt: row.audited_at,
+            createdAt: row.created_at,
+          };
+        }
+      }
+    } catch {
+      // fall through to direct Supabase SECURITY DEFINER RPC
+    }
+
+    return safeQuery(async () => {
+      const { data, error } = await supabase.rpc('lookup_confirmed_membership', { p_query: cleanQ });
+      if (error || !data || !Array.isArray(data) || data.length === 0) return null;
+      const row = data[0];
+      return {
+        id: row.id,
+        membershipNumber: row.membership_number,
+        receiptNumber: row.receipt_number,
+        fullName: row.full_name,
+        mobile: row.mobile,
+        email: '',
+        address: [row.district, row.state].filter(Boolean).join(', '),
+        district: row.district,
+        state: row.state,
+        membershipType: row.membership_type || 'Life Member',
+        feeAmount: Number(row.fee_amount || 5000),
+        paymentStatus: row.payment_status,
+        status: row.status,
+        paymentMode: row.payment_mode,
+        razorpayOrderId: row.razorpay_order_id,
+        razorpayPaymentId: row.razorpay_payment_id,
+        paidAt: row.paid_at,
+        receiptEmailSent: true,
+        auditStatus: row.audit_status || 'Pending Audit',
+        auditedAt: row.audited_at,
+        createdAt: row.created_at,
+      };
+    });
+  },
+
+  async fetchMembershipAuditLogs(membershipId: string): Promise<MembershipAuditLog[]> {
+    const res = await safeQuery(async () => {
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const apiRes = await fetch(
+            `/api/admin/memberships/${encodeURIComponent(membershipId)}/audit-logs`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          if (apiRes.ok) {
+            const payload = await apiRes.json();
+            if (payload?.success && Array.isArray(payload.logs)) {
+              return payload.logs.map((row: any) => ({
+                id: row.id,
+                membershipId: row.membership_id,
+                membershipNumber: row.membership_number,
+                action: row.action,
+                previousAuditStatus: row.previous_audit_status,
+                newAuditStatus: row.new_audit_status,
+                auditNotes: row.audit_notes,
+                auditedBy: row.audited_by,
+                createdAt: row.created_at,
+              }));
+            }
+          }
+        } catch {
+          // fall through
+        }
+      }
+
+      const { data, error } = await supabase
+        .from('membership_audit_logs')
+        .select('*')
+        .eq('membership_id', membershipId)
+        .order('created_at', { ascending: false });
+      if (error || !data) return [];
+      return data.map((row: any) => ({
+        id: row.id,
+        membershipId: row.membership_id,
+        membershipNumber: row.membership_number,
+        action: row.action,
+        previousAuditStatus: row.previous_audit_status,
+        newAuditStatus: row.new_audit_status,
+        auditNotes: row.audit_notes,
+        auditedBy: row.audited_by,
+        createdAt: row.created_at,
+      }));
+    });
+    return res || [];
+  },
+
+  async auditMembership(params: {
+    id: string;
+    membershipNumber?: string;
+    previousAuditStatus?: string;
+    auditStatus: MembershipAuditStatus;
+    auditNotes: string;
+    status?: MembershipRecordStatus;
+    auditedBy?: string;
+  }): Promise<{ success: boolean; auditedBy?: string; auditedAt?: string; error?: string }> {
+    try {
+      const token = getAdminToken();
+      if (token) {
+        try {
+          const apiRes = await fetch(
+            `/api/admin/memberships/${encodeURIComponent(params.id)}/audit`,
+            {
+              method: 'PATCH',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                auditStatus: params.auditStatus,
+                auditNotes: params.auditNotes,
+                status: params.status,
+              }),
+            }
+          );
+          if (apiRes.ok) {
+            const payload = await apiRes.json();
+            if (payload?.success) {
+              return {
+                success: true,
+                auditedBy: payload.auditedBy || 'Admin',
+                auditedAt: payload.auditedAt || new Date().toISOString(),
+              };
+            }
+          }
+        } catch {
+          // fall through to Supabase authenticated JWT write
+        }
+      }
+
+      const { data: userData } = await supabase.auth.getUser();
+      const auditorEmail = userData?.user?.email || params.auditedBy || 'Admin';
+      const nowIso = new Date().toISOString();
+
+      const updateFields: Record<string, any> = {
+        audit_status: params.auditStatus,
+        audit_notes: params.auditNotes || null,
+        audited_by: auditorEmail,
+        audited_at: nowIso,
+        updated_at: nowIso,
+      };
+      if (params.status) {
+        updateFields.status = params.status;
+      }
+
+      const { error: updErr } = await supabase
+        .from('memberships')
+        .update(updateFields)
+        .eq('id', params.id);
+
+      if (updErr) {
+        return { success: false, error: updErr.message };
+      }
+
+      await supabase.from('membership_audit_logs').insert({
+        membership_id: params.id,
+        membership_number: params.membershipNumber || null,
+        action:
+          params.auditStatus === 'Audited & Verified'
+            ? 'AUDIT_VERIFIED'
+            : params.auditStatus === 'Flagged'
+            ? 'AUDIT_FLAGGED'
+            : 'AUDIT_UPDATED',
+        previous_audit_status: params.previousAuditStatus || null,
+        new_audit_status: params.auditStatus,
+        audit_notes: params.auditNotes || null,
+        audited_by: auditorEmail,
+        created_at: nowIso,
+      });
+
+      return { success: true, auditedBy: auditorEmail, auditedAt: nowIso };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Audit update failed.' };
+    }
   },
 
   // --- ANNOUNCEMENTS ---

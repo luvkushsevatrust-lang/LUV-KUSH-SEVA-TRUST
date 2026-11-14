@@ -85,6 +85,288 @@ async function findExistingDonation(
   return data;
 }
 
+async function generateMembershipNumber(supabase: any, orderId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase.rpc('generate_unique_membership_number');
+    if (!error && typeof data === 'string' && data.startsWith('LKST-MEM-')) {
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+  const yr = getCurrentYearIST();
+  const suffix = orderId.replace(/^order_/, '').slice(-8).toUpperCase();
+  return `LKST-MEM-${yr}-${suffix}`;
+}
+
+async function generateMembershipReceiptNumber(supabase: any, orderId: string): Promise<string> {
+  try {
+    const { data, error } = await supabase.rpc('generate_unique_membership_receipt_number');
+    if (!error && typeof data === 'string' && data.startsWith('LKST-MEM-REC-')) {
+      return data;
+    }
+  } catch {
+    // Fallback
+  }
+  const yr = getCurrentYearIST();
+  const suffix = orderId.replace(/^order_/, '').slice(-8).toUpperCase();
+  return `LKST-MEM-REC-${yr}-${suffix}`;
+}
+
+async function findExistingMembership(
+  supabase: any,
+  paymentId: string,
+  orderId: string
+): Promise<{
+  id: string;
+  membership_number: string | null;
+  receipt_number: string | null;
+  payment_status: string | null;
+  membership_type: string | null;
+} | null> {
+  const { data, error } = await supabase
+    .from('memberships')
+    .select('id, membership_number, receipt_number, payment_status, membership_type')
+    .or(`razorpay_payment_id.eq.${paymentId},razorpay_order_id.eq.${orderId}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error checking existing membership in webhook:', error.code, error.message);
+    return null;
+  }
+  return data;
+}
+
+function escapeHtml(value: string): string {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function formatDateIST(isoDate: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    }).format(new Date(isoDate));
+  } catch {
+    return isoDate;
+  }
+}
+
+async function sendReceiptEmailOnce(
+  supabase: any,
+  params: {
+    isSmartId: boolean;
+    isMembership?: boolean;
+    membershipNumber?: string;
+    membershipType?: string;
+    paymentId: string;
+    orderId: string;
+    receiptNumber: string;
+    donorName: string;
+    donorEmail: string;
+    amount: number;
+    paymentMethodLabel: string;
+    purposeText: string;
+    paidAtIso: string;
+  }
+): Promise<boolean> {
+  try {
+    const resendKey = (Deno.env.get('RESEND_API_KEY') || '').trim();
+    const cleanEmail = String(params.donorEmail || '').trim();
+    if (!resendKey || resendKey.includes('placeholder') || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      return false;
+    }
+
+    const table = params.isMembership
+      ? 'memberships'
+      : params.isSmartId
+      ? 'id_card_orders'
+      : 'donations';
+    const matchCol = params.isSmartId ? 'payment_id' : 'razorpay_payment_id';
+
+    const { data: claimedRows, error: claimErr } = await supabase
+      .from(table)
+      .update({
+        receipt_email_sent: true,
+        receipt_email_sent_at: new Date().toISOString(),
+      })
+      .eq(matchCol, params.paymentId)
+      .eq('receipt_email_sent', false)
+      .select('id');
+
+    if (claimErr) {
+      console.warn('Webhook receipt email claim skipped:', claimErr.code, claimErr.message);
+      return false;
+    }
+
+    if (!claimedRows || claimedRows.length === 0) {
+      return false;
+    }
+
+    const fromAddress =
+      (Deno.env.get('RECEIPT_FROM_EMAIL') || '').trim() ||
+      'Luv Kush Seva Trust <onboarding@resend.dev>';
+
+    const title = params.isMembership
+      ? 'Membership Confirmation & Receipt'
+      : params.isSmartId
+      ? 'Smart ID Card Payment Receipt'
+      : 'Official Donation Receipt';
+    const subject = params.isMembership
+      ? `Membership Confirmed (${params.membershipNumber || params.receiptNumber}) – Luv Kush Seva Trust`
+      : params.isSmartId
+      ? `Smart ID Card Payment Receipt (${params.receiptNumber}) – Luv Kush Seva Trust`
+      : `Official Donation Receipt (${params.receiptNumber}) – Luv Kush Seva Trust`;
+
+    const formattedAmount = `₹${Number(params.amount || 0).toLocaleString('en-IN', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+    const formattedDate = `${formatDateIST(params.paidAtIso)} IST`;
+
+    const introParagraph = params.isMembership
+      ? `Heartiest congratulations and welcome to <strong>Luv Kush Seva Trust</strong>! Your application for <strong>${escapeHtml(
+          params.membershipType || 'Life Member'
+        )}</strong> membership and fee payment of <strong>${escapeHtml(
+          formattedAmount
+        )}</strong> have been verified and confirmed.`
+      : `Thank you for your generous support to <strong>Luv Kush Seva Trust</strong>. Your online payment has been verified and recorded successfully.`;
+
+    const membershipRowsHtml = params.isMembership
+      ? `
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Membership Number</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;color:#1e3a8a;text-align:right;">${escapeHtml(
+            params.membershipNumber || 'Confirmed'
+          )}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Membership Category</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;text-align:right;">${escapeHtml(
+            params.membershipType || 'Life Member'
+          )}</td>
+        </tr>`
+      : '';
+
+    const verifyNoteHtml = params.isMembership
+      ? `You can verify your Membership &amp; Payment Receipt anytime on <a href="https://www.luvkushsevatrust.in" style="color:#1d4ed8;">https://www.luvkushsevatrust.in</a> using Membership No. <strong>${escapeHtml(
+          params.membershipNumber || params.receiptNumber
+        )}</strong> or Receipt No. <strong>${escapeHtml(params.receiptNumber)}</strong>.`
+      : `You can verify this receipt anytime on <a href="https://www.luvkushsevatrust.in" style="color:#1d4ed8;">https://www.luvkushsevatrust.in</a> using your Receipt Number <strong>${escapeHtml(
+          params.receiptNumber
+        )}</strong>.`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8" /></head>
+<body style="margin:0;padding:24px;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+  <div style="max-width:600px;margin:0 auto;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+    <div style="background:#0f172a;color:#ffffff;padding:24px;text-align:center;">
+      <div style="font-size:12px;letter-spacing:1.2px;text-transform:uppercase;color:#fbbf24;font-weight:bold;">
+        Luv Kush Seva Trust, Rajgir
+      </div>
+      <h1 style="margin:8px 0 4px;font-size:22px;">${escapeHtml(title)}</h1>
+      <p style="margin:0;font-size:13px;color:#cbd5e1;">लव कुश सेवा ट्रस्ट, राजगीर (नालंदा, बिहार)</p>
+    </div>
+    <div style="padding:24px;">
+      <p style="margin:0 0 16px;font-size:15px;">Dear <strong>${escapeHtml(params.donorName)}</strong>,</p>
+      <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:#334155;">
+        ${introParagraph}
+      </p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px;">
+        ${membershipRowsHtml}
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Receipt Number</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;text-align:right;">${escapeHtml(params.receiptNumber)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Amount Paid</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-weight:bold;color:#15803d;text-align:right;">${escapeHtml(formattedAmount)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Purpose</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${escapeHtml(params.purposeText)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Payment Mode</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;text-align:right;">${escapeHtml(params.paymentMethodLabel)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Payment ID</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-family:monospace;text-align:right;">${escapeHtml(params.paymentId)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;color:#64748b;">Order ID</td>
+          <td style="padding:10px;border-bottom:1px solid #e2e8f0;font-family:monospace;text-align:right;">${escapeHtml(params.orderId)}</td>
+        </tr>
+        <tr>
+          <td style="padding:10px;color:#64748b;">Date &amp; Time</td>
+          <td style="padding:10px;text-align:right;">${escapeHtml(formattedDate)}</td>
+        </tr>
+      </table>
+      <div style="background:#f1f5f9;border-radius:8px;padding:12px 16px;font-size:12px;color:#475569;line-height:1.5;">
+        ${verifyNoteHtml}
+      </div>
+    </div>
+    <div style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 24px;font-size:12px;color:#64748b;text-align:center;">
+      Luv Kush Seva Trust • Raispar, Near Cricket Stadium, Rajgir - 803116, Nalanda, Bihar<br />
+      Email: luvkushsevatrust@gmail.com | Web: https://www.luvkushsevatrust.in
+    </div>
+  </div>
+</body>
+</html>`.trim();
+
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [cleanEmail],
+        reply_to: 'luvkushsevatrust@gmail.com',
+        subject,
+        html,
+      }),
+    });
+
+    if (!resendRes.ok) {
+      const errBody = await resendRes.text();
+      console.error('Webhook Resend API failed:', resendRes.status, errBody);
+      await supabase
+        .from(table)
+        .update({ receipt_email_sent: false, receipt_email_sent_at: null })
+        .eq(matchCol, params.paymentId);
+      return false;
+    }
+
+    const resJson = await resendRes.json().catch(() => null);
+    if (resJson?.id) {
+      await supabase
+        .from(table)
+        .update({ receipt_email_id: String(resJson.id) })
+        .eq(matchCol, params.paymentId);
+    }
+    return true;
+  } catch (err) {
+    console.error('Unhandled webhook email error:', err);
+    return false;
+  }
+}
+
 serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -259,6 +541,7 @@ serve(async (req: Request) => {
       const notes = paymentEntity.notes || {};
       const effectivePurpose = orderRow.purpose || notes.purpose || 'donation';
       const isSmartId = effectivePurpose === 'smart_id_card' || effectivePurpose === 'smart_id_card_fee';
+      const isMembership = effectivePurpose === 'membership' || effectivePurpose === 'trust_membership';
 
       // 2a. Update razorpay_orders -> paid
       const { error: orderUpdErr } = await supabase
@@ -298,23 +581,120 @@ serve(async (req: Request) => {
         return await failWebhook('PAYMENT_UPSERT_FAILED', 500);
       }
 
-      // 2c. Persist Donation OR Smart ID Card Order
-      if (!isSmartId) {
+      // 2c. Persist Donation / Membership / Smart ID Card Order & Send Receipt Email Once
+      const donorNameForEmail = String(
+        notes.donorName || orderRow.donor_name || paymentEntity.email || 'Supporter'
+      ).trim().slice(0, 120);
+      const emailForReceipt = String(orderRow.email || paymentEntity.email || '').trim().slice(0, 120);
+      const paymentMethodLabelForEmail = paymentEntity.method
+        ? `Online (Razorpay - ${String(paymentEntity.method).toUpperCase()})`
+        : 'Online (Razorpay)';
+
+      if (isMembership) {
+        const existingMem = await findExistingMembership(supabase, paymentId, orderId);
+        let finalMembershipNo = existingMem?.membership_number || '';
+        let finalReceiptNo = existingMem?.receipt_number || '';
+        let resolvedType = String(existingMem?.membership_type || notes.membershipType || 'Life Member');
+
+        if (!existingMem || existingMem.payment_status !== 'Paid' || !finalMembershipNo || !finalReceiptNo) {
+          finalMembershipNo = finalMembershipNo || (await generateMembershipNumber(supabase, orderId));
+          finalReceiptNo = finalReceiptNo || (await generateMembershipReceiptNumber(supabase, orderId));
+          let confirmedMemId = existingMem?.id || null;
+
+          if (existingMem?.id) {
+            const { error: memUpdErr } = await supabase
+              .from('memberships')
+              .update({
+                membership_number: finalMembershipNo,
+                receipt_number: finalReceiptNo,
+                razorpay_payment_id: paymentId,
+                payment_status: 'Paid',
+                status: 'Confirmed',
+                payment_mode: paymentMethodLabelForEmail,
+                paid_at: nowIso,
+                updated_at: nowIso,
+              })
+              .eq('id', existingMem.id);
+
+            if (memUpdErr) {
+              console.error('Webhook error confirming membership:', memUpdErr.code, memUpdErr.message);
+              return await failWebhook('MEMBERSHIP_CONFIRM_FAILED', 500);
+            }
+          } else {
+            const { data: insertedMem, error: memInsErr } = await supabase
+              .from('memberships')
+              .insert({
+                membership_number: finalMembershipNo,
+                receipt_number: finalReceiptNo,
+                full_name: donorNameForEmail || 'Member',
+                mobile:
+                  String(notes.mobile || notes.contact || orderRow.contact || paymentEntity.contact || '0000000000')
+                    .replace(/\D/g, '')
+                    .slice(0, 15) || '0000000000',
+                email: emailForReceipt || 'luvkushsevatrust@gmail.com',
+                address: String(notes.address || orderRow?.notes?.address || 'Rajgir, Nalanda, Bihar').trim().slice(0, 300),
+                membership_type: resolvedType,
+                fee_amount: 5000.0,
+                payment_status: 'Paid',
+                status: 'Confirmed',
+                razorpay_order_id: orderId,
+                razorpay_payment_id: paymentId,
+                payment_mode: paymentMethodLabelForEmail,
+                paid_at: nowIso,
+                audit_status: 'Pending Audit',
+                created_at: nowIso,
+                updated_at: nowIso,
+              })
+              .select('id')
+              .single();
+
+            if (memInsErr) {
+              console.error('Webhook error inserting membership:', memInsErr.code, memInsErr.message);
+              return await failWebhook('MEMBERSHIP_INSERT_FAILED', 500);
+            }
+            confirmedMemId = insertedMem?.id || null;
+          }
+
+          if (confirmedMemId) {
+            await supabase.from('membership_audit_logs').insert({
+              membership_id: confirmedMemId,
+              membership_number: finalMembershipNo,
+              action: 'PAYMENT_CONFIRMED',
+              previous_audit_status: null,
+              new_audit_status: 'Pending Audit',
+              audit_notes: `Membership confirmed via Razorpay Webhook (${eventType}, ${paymentId}).`,
+              audited_by: 'Razorpay Webhook',
+              created_at: nowIso,
+            });
+          }
+        }
+
+        await sendReceiptEmailOnce(supabase, {
+          isSmartId: false,
+          isMembership: true,
+          membershipNumber: finalMembershipNo,
+          membershipType: resolvedType,
+          paymentId,
+          orderId,
+          receiptNumber: finalReceiptNo,
+          donorName: donorNameForEmail,
+          donorEmail: emailForReceipt,
+          amount: amountRs,
+          paymentMethodLabel: paymentMethodLabelForEmail,
+          purposeText: `Trust Membership Fee (${resolvedType})`,
+          paidAtIso: nowIso,
+        });
+      } else if (!isSmartId) {
         const existingDon = await findExistingDonation(supabase, paymentId, orderId);
+        let finalReceiptNumber = existingDon?.receipt_number || '';
+        const purposeText = String(notes.cause || 'Charitable Donation for Humanity & Welfare').trim();
 
         if (!existingDon) {
           let persisted = false;
-          const donorName = String(
-            notes.donorName || orderRow.donor_name || paymentEntity.email || 'Supporter'
-          ).trim().slice(0, 100);
           const mobile = String(
             notes.mobile || notes.contact || orderRow.contact || paymentEntity.contact || ''
           ).replace(/\D/g, '').slice(0, 15);
-          const email = String(paymentEntity.email || orderRow.email || '').trim().slice(0, 100);
           const address = String(notes.address || orderRow?.notes?.address || '').trim().slice(0, 250);
-          const paymentMethodLabel = paymentEntity.method
-            ? `Online (Razorpay - ${String(paymentEntity.method).toUpperCase()})`
-            : 'Online (Razorpay)';
 
           for (let attempt = 0; attempt < 3 && !persisted; attempt++) {
             const receiptNumber = await generateReceiptNumber(supabase, orderId, attempt);
@@ -322,14 +702,14 @@ serve(async (req: Request) => {
             const donationRow: Record<string, any> = {
               id: `don-${paymentId}`,
               receipt_number: receiptNumber,
-              donor_name: donorName,
+              donor_name: donorNameForEmail,
               mobile,
-              email: email || null,
+              email: emailForReceipt || null,
               address: address || null,
               amount: amountRs,
-              payment_mode: paymentMethodLabel,
+              payment_mode: paymentMethodLabelForEmail,
               transaction_id: paymentId,
-              purpose: notes.cause || 'Charitable Donation for Humanity & Welfare',
+              purpose: purposeText,
               is_verified: true,
               status: 'Approved',
               approval_remarks: `Confirmed via Razorpay Webhook (${eventType})`,
@@ -340,13 +720,13 @@ serve(async (req: Request) => {
               razorpay_payment_id: paymentId,
               payment_gateway: 'razorpay',
               raw_data: {
-                donorName,
+                donorName: donorNameForEmail,
                 mobile,
-                email,
+                email: emailForReceipt,
                 address,
                 amount: amountRs,
                 receiptNumber,
-                paymentMethod: paymentMethodLabel,
+                paymentMethod: paymentMethodLabelForEmail,
                 transactionId: paymentId,
                 razorpayOrderId: orderId,
                 razorpayPaymentId: paymentId,
@@ -371,6 +751,7 @@ serve(async (req: Request) => {
             }
 
             if (!donErr) {
+              finalReceiptNumber = receiptNumber;
               persisted = true;
               break;
             }
@@ -378,6 +759,7 @@ serve(async (req: Request) => {
             if (donErr.code === '23505') {
               const winner = await findExistingDonation(supabase, paymentId, orderId);
               if (winner?.id) {
+                finalReceiptNumber = winner.receipt_number || receiptNumber;
                 persisted = true;
                 break;
               }
@@ -391,6 +773,21 @@ serve(async (req: Request) => {
           if (!persisted) {
             return await failWebhook('RECEIPT_ALLOCATION_FAILED', 500);
           }
+        }
+
+        if (finalReceiptNumber) {
+          await sendReceiptEmailOnce(supabase, {
+            isSmartId: false,
+            paymentId,
+            orderId,
+            receiptNumber: finalReceiptNumber,
+            donorName: donorNameForEmail,
+            donorEmail: emailForReceipt,
+            amount: amountRs,
+            paymentMethodLabel: paymentMethodLabelForEmail,
+            purposeText,
+            paidAtIso: nowIso,
+          });
         }
       } else {
         const { data: existingIdOrd, error: idCheckErr } = await supabase
@@ -422,12 +819,12 @@ serve(async (req: Request) => {
             payment_id: paymentId,
             tier: 'special_service_200',
             applicant_id: verifiedApplicantId,
-            full_name: String(notes.donorName || orderRow.donor_name || 'Applicant').trim().slice(0, 100),
+            full_name: donorNameForEmail || 'Applicant',
             mobile:
               String(notes.mobile || notes.contact || orderRow.contact || paymentEntity.contact || '0000000000')
                 .replace(/\D/g, '')
                 .slice(0, 15) || '0000000000',
-            email: paymentEntity.email || orderRow.email || null,
+            email: emailForReceipt || null,
             service_category: notes.serviceCategory || orderRow?.notes?.serviceCategory || null,
             amount_fee: 200.0,
             is_paid: true,
@@ -442,16 +839,60 @@ serve(async (req: Request) => {
             return await failWebhook('ID_ORDER_INSERT_FAILED', 500);
           }
         }
+
+        const idReceipt = `LKST-ID-${getCurrentYearIST()}-${orderId.replace(/^order_/, '').slice(-6).toUpperCase()}`;
+        await sendReceiptEmailOnce(supabase, {
+          isSmartId: true,
+          paymentId,
+          orderId,
+          receiptNumber: idReceipt,
+          donorName: donorNameForEmail,
+          donorEmail: emailForReceipt,
+          amount: amountRs,
+          paymentMethodLabel: paymentMethodLabelForEmail,
+          purposeText: 'Special Service Smart ID Card Fee',
+          paidAtIso: nowIso,
+        });
       }
     } else if (eventType === 'payment.failed' && paymentEntity) {
       if (orderId) {
         const { data: orderRow } = await supabase
           .from('razorpay_orders')
-          .select('status')
+          .select('status, email, contact, amount')
           .eq('order_id', orderId)
           .maybeSingle();
 
-        // Only mark failed if not already settled as paid
+        // Record failed attempt in razorpay_payments for Admin visibility
+        if (paymentId) {
+          const failedAmountRs = Number.isFinite(Number(paymentEntity.amount))
+            ? Math.round(Number(paymentEntity.amount)) / 100
+            : Number(orderRow?.amount || 0);
+          await supabase.from('razorpay_payments').upsert(
+            {
+              payment_id: paymentId,
+              order_id: orderId,
+              amount: failedAmountRs,
+              currency: 'INR',
+              status: 'failed',
+              method: paymentEntity.method || 'razorpay',
+              bank: paymentEntity.bank || null,
+              wallet: paymentEntity.wallet || null,
+              vpa: paymentEntity.vpa || null,
+              email: paymentEntity.email || orderRow?.email || null,
+              contact: paymentEntity.contact || orderRow?.contact || null,
+              error_code: paymentEntity.error_code ? String(paymentEntity.error_code).slice(0, 80) : null,
+              error_description: paymentEntity.error_description
+                ? String(paymentEntity.error_description).slice(0, 250)
+                : null,
+              signature_verified: true,
+              raw_response: paymentEntity,
+              created_at: nowIso,
+            },
+            { onConflict: 'payment_id' }
+          );
+        }
+
+        // Only mark order failed if not already settled as paid
         if (orderRow && orderRow.status !== 'paid') {
           const { error: failUpdErr } = await supabase
             .from('razorpay_orders')
@@ -462,6 +903,12 @@ serve(async (req: Request) => {
             console.error('Webhook error marking order failed:', failUpdErr.code, failUpdErr.message);
             return await failWebhook('ORDER_FAIL_UPDATE_FAILED', 500);
           }
+
+          await supabase
+            .from('memberships')
+            .update({ payment_status: 'Failed', updated_at: nowIso })
+            .eq('razorpay_order_id', orderId)
+            .neq('payment_status', 'Paid');
         }
       }
     }
