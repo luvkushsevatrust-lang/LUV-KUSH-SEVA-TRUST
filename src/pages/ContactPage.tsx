@@ -283,14 +283,16 @@ export const ContactPage: React.FC = () => {
             <span className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
               {language === 'en' ? 'Map Location' : 'मानचित्र स्थिति'}
             </span>
-            <div className="w-full h-48 rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-100 flex items-center justify-center">
+            <div className="w-full h-56 rounded-2xl overflow-hidden border border-slate-200 relative bg-slate-100 flex items-center justify-center">
               <iframe
-                title="Trust Office Location Rajgir"
-                src="https://maps.google.com/maps?q=Rajgir%20Cricket%20Stadium,%20Bihar&t=&z=13&ie=UTF8&iwloc=&output=embed"
+                title="LUV KUSH SEVA TRUST, Raispar, Rajgir - 803116, Nalanda, Bihar"
+                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3147.2239418116046!2d85.36806796777122!3d25.026914704792272!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x39f2e5000d508af9%3A0x66171a3b5a32e2f9!2sLuv%20Kush%20seva%20trust!5e0!3m2!1sen!2sin!4v1794740863343!5m2!1sen!2sin"
                 width="100%"
                 height="100%"
                 style={{ border: 0 }}
+                allowFullScreen
                 loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
               />
             </div>
             <span className="text-[11px] text-slate-500 block text-right">
