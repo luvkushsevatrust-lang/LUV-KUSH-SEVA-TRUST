@@ -4,7 +4,7 @@
   <!-- Homepage -->
   <url>
     <loc>https://www.luvkushsevatrust.in/</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
@@ -12,7 +12,7 @@
   <!-- About Us -->
   <url>
     <loc>https://www.luvkushsevatrust.in/about</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -20,7 +20,7 @@
   <!-- Social Welfare Services -->
   <url>
     <loc>https://www.luvkushsevatrust.in/services</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -28,7 +28,15 @@
   <!-- Donation & Support -->
   <url>
     <loc>https://www.luvkushsevatrust.in/donation</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Life Membership -->
+  <url>
+    <loc>https://www.luvkushsevatrust.in/membership</loc>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
@@ -36,7 +44,7 @@
   <!-- Volunteer Registration -->
   <url>
     <loc>https://www.luvkushsevatrust.in/volunteer-registration</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -44,15 +52,55 @@
   <!-- Free Education Student Registration -->
   <url>
     <loc>https://www.luvkushsevatrust.in/student-registration</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
+  </url>
+
+  <!-- Service Registrations -->
+  <url>
+    <loc>https://www.luvkushsevatrust.in/orphanage-registration</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.luvkushsevatrust.in/old-age-registration</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.luvkushsevatrust.in/widow-registration</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.luvkushsevatrust.in/education-registration</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.luvkushsevatrust.in/medical-registration</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Careers & Seva Opportunities -->
+  <url>
+    <loc>https://www.luvkushsevatrust.in/careers</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
 
   <!-- Official ID Card Portal & Verification -->
   <url>
     <loc>https://www.luvkushsevatrust.in/id-card</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -60,7 +108,7 @@
   <!-- Contact Us -->
   <url>
     <loc>https://www.luvkushsevatrust.in/contact</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -68,7 +116,7 @@
   <!-- Privacy Policy -->
   <url>
     <loc>https://www.luvkushsevatrust.in/privacy-policy</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>
@@ -76,7 +124,7 @@
   <!-- Terms and Conditions -->
   <url>
     <loc>https://www.luvkushsevatrust.in/terms</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-17</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.4</priority>
   </url>

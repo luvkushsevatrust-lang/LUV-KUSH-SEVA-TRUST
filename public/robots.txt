@@ -1,13 +1,21 @@
 # Robots.txt for Luv Kush Seva Trust
 # Website: https://www.luvkushsevatrust.in/
+# Location: Rajgir, Nalanda, Bihar
 
 User-agent: *
 Allow: /
 Allow: /about
 Allow: /services
 Allow: /donation
+Allow: /membership
 Allow: /volunteer-registration
 Allow: /student-registration
+Allow: /orphanage-registration
+Allow: /old-age-registration
+Allow: /widow-registration
+Allow: /education-registration
+Allow: /medical-registration
+Allow: /careers
 Allow: /id-card
 Allow: /contact
 Allow: /privacy-policy
@@ -17,6 +25,8 @@ Allow: /terms
 Disallow: /admin-dashboard
 Disallow: /admin-login
 Disallow: /student-dashboard
+Disallow: /student-login
+Disallow: /login
 Disallow: /api/
 
 # Sitemap location

@@ -49,19 +49,30 @@ export const SEOHead: React.FC = () => {
   const { currentPage, language } = useTrust();
 
   useEffect(() => {
-    const seoData = PAGE_SEO_CONFIG[currentPage] || PAGE_SEO_CONFIG.home;
+    const normalizedPage =
+      currentPage === 'career'
+        ? 'careers'
+        : currentPage === 'admit-card'
+          ? 'id-card'
+          : currentPage;
+    const seoData = PAGE_SEO_CONFIG[normalizedPage] || PAGE_SEO_CONFIG.home;
     const isHindi = language === 'hi';
 
     const title = isHindi ? seoData.titleHi : seoData.title;
     const description = isHindi ? seoData.descriptionHi : seoData.description;
     const canonicalUrl = `${SITE_DOMAIN}${seoData.path === '/' ? '/' : seoData.path}`;
+    const robotsDirective = seoData.noindex
+      ? 'noindex, nofollow'
+      : 'index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1';
 
-    // 1. Document Title
+    // 1. Document Language & Title
+    document.documentElement.lang = isHindi ? 'hi' : 'en';
     document.title = title;
 
-    // 2. Meta Description & Keywords
+    // 2. Meta Description, Keywords & Robots Directive
     setMetaTag('meta[name="description"]', 'content', description);
     setMetaTag('meta[name="keywords"]', 'content', seoData.keywords);
+    setMetaTag('meta[name="robots"]', 'content', robotsDirective);
 
     // 3. Canonical URL
     setCanonicalLink(canonicalUrl);
@@ -72,6 +83,7 @@ export const SEOHead: React.FC = () => {
     setMetaTag('meta[property="og:url"]', 'content', canonicalUrl);
     setMetaTag('meta[property="og:type"]', 'content', seoData.ogType || 'website');
     setMetaTag('meta[property="og:image"]', 'content', DEFAULT_OG_IMAGE);
+    setMetaTag('meta[property="og:image:alt"]', 'content', 'Luv Kush Seva Trust Official Emblem');
     setMetaTag('meta[property="og:site_name"]', 'content', 'Luv Kush Seva Trust');
     setMetaTag('meta[property="og:locale"]', 'content', isHindi ? 'hi_IN' : 'en_IN');
     setMetaTag('meta[property="og:locale:alternate"]', 'content', isHindi ? 'en_IN' : 'hi_IN');
@@ -81,10 +93,11 @@ export const SEOHead: React.FC = () => {
     setMetaTag('meta[name="twitter:title"]', 'content', title);
     setMetaTag('meta[name="twitter:description"]', 'content', description);
     setMetaTag('meta[name="twitter:image"]', 'content', DEFAULT_OG_IMAGE);
+    setMetaTag('meta[name="twitter:image:alt"]', 'content', 'Luv Kush Seva Trust Official Emblem');
 
     // 6. Structured Data (JSON-LD)
     setJsonLdScript('schema-org-organization', getOrganizationSchema());
-    setJsonLdScript('schema-org-breadcrumbs', getBreadcrumbSchema(currentPage));
+    setJsonLdScript('schema-org-breadcrumbs', getBreadcrumbSchema(normalizedPage));
   }, [currentPage, language]);
 
   return null;
