@@ -500,6 +500,150 @@ function getAdminToken(): string | null {
   }
 }
 
+function compactRawData<T extends Record<string, any>>(obj: T): Record<string, any> {
+  if (!obj || typeof obj !== 'object') return obj;
+  const {
+    photoUrl: _p,
+    aadhaarFrontUrl: _af,
+    aadhaarBackUrl: _ab,
+    imageUrl: _img,
+    ...rest
+  } = obj;
+  return rest;
+}
+
+function mapApplicationRow(row: any): ServiceApplication {
+  const raw = row.raw_data || {};
+  return {
+    ...raw,
+    id: row.id,
+    serviceCategory: row.service_category || raw.serviceCategory,
+    serviceTitleHi: row.service_title_hi || raw.serviceTitleHi,
+    fullName: row.full_name || raw.fullName,
+    fatherOrHusbandName: row.father_or_husband_name || raw.fatherOrHusbandName,
+    motherName: row.mother_name || raw.motherName,
+    dob: row.dob || raw.dob,
+    gender: row.gender || raw.gender,
+    mobile: row.mobile || raw.mobile,
+    email: row.email || raw.email,
+    aadhaarNumber: row.aadhaar_number || raw.aadhaarNumber,
+    address: row.address || raw.address,
+    state: row.state || raw.state,
+    district: row.district || raw.district,
+    pinCode: row.pincode || raw.pinCode || '803116',
+    status: row.status || raw.status || 'Pending',
+    submittedAt: row.submitted_at || raw.submittedAt,
+    statusRemarks: row.remarks || raw.statusRemarks,
+    photoUrl: row.photo_url || raw.photoUrl,
+    aadhaarFrontUrl: row.aadhaar_front_url ?? raw.aadhaarFrontUrl,
+    aadhaarBackUrl: row.aadhaar_back_url ?? raw.aadhaarBackUrl,
+  };
+}
+
+function mapStudentRow(row: any): Student {
+  const raw = row.raw_data || {};
+  return {
+    ...raw,
+    id: row.id,
+    registrationNumber: row.registration_number || raw.registrationNumber,
+    name: row.full_name || raw.name,
+    fatherName: row.father_name || raw.fatherName,
+    motherName: row.mother_name || raw.motherName,
+    dob: row.dob || raw.dob,
+    gender: row.gender || raw.gender,
+    mobile: row.mobile || raw.mobile,
+    email: row.email || raw.email,
+    aadhaarNumber: row.aadhaar_number || raw.aadhaarNumber,
+    address: row.address || raw.address,
+    district: raw.district || 'नालंदा',
+    state: raw.state || 'बिहार',
+    pinCode: raw.pinCode || '803116',
+    studentClass: row.current_class || raw.studentClass,
+    schoolOrInstitute: row.school_or_college || raw.schoolOrInstitute,
+    category: row.category || raw.category || 'OBC',
+    status: row.status || raw.status || 'Active',
+    registeredAt: row.registered_at || raw.registeredAt,
+    password: row.password || raw.password || 'password123',
+    photoUrl: row.photo_url || raw.photoUrl,
+    aadhaarFrontUrl: row.aadhaar_front_url ?? raw.aadhaarFrontUrl,
+    aadhaarBackUrl: row.aadhaar_back_url ?? raw.aadhaarBackUrl,
+  };
+}
+
+function mapIdCardRow(row: any): IdCard {
+  const raw = row.raw_data || {};
+  return {
+    ...raw,
+    id: row.id,
+    cardNumber: row.card_number || raw.cardNumber,
+    category: row.category || raw.category,
+    categoryLabelHi: row.category_title_hi || raw.categoryLabelHi,
+    categoryLabelEn: row.category_title_en || raw.categoryLabelEn,
+    fullName: row.full_name || raw.fullName,
+    fatherOrHusbandName: row.father_or_husband_name || raw.fatherOrHusbandName,
+    dob: row.dob || raw.dob,
+    gender: row.gender || raw.gender,
+    mobile: row.mobile || raw.mobile,
+    bloodGroup: row.blood_group || raw.bloodGroup,
+    aadhaarNumber: row.aadhaar_number || raw.aadhaarNumber,
+    address: row.address || raw.address,
+    photoUrl: row.photo_url || raw.photoUrl,
+    issueDate: row.issue_date || raw.issueDate,
+    validTill: row.valid_upto || raw.validTill,
+    status: row.status || raw.status || 'Approved',
+    createdAt: row.created_at || raw.createdAt,
+  };
+}
+
+function mapVolunteerRow(row: any): Volunteer {
+  const raw = row.raw_data || {};
+  return {
+    ...raw,
+    id: row.id,
+    name: row.name || raw.name,
+    age: raw.age || 25,
+    gender: row.gender || raw.gender || 'Male',
+    mobile: row.mobile || raw.mobile,
+    email: row.email || raw.email,
+    aadhaarNumber: row.aadhaar_number || raw.aadhaarNumber,
+    address: row.address || raw.address,
+    district: raw.district || 'नालंदा',
+    occupation: row.occupation || raw.occupation || 'समाजसेवी',
+    skills: row.skills || raw.skills || 'सामुदायिक सेवा',
+    preferredService: row.preferred_service || raw.preferredService || 'जनसेवा',
+    availableTime: row.availability || raw.availableTime || 'पूर्णकालिक',
+    status: row.status || raw.status || 'Pending',
+    registeredAt: row.registered_at || raw.registeredAt,
+    photoUrl: row.photo_url || raw.photoUrl,
+    aadhaarFrontUrl: row.aadhaar_front_url ?? raw.aadhaarFrontUrl,
+    aadhaarBackUrl: row.aadhaar_back_url ?? raw.aadhaarBackUrl,
+  };
+}
+
+const APPLICATION_LIST_COLS =
+  'id, service_category, service_title_hi, full_name, father_or_husband_name, mother_name, dob, gender, mobile, email, aadhaar_number, address, state, district, pincode, status, submitted_at, remarks, photo_url';
+const STUDENT_LIST_COLS =
+  'id, registration_number, full_name, father_name, mother_name, dob, gender, mobile, email, aadhaar_number, address, current_class, school_or_college, category, status, registered_at, password, photo_url';
+const ID_CARD_COLS =
+  'id, card_number, category, category_title_hi, category_title_en, full_name, father_or_husband_name, dob, gender, mobile, blood_group, aadhaar_number, address, photo_url, qr_code_value, issue_date, valid_upto, status, created_at, raw_data';
+const VOLUNTEER_LIST_COLS =
+  'id, name, father_or_husband_name, dob, gender, mobile, email, aadhaar_number, address, occupation, skills, preferred_service, availability, status, registered_at, photo_url';
+const DONATION_LIST_COLS =
+  'id, receipt_number, donor_name, pan_or_aadhaar, pan_card, mobile, email, address, amount, payment_mode, transaction_id, purpose, is_verified, status, approval_remarks, approved_at, approved_by, payment_gateway, razorpay_order_id, razorpay_payment_id, donated_at';
+const ID_CARD_ORDER_COLS =
+  'id, order_id, payment_id, tier, applicant_id, full_name, mobile, email, service_category, amount_fee, is_paid, admin_approved, admin_approved_at, admin_approved_by, card_issued, id_card_id, created_at, updated_at';
+const MEMBERSHIP_LIST_COLS =
+  'id, membership_number, receipt_number, full_name, father_or_husband_name, dob, gender, mobile, email, address, district, state, pin_code, aadhaar_number, pan_card, occupation, qualification, photo_url, membership_type, fee_amount, payment_status, status, razorpay_order_id, razorpay_payment_id, payment_mode, paid_at, receipt_email_sent, receipt_email_sent_at, receipt_email_id, audit_status, audit_notes, audited_by, audited_at, created_at, updated_at';
+const AUDIT_LOG_COLS =
+  'id, membership_id, membership_number, action, previous_audit_status, new_audit_status, audit_notes, audited_by, created_at';
+const ANNOUNCEMENT_COLS = 'id, title, date, content, is_important, image_url';
+const SETTINGS_COLS =
+  'id, trust_name, trust_name_en, registration_number, ngo_darpan_id, chairperson_name, phone, email, address, raw_data, updated_at';
+
+function sanitizeFilterToken(val: string): string {
+  return val.replace(/[,()*'";\\]/g, '').trim();
+}
+
 // Helper to safely execute Supabase calls without breaking offline / unconfigured apps
 async function safeQuery<T>(fn: () => Promise<T>): Promise<T | null> {
   try {
@@ -532,40 +676,61 @@ export const SupabaseService = {
   },
 
   // --- APPLICATIONS ---
-  async fetchApplications(): Promise<ServiceApplication[] | null> {
+  async fetchApplications(limit = 200): Promise<ServiceApplication[] | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('applications').select('*').order('submitted_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('applications')
+        .select(APPLICATION_LIST_COLS)
+        .order('submitted_at', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
-      return data.map((row: any) => ({
-        ...(row.raw_data || {}),
-        id: row.id,
-        serviceCategory: row.service_category || row.raw_data?.serviceCategory,
-        serviceTitleHi: row.service_title_hi || row.raw_data?.serviceTitleHi,
-        fullName: row.full_name || row.raw_data?.fullName,
-        fatherOrHusbandName: row.father_or_husband_name || row.raw_data?.fatherOrHusbandName,
-        motherName: row.mother_name || row.raw_data?.motherName,
-        dob: row.dob || row.raw_data?.dob,
-        gender: row.gender || row.raw_data?.gender,
-        mobile: row.mobile || row.raw_data?.mobile,
-        email: row.email || row.raw_data?.email,
-        aadhaarNumber: row.aadhaar_number || row.raw_data?.aadhaarNumber,
-        address: row.address || row.raw_data?.address,
-        state: row.state || row.raw_data?.state,
-        district: row.district || row.raw_data?.district,
-        pincode: row.pincode || row.raw_data?.pincode,
-        status: row.status || row.raw_data?.status || 'Pending',
-        submittedAt: row.submitted_at || row.raw_data?.submittedAt,
-        remarks: row.remarks || row.raw_data?.remarks,
-        photoUrl: row.photo_url || row.raw_data?.photoUrl,
-        aadhaarFrontUrl: row.aadhaar_front_url || row.raw_data?.aadhaarFrontUrl,
-        aadhaarBackUrl: row.aadhaar_back_url || row.raw_data?.aadhaarBackUrl,
-      }));
+      return data.map(mapApplicationRow);
+    });
+  },
+
+  async fetchApplicationDetails(id: string): Promise<Partial<ServiceApplication> | null> {
+    return safeQuery(async () => {
+      const { data, error } = await supabase
+        .from('applications')
+        .select('id, aadhaar_front_url, aadhaar_back_url, raw_data')
+        .eq('id', id)
+        .maybeSingle();
+      if (error || !data) return null;
+      const raw = data.raw_data || {};
+      return {
+        ...raw,
+        id: data.id,
+        aadhaarFrontUrl: data.aadhaar_front_url || raw.aadhaarFrontUrl || '',
+        aadhaarBackUrl: data.aadhaar_back_url || raw.aadhaarBackUrl || '',
+      };
+    });
+  },
+
+  async lookupPublicApplication(appId: string, mobile?: string): Promise<ServiceApplication | null> {
+    const cleanId = sanitizeFilterToken(appId).toUpperCase();
+    const cleanMobile = sanitizeFilterToken(mobile || '');
+    if (!cleanId) return null;
+
+    return safeQuery(async () => {
+      const { data, error } = await supabase
+        .from('applications')
+        .select(APPLICATION_LIST_COLS)
+        .ilike('id', `%${cleanId}%`)
+        .limit(5);
+      if (error || !data || data.length === 0) return null;
+      const rows = data.map(mapApplicationRow);
+      const exact = rows.find(
+        (a) =>
+          (a.id.toUpperCase() === cleanId || a.id.toUpperCase().includes(cleanId)) &&
+          (!cleanMobile || (a.mobile && a.mobile.includes(cleanMobile)))
+      );
+      return exact || null;
     });
   },
 
   async saveApplication(app: ServiceApplication): Promise<boolean> {
     const res = await safeQuery(async () => {
-      const payload = {
+      const payload: Record<string, any> = {
         id: app.id,
         service_category: app.serviceCategory,
         service_title_hi: app.serviceTitleHi,
@@ -584,12 +749,26 @@ export const SupabaseService = {
         status: app.status,
         submitted_at: app.submittedAt || new Date().toISOString(),
         remarks: app.statusRemarks,
-        photo_url: app.photoUrl,
-        aadhaar_front_url: app.aadhaarFrontUrl,
-        aadhaar_back_url: app.aadhaarBackUrl,
-        raw_data: app,
+        raw_data: compactRawData(app),
       };
+      if (app.photoUrl !== undefined) payload.photo_url = app.photoUrl;
+      if (app.aadhaarFrontUrl !== undefined) payload.aadhaar_front_url = app.aadhaarFrontUrl;
+      if (app.aadhaarBackUrl !== undefined) payload.aadhaar_back_url = app.aadhaarBackUrl;
       const { error } = await supabase.from('applications').upsert(payload);
+      return !error;
+    });
+    return Boolean(res);
+  },
+
+  async updateApplicationStatusOnly(
+    id: string,
+    status: string,
+    remarks?: string
+  ): Promise<boolean> {
+    const res = await safeQuery(async () => {
+      const updates: Record<string, any> = { status };
+      if (remarks !== undefined) updates.remarks = remarks;
+      const { error } = await supabase.from('applications').update(updates).eq('id', id);
       return !error;
     });
     return Boolean(res);
@@ -604,42 +783,57 @@ export const SupabaseService = {
   },
 
   // --- STUDENTS ---
-  async fetchStudents(): Promise<Student[] | null> {
+  async fetchStudents(limit = 200): Promise<Student[] | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('students').select('*').order('registered_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('students')
+        .select(STUDENT_LIST_COLS)
+        .order('registered_at', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
-      return data.map((row: any) => ({
-        ...(row.raw_data || {}),
-        id: row.id,
-        registrationNumber: row.registration_number || row.raw_data?.registrationNumber,
-        name: row.full_name || row.raw_data?.name,
-        fatherName: row.father_name || row.raw_data?.fatherName,
-        motherName: row.mother_name || row.raw_data?.motherName,
-        dob: row.dob || row.raw_data?.dob,
-        gender: row.gender || row.raw_data?.gender,
-        mobile: row.mobile || row.raw_data?.mobile,
-        email: row.email || row.raw_data?.email,
-        aadhaarNumber: row.aadhaar_number || row.raw_data?.aadhaarNumber,
-        address: row.address || row.raw_data?.address,
-        district: row.raw_data?.district || 'नालंदा',
-        state: row.raw_data?.state || 'बिहार',
-        pinCode: row.raw_data?.pinCode || '803116',
-        studentClass: row.current_class || row.raw_data?.studentClass,
-        schoolOrInstitute: row.school_or_college || row.raw_data?.schoolOrInstitute,
-        category: row.category || row.raw_data?.category || 'OBC',
-        status: row.status || row.raw_data?.status || 'Active',
-        registeredAt: row.registered_at || row.raw_data?.registeredAt,
-        password: row.password || row.raw_data?.password || 'password123',
-        photoUrl: row.photo_url || row.raw_data?.photoUrl,
-        aadhaarFrontUrl: row.aadhaar_front_url || row.raw_data?.aadhaarFrontUrl,
-        aadhaarBackUrl: row.aadhaar_back_url || row.raw_data?.aadhaarBackUrl,
-      }));
+      return data.map(mapStudentRow);
+    });
+  },
+
+  async fetchStudentDetails(id: string): Promise<Partial<Student> | null> {
+    return safeQuery(async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select('id, aadhaar_front_url, aadhaar_back_url, raw_data')
+        .eq('id', id)
+        .maybeSingle();
+      if (error || !data) return null;
+      const raw = data.raw_data || {};
+      return {
+        ...raw,
+        id: data.id,
+        aadhaarFrontUrl: data.aadhaar_front_url || raw.aadhaarFrontUrl || '',
+        aadhaarBackUrl: data.aadhaar_back_url || raw.aadhaarBackUrl || '',
+      };
+    });
+  },
+
+  async lookupStudentForLogin(identifier: string): Promise<Student | null> {
+    const clean = sanitizeFilterToken(identifier);
+    if (!clean) return null;
+    const upper = clean.toUpperCase();
+    const digits = clean.replace(/\D/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : clean;
+
+    return safeQuery(async () => {
+      const { data, error } = await supabase
+        .from('students')
+        .select(STUDENT_LIST_COLS)
+        .or(`id.ilike.${upper},registration_number.ilike.${upper},mobile.eq.${last10}`)
+        .limit(1);
+      if (error || !data || data.length === 0) return null;
+      return mapStudentRow(data[0]);
     });
   },
 
   async saveStudent(stu: Student): Promise<boolean> {
     const res = await safeQuery(async () => {
-      const payload = {
+      const payload: Record<string, any> = {
         id: stu.id,
         registration_number: stu.registrationNumber,
         full_name: stu.name,
@@ -657,12 +851,20 @@ export const SupabaseService = {
         status: stu.status,
         registered_at: stu.registeredAt || new Date().toISOString(),
         password: stu.password,
-        photo_url: stu.photoUrl,
-        aadhaar_front_url: stu.aadhaarFrontUrl,
-        aadhaar_back_url: stu.aadhaarBackUrl,
-        raw_data: stu,
+        raw_data: compactRawData(stu),
       };
+      if (stu.photoUrl !== undefined) payload.photo_url = stu.photoUrl;
+      if (stu.aadhaarFrontUrl !== undefined) payload.aadhaar_front_url = stu.aadhaarFrontUrl;
+      if (stu.aadhaarBackUrl !== undefined) payload.aadhaar_back_url = stu.aadhaarBackUrl;
       const { error } = await supabase.from('students').upsert(payload);
+      return !error;
+    });
+    return Boolean(res);
+  },
+
+  async updateStudentStatusOnly(id: string, status: string): Promise<boolean> {
+    const res = await safeQuery(async () => {
+      const { error } = await supabase.from('students').update({ status }).eq('id', id);
       return !error;
     });
     return Boolean(res);
@@ -677,37 +879,96 @@ export const SupabaseService = {
   },
 
   // --- ID CARDS ---
-  async fetchIdCards(): Promise<IdCard[] | null> {
+  async fetchIdCards(limit = 200): Promise<IdCard[] | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('id_cards').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('id_cards')
+        .select(ID_CARD_COLS)
+        .order('created_at', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
-      return data.map((row: any) => ({
-        ...(row.raw_data || {}),
-        id: row.id,
-        cardNumber: row.card_number || row.raw_data?.cardNumber,
-        category: row.category || row.raw_data?.category,
-        categoryLabelHi: row.category_title_hi || row.raw_data?.categoryLabelHi,
-        categoryLabelEn: row.category_title_en || row.raw_data?.categoryLabelEn,
-        fullName: row.full_name || row.raw_data?.fullName,
-        fatherOrHusbandName: row.father_or_husband_name || row.raw_data?.fatherOrHusbandName,
-        dob: row.dob || row.raw_data?.dob,
-        gender: row.gender || row.raw_data?.gender,
-        mobile: row.mobile || row.raw_data?.mobile,
-        bloodGroup: row.blood_group || row.raw_data?.bloodGroup,
-        aadhaarNumber: row.aadhaar_number || row.raw_data?.aadhaarNumber,
-        address: row.address || row.raw_data?.address,
-        photoUrl: row.photo_url || row.raw_data?.photoUrl,
-        issueDate: row.issue_date || row.raw_data?.issueDate,
-        validTill: row.valid_upto || row.raw_data?.validTill,
-        status: row.status || row.raw_data?.status || 'Approved',
-        createdAt: row.created_at || row.raw_data?.createdAt,
-      }));
+      return data.map(mapIdCardRow);
+    });
+  },
+
+  async lookupPublicIdCard(
+    query: string,
+    dob?: string
+  ): Promise<{ card?: IdCard; app?: ServiceApplication; student?: Student } | null> {
+    const clean = sanitizeFilterToken(query);
+    if (!clean) return null;
+    const upper = clean.toUpperCase();
+    const digits = clean.replace(/\D/g, '');
+    const last10 = digits.length >= 10 ? digits.slice(-10) : clean;
+    const cleanDob = sanitizeFilterToken(dob || '');
+
+    return safeQuery(async () => {
+      const orFilters = [
+        `card_number.ilike.${upper}`,
+        `id.ilike.${upper}`,
+        `mobile.eq.${last10}`,
+        `raw_data->>registrationNumber.ilike.${upper}`,
+        `raw_data->>sourceId.ilike.${upper}`,
+      ].join(',');
+
+      const { data: cardRows } = await supabase
+        .from('id_cards')
+        .select(ID_CARD_COLS)
+        .or(orFilters)
+        .limit(5);
+
+      if (cardRows && cardRows.length > 0) {
+        const mappedCards = cardRows.map(mapIdCardRow);
+        const directMatch = mappedCards.find(
+          (c) =>
+            c.cardNumber?.toUpperCase() === upper ||
+            c.registrationNumber?.toUpperCase() === upper ||
+            c.sourceId?.toUpperCase() === upper ||
+            ((c.mobile === clean || c.mobile?.includes(clean)) && (!cleanDob || c.dob === cleanDob))
+        );
+        if (directMatch) return { card: directMatch };
+      }
+
+      // Fallback 1: check applications by exact ID or mobile
+      const { data: appRows } = await supabase
+        .from('applications')
+        .select(APPLICATION_LIST_COLS)
+        .or(`id.ilike.${upper},mobile.eq.${last10}`)
+        .limit(3);
+      if (appRows && appRows.length > 0) {
+        const mappedApps = appRows.map(mapApplicationRow);
+        const appMatch = mappedApps.find(
+          (a) =>
+            a.id.toUpperCase() === upper ||
+            (a.mobile === clean && (!cleanDob || a.dob === cleanDob))
+        );
+        if (appMatch) return { app: appMatch };
+      }
+
+      // Fallback 2: check students by registration_number, id, or mobile
+      const { data: stuRows } = await supabase
+        .from('students')
+        .select(STUDENT_LIST_COLS)
+        .or(`registration_number.ilike.${upper},id.ilike.${upper},mobile.eq.${last10}`)
+        .limit(3);
+      if (stuRows && stuRows.length > 0) {
+        const mappedStus = stuRows.map(mapStudentRow);
+        const stuMatch = mappedStus.find(
+          (s) =>
+            s.registrationNumber?.toUpperCase() === upper ||
+            s.id.toUpperCase() === upper ||
+            (s.mobile === clean && (!cleanDob || s.dob === cleanDob))
+        );
+        if (stuMatch) return { student: stuMatch };
+      }
+
+      return null;
     });
   },
 
   async saveIdCard(card: IdCard): Promise<boolean> {
     const res = await safeQuery(async () => {
-      const payload = {
+      const payload: Record<string, any> = {
         id: card.id,
         card_number: card.cardNumber,
         category: card.category,
@@ -721,13 +982,13 @@ export const SupabaseService = {
         blood_group: card.bloodGroup,
         aadhaar_number: card.aadhaarNumber,
         address: card.address,
-        photo_url: card.photoUrl,
         issue_date: card.issueDate,
         valid_upto: card.validTill,
         status: card.status,
         created_at: card.createdAt || new Date().toISOString(),
-        raw_data: card,
+        raw_data: compactRawData(card),
       };
+      if (card.photoUrl !== undefined) payload.photo_url = card.photoUrl;
       const { error } = await supabase.from('id_cards').upsert(payload);
       return !error;
     });
@@ -743,37 +1004,39 @@ export const SupabaseService = {
   },
 
   // --- VOLUNTEERS ---
-  async fetchVolunteers(): Promise<Volunteer[] | null> {
+  async fetchVolunteers(limit = 200): Promise<Volunteer[] | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('volunteers').select('*').order('registered_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('volunteers')
+        .select(VOLUNTEER_LIST_COLS)
+        .order('registered_at', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
-      return data.map((row: any) => ({
-        ...(row.raw_data || {}),
-        id: row.id,
-        name: row.name || row.raw_data?.name,
-        age: row.raw_data?.age || 25,
-        gender: row.gender || row.raw_data?.gender || 'Male',
-        mobile: row.mobile || row.raw_data?.mobile,
-        email: row.email || row.raw_data?.email,
-        aadhaarNumber: row.aadhaar_number || row.raw_data?.aadhaarNumber,
-        address: row.address || row.raw_data?.address,
-        district: row.raw_data?.district || 'नालंदा',
-        occupation: row.occupation || row.raw_data?.occupation || 'समाजसेवी',
-        skills: row.skills || row.raw_data?.skills || 'सामुदायिक सेवा',
-        preferredService: row.preferred_service || row.raw_data?.preferredService || 'जनसेवा',
-        availableTime: row.availability || row.raw_data?.availableTime || 'पूर्णकालिक',
-        status: row.status || row.raw_data?.status || 'Pending',
-        registeredAt: row.registered_at || row.raw_data?.registeredAt,
-        photoUrl: row.photo_url || row.raw_data?.photoUrl,
-        aadhaarFrontUrl: row.aadhaar_front_url || row.raw_data?.aadhaarFrontUrl,
-        aadhaarBackUrl: row.aadhaar_back_url || row.raw_data?.aadhaarBackUrl,
-      }));
+      return data.map(mapVolunteerRow);
+    });
+  },
+
+  async fetchVolunteerDetails(id: string): Promise<Partial<Volunteer> | null> {
+    return safeQuery(async () => {
+      const { data, error } = await supabase
+        .from('volunteers')
+        .select('id, aadhaar_front_url, aadhaar_back_url, raw_data')
+        .eq('id', id)
+        .maybeSingle();
+      if (error || !data) return null;
+      const raw = data.raw_data || {};
+      return {
+        ...raw,
+        id: data.id,
+        aadhaarFrontUrl: data.aadhaar_front_url || raw.aadhaarFrontUrl || '',
+        aadhaarBackUrl: data.aadhaar_back_url || raw.aadhaarBackUrl || '',
+      };
     });
   },
 
   async saveVolunteer(vol: Volunteer): Promise<boolean> {
     const res = await safeQuery(async () => {
-      const payload = {
+      const payload: Record<string, any> = {
         id: vol.id,
         name: vol.name,
         gender: vol.gender,
@@ -787,12 +1050,20 @@ export const SupabaseService = {
         availability: vol.availableTime,
         status: vol.status,
         registered_at: vol.registeredAt || new Date().toISOString(),
-        photo_url: vol.photoUrl,
-        aadhaar_front_url: vol.aadhaarFrontUrl,
-        aadhaar_back_url: vol.aadhaarBackUrl,
-        raw_data: vol,
+        raw_data: compactRawData(vol),
       };
+      if (vol.photoUrl !== undefined) payload.photo_url = vol.photoUrl;
+      if (vol.aadhaarFrontUrl !== undefined) payload.aadhaar_front_url = vol.aadhaarFrontUrl;
+      if (vol.aadhaarBackUrl !== undefined) payload.aadhaar_back_url = vol.aadhaarBackUrl;
       const { error } = await supabase.from('volunteers').upsert(payload);
+      return !error;
+    });
+    return Boolean(res);
+  },
+
+  async updateVolunteerStatusOnly(id: string, status: string): Promise<boolean> {
+    const res = await safeQuery(async () => {
+      const { error } = await supabase.from('volunteers').update({ status }).eq('id', id);
       return !error;
     });
     return Boolean(res);
@@ -807,7 +1078,7 @@ export const SupabaseService = {
   },
 
   // --- DONATIONS ---
-  async fetchDonations(): Promise<Donation[] | null> {
+  async fetchDonations(limit = 200): Promise<Donation[] | null> {
     return safeQuery(async () => {
       const token = getAdminToken();
       if (token) {
@@ -828,8 +1099,9 @@ export const SupabaseService = {
 
       const { data, error } = await supabase
         .from('donations')
-        .select('*')
-        .order('donated_at', { ascending: false });
+        .select(DONATION_LIST_COLS)
+        .order('donated_at', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
       return data.map((row: any) => ({
         ...(row.raw_data || {}),
@@ -984,7 +1256,7 @@ export const SupabaseService = {
   },
 
   // --- SMART ID CARD ORDERS (Separated Service Fee Ledger) ---
-  async fetchIdCardOrders(): Promise<IdCardOrder[] | null> {
+  async fetchIdCardOrders(limit = 200): Promise<IdCardOrder[] | null> {
     return safeQuery(async () => {
       const token = getAdminToken();
       if (token) {
@@ -1005,8 +1277,9 @@ export const SupabaseService = {
 
       const { data, error } = await supabase
         .from('id_card_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(ID_CARD_ORDER_COLS)
+        .order('created_at', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
       return data.map((row: any) => ({
         id: row.id,
@@ -1140,7 +1413,7 @@ export const SupabaseService = {
   },
 
   // --- MEMBERSHIPS & ADMIN AUDIT ---
-  async fetchMemberships(): Promise<MembershipApplication[] | null> {
+  async fetchMemberships(limit = 200): Promise<MembershipApplication[] | null> {
     return safeQuery(async () => {
       const token = getAdminToken();
       if (token) {
@@ -1197,8 +1470,9 @@ export const SupabaseService = {
 
       const { data, error } = await supabase
         .from('memberships')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select(MEMBERSHIP_LIST_COLS)
+        .order('created_at', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
       return data.map((row: any) => ({
         id: row.id,
@@ -1352,9 +1626,10 @@ export const SupabaseService = {
 
       const { data, error } = await supabase
         .from('membership_audit_logs')
-        .select('*')
+        .select(AUDIT_LOG_COLS)
         .eq('membership_id', membershipId)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(50);
       if (error || !data) return [];
       return data.map((row: any) => ({
         id: row.id,
@@ -1461,18 +1736,21 @@ export const SupabaseService = {
   },
 
   // --- ANNOUNCEMENTS ---
-  async fetchAnnouncements(): Promise<Announcement[] | null> {
+  async fetchAnnouncements(limit = 20): Promise<Announcement[] | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('announcements').select('*');
+      const { data, error } = await supabase
+        .from('announcements')
+        .select(ANNOUNCEMENT_COLS)
+        .order('date', { ascending: false })
+        .limit(limit);
       if (error || !data) return null;
       return data.map((row: any) => ({
-        ...(row.raw_data || {}),
         id: row.id,
-        title: row.title || row.raw_data?.title,
-        date: row.date || row.raw_data?.date,
-        content: row.content || row.raw_data?.content,
-        isImportant: row.is_important ?? row.raw_data?.isImportant ?? false,
-        imageUrl: row.image_url || row.raw_data?.imageUrl,
+        title: row.title,
+        date: row.date,
+        content: row.content,
+        isImportant: row.is_important ?? false,
+        imageUrl: row.image_url,
       }));
     });
   },
@@ -1486,7 +1764,7 @@ export const SupabaseService = {
         content: ann.content,
         is_important: ann.isImportant,
         image_url: ann.imageUrl,
-        raw_data: ann,
+        raw_data: compactRawData(ann),
       };
       const { error } = await supabase.from('announcements').upsert(payload);
       return !error;
@@ -1505,7 +1783,11 @@ export const SupabaseService = {
   // --- SETTINGS ---
   async fetchSettings(): Promise<TrustSettings | null> {
     return safeQuery(async () => {
-      const { data, error } = await supabase.from('trust_settings').select('*').eq('id', 'current_settings').single();
+      const { data, error } = await supabase
+        .from('trust_settings')
+        .select(SETTINGS_COLS)
+        .eq('id', 'current_settings')
+        .maybeSingle();
       if (error || !data) return null;
       return data.raw_data || null;
     });
@@ -1562,28 +1844,127 @@ export const SupabaseService = {
     };
 
     try {
-      // 1. Applications
-      for (const app of allData.applications) {
-        const ok = await this.saveApplication(app);
-        if (ok) counts.applications++;
+      // 1. Applications (Batch upsert)
+      if (allData.applications.length > 0) {
+        const appRows = allData.applications.map((app) => {
+          const row: Record<string, any> = {
+            id: app.id,
+            service_category: app.serviceCategory,
+            service_title_hi: app.serviceTitleHi,
+            full_name: app.fullName,
+            father_or_husband_name: app.fatherOrHusbandName,
+            mother_name: app.motherName,
+            dob: app.dob,
+            gender: app.gender,
+            mobile: app.mobile,
+            email: app.email,
+            aadhaar_number: app.aadhaarNumber,
+            address: app.address,
+            state: app.state,
+            district: app.district,
+            pincode: app.pinCode,
+            status: app.status,
+            submitted_at: app.submittedAt || new Date().toISOString(),
+            remarks: app.statusRemarks,
+            raw_data: compactRawData(app),
+          };
+          if (app.photoUrl !== undefined) row.photo_url = app.photoUrl;
+          if (app.aadhaarFrontUrl !== undefined) row.aadhaar_front_url = app.aadhaarFrontUrl;
+          if (app.aadhaarBackUrl !== undefined) row.aadhaar_back_url = app.aadhaarBackUrl;
+          return row;
+        });
+        const { error } = await supabase.from('applications').upsert(appRows);
+        if (!error) counts.applications = appRows.length;
       }
 
-      // 2. Students
-      for (const stu of allData.students) {
-        const ok = await this.saveStudent(stu);
-        if (ok) counts.students++;
+      // 2. Students (Batch upsert)
+      if (allData.students.length > 0) {
+        const stuRows = allData.students.map((stu) => {
+          const row: Record<string, any> = {
+            id: stu.id,
+            registration_number: stu.registrationNumber,
+            full_name: stu.name,
+            father_name: stu.fatherName,
+            mother_name: stu.motherName,
+            dob: stu.dob,
+            gender: stu.gender,
+            mobile: stu.mobile,
+            email: stu.email,
+            aadhaar_number: stu.aadhaarNumber,
+            address: stu.address,
+            current_class: stu.studentClass,
+            school_or_college: stu.schoolOrInstitute,
+            category: stu.category,
+            status: stu.status,
+            registered_at: stu.registeredAt || new Date().toISOString(),
+            password: stu.password,
+            raw_data: compactRawData(stu),
+          };
+          if (stu.photoUrl !== undefined) row.photo_url = stu.photoUrl;
+          if (stu.aadhaarFrontUrl !== undefined) row.aadhaar_front_url = stu.aadhaarFrontUrl;
+          if (stu.aadhaarBackUrl !== undefined) row.aadhaar_back_url = stu.aadhaarBackUrl;
+          return row;
+        });
+        const { error } = await supabase.from('students').upsert(stuRows);
+        if (!error) counts.students = stuRows.length;
       }
 
-      // 3. ID Cards
-      for (const card of allData.idCards) {
-        const ok = await this.saveIdCard(card);
-        if (ok) counts.idCards++;
+      // 3. ID Cards (Batch upsert)
+      if (allData.idCards.length > 0) {
+        const cardRows = allData.idCards.map((card) => {
+          const row: Record<string, any> = {
+            id: card.id,
+            card_number: card.cardNumber,
+            category: card.category,
+            category_title_hi: card.categoryLabelHi,
+            category_title_en: card.categoryLabelEn,
+            full_name: card.fullName,
+            father_or_husband_name: card.fatherOrHusbandName,
+            dob: card.dob,
+            gender: card.gender,
+            mobile: card.mobile,
+            blood_group: card.bloodGroup,
+            aadhaar_number: card.aadhaarNumber,
+            address: card.address,
+            issue_date: card.issueDate,
+            valid_upto: card.validTill,
+            status: card.status,
+            created_at: card.createdAt || new Date().toISOString(),
+            raw_data: compactRawData(card),
+          };
+          if (card.photoUrl !== undefined) row.photo_url = card.photoUrl;
+          return row;
+        });
+        const { error } = await supabase.from('id_cards').upsert(cardRows);
+        if (!error) counts.idCards = cardRows.length;
       }
 
-      // 4. Volunteers
-      for (const vol of allData.volunteers) {
-        const ok = await this.saveVolunteer(vol);
-        if (ok) counts.volunteers++;
+      // 4. Volunteers (Batch upsert)
+      if (allData.volunteers.length > 0) {
+        const volRows = allData.volunteers.map((vol) => {
+          const row: Record<string, any> = {
+            id: vol.id,
+            name: vol.name,
+            gender: vol.gender,
+            mobile: vol.mobile,
+            email: vol.email,
+            aadhaar_number: vol.aadhaarNumber,
+            address: vol.address,
+            occupation: vol.occupation,
+            skills: vol.skills,
+            preferred_service: vol.preferredService,
+            availability: vol.availableTime,
+            status: vol.status,
+            registered_at: vol.registeredAt || new Date().toISOString(),
+            raw_data: compactRawData(vol),
+          };
+          if (vol.photoUrl !== undefined) row.photo_url = vol.photoUrl;
+          if (vol.aadhaarFrontUrl !== undefined) row.aadhaar_front_url = vol.aadhaarFrontUrl;
+          if (vol.aadhaarBackUrl !== undefined) row.aadhaar_back_url = vol.aadhaarBackUrl;
+          return row;
+        });
+        const { error } = await supabase.from('volunteers').upsert(volRows);
+        if (!error) counts.volunteers = volRows.length;
       }
 
       // 5. Donations
@@ -1592,10 +1973,19 @@ export const SupabaseService = {
         if (ok) counts.donations++;
       }
 
-      // 6. Announcements
-      for (const ann of allData.announcements) {
-        const ok = await this.saveAnnouncement(ann);
-        if (ok) counts.announcements++;
+      // 6. Announcements (Batch upsert)
+      if (allData.announcements.length > 0) {
+        const annRows = allData.announcements.map((ann) => ({
+          id: ann.id,
+          title: ann.title,
+          date: ann.date,
+          content: ann.content,
+          is_important: ann.isImportant,
+          image_url: ann.imageUrl,
+          raw_data: compactRawData(ann),
+        }));
+        const { error } = await supabase.from('announcements').upsert(annRows);
+        if (!error) counts.announcements = annRows.length;
       }
 
       // 7. Settings

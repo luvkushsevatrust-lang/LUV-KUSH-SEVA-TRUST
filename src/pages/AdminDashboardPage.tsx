@@ -856,7 +856,7 @@ export const AdminDashboardPage: React.FC = () => {
     setAnnImagePreview('');
   };
 
-  const handleOpenEditApp = (app: ServiceApplication) => {
+  const handleOpenEditApp = async (app: ServiceApplication) => {
     setEditingApp(app);
     setEditAppFullName(app.fullName || '');
     setEditAppFather(app.fatherOrHusbandName || '');
@@ -881,6 +881,39 @@ export const AdminDashboardPage: React.FC = () => {
     setEditAppAadhaarFrontPreview(app.aadhaarFrontUrl || '');
     setEditAppAadhaarBackPreview(app.aadhaarBackUrl || '');
     setShowAppAadhaarDetail(false);
+
+    if (app.aadhaarFrontUrl === undefined || app.aadhaarBackUrl === undefined) {
+      const details = await SupabaseService.fetchApplicationDetails(app.id);
+      if (details) {
+        setEditingApp((prev) => (prev && prev.id === app.id ? { ...prev, ...details } : prev));
+        if (details.aadhaarFrontUrl) setEditAppAadhaarFrontPreview(details.aadhaarFrontUrl);
+        if (details.aadhaarBackUrl) setEditAppAadhaarBackPreview(details.aadhaarBackUrl);
+        if (details.alternateMobile) setEditAppAlternateMobile(details.alternateMobile);
+        if (details.emergencyContact) setEditAppEmergencyContact(details.emergencyContact);
+        if (details.village) setEditAppVillage(details.village);
+        if (details.description) setEditAppDescription(details.description);
+      }
+    }
+  };
+
+  const handleOpenPrintableDossier = async (
+    candidate: ServiceApplication | Student,
+    type: 'application' | 'student'
+  ) => {
+    setPrintableCandidate({ candidate, type });
+    if (candidate.aadhaarFrontUrl === undefined || candidate.aadhaarBackUrl === undefined) {
+      const details =
+        type === 'application'
+          ? await SupabaseService.fetchApplicationDetails(candidate.id)
+          : await SupabaseService.fetchStudentDetails(candidate.id);
+      if (details) {
+        setPrintableCandidate((prev) =>
+          prev && prev.candidate.id === candidate.id
+            ? { ...prev, candidate: { ...prev.candidate, ...details } as ServiceApplication | Student }
+            : prev
+        );
+      }
+    }
   };
 
   const handleSaveAppEdit = (e: React.FormEvent) => {
@@ -923,7 +956,7 @@ export const AdminDashboardPage: React.FC = () => {
     }
   };
 
-  const handleOpenEditStudent = (stu: Student) => {
+  const handleOpenEditStudent = async (stu: Student) => {
     setEditingStudent(stu);
     setEditStuName(stu.name || '');
     setEditStuFather(stu.fatherName || '');
@@ -939,6 +972,15 @@ export const AdminDashboardPage: React.FC = () => {
     setEditStuPhotoPreview(stu.photoUrl || '');
     setEditStuAadhaarFrontPreview(stu.aadhaarFrontUrl || '');
     setEditStuAadhaarBackPreview(stu.aadhaarBackUrl || '');
+
+    if (stu.aadhaarFrontUrl === undefined || stu.aadhaarBackUrl === undefined) {
+      const details = await SupabaseService.fetchStudentDetails(stu.id);
+      if (details) {
+        setEditingStudent((prev) => (prev && prev.id === stu.id ? { ...prev, ...details } : prev));
+        if (details.aadhaarFrontUrl) setEditStuAadhaarFrontPreview(details.aadhaarFrontUrl);
+        if (details.aadhaarBackUrl) setEditStuAadhaarBackPreview(details.aadhaarBackUrl);
+      }
+    }
   };
 
   const handleReloadStudentAadhaar = () => {
@@ -973,7 +1015,7 @@ export const AdminDashboardPage: React.FC = () => {
     setEditingStudent(null);
   };
 
-  const handleOpenEditVolunteer = (vol: Volunteer) => {
+  const handleOpenEditVolunteer = async (vol: Volunteer) => {
     setEditingVolunteer(vol);
     setEditVolName(vol.name);
     setEditVolMobile(vol.mobile);
@@ -991,6 +1033,17 @@ export const AdminDashboardPage: React.FC = () => {
     setEditVolPhotoPreview(vol.photoUrl || '');
     setEditVolAadhaarFrontPreview(vol.aadhaarFrontUrl || '');
     setEditVolAadhaarBackPreview(vol.aadhaarBackUrl || '');
+
+    if (vol.aadhaarFrontUrl === undefined || vol.aadhaarBackUrl === undefined) {
+      const details = await SupabaseService.fetchVolunteerDetails(vol.id);
+      if (details) {
+        setEditingVolunteer((prev) => (prev && prev.id === vol.id ? { ...prev, ...details } : prev));
+        if (details.aadhaarFrontUrl) setEditVolAadhaarFrontPreview(details.aadhaarFrontUrl);
+        if (details.aadhaarBackUrl) setEditVolAadhaarBackPreview(details.aadhaarBackUrl);
+        if (details.age) setEditVolAge(details.age);
+        if (details.district) setEditVolDistrict(details.district);
+      }
+    }
   };
 
   const handleSaveVolunteerEdit = (e: React.FormEvent) => {
@@ -1874,7 +1927,7 @@ export const AdminDashboardPage: React.FC = () => {
                           {/* Print या PDF ऑप्शन (स्वीकृति के बाद ही उपलब्ध) */}
                           {app.status === 'Approved' ? (
                             <button
-                              onClick={() => setPrintableCandidate({ candidate: app, type: 'application' })}
+                              onClick={() => handleOpenPrintableDossier(app, 'application')}
                               className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
                               title={language === 'en' ? 'Print or Save PDF' : 'प्रपत्र प्रिंट या PDF'}
                             >
@@ -2139,7 +2192,7 @@ export const AdminDashboardPage: React.FC = () => {
                           {/* छात्र Print या PDF (केवल स्वीकृति के बाद) */}
                           {isApproved ? (
                             <button
-                              onClick={() => setPrintableCandidate({ candidate: stu, type: 'student' })}
+                              onClick={() => handleOpenPrintableDossier(stu, 'student')}
                               className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 rounded font-bold text-[11px] cursor-pointer inline-flex items-center gap-1"
                               title={language === 'en' ? 'Print or Save PDF' : 'छात्र प्रपत्र प्रिंट या PDF'}
                             >
@@ -3767,7 +3820,7 @@ export const AdminDashboardPage: React.FC = () => {
                           const file = e.target.files?.[0];
                           if (file) {
                             try {
-                              const compressed = await compressImageFile(file, 1400, 1400, 0.85);
+                              const compressed = await compressImageFile(file, 960, 720, 0.72, 95 * 1024);
                               setTempSettings({ ...tempSettings, officeBuildingPhotoUrl: compressed });
                             } catch {
                               const r = new FileReader();
@@ -4185,7 +4238,7 @@ export const AdminDashboardPage: React.FC = () => {
                             const file = e.target.files?.[0];
                             if (file) {
                               try {
-                                const compressed = await compressImageFile(file, 1200, 1200, 0.85);
+                                const compressed = await compressImageFile(file, 800, 600, 0.72, 85 * 1024);
                                 const updatedMap = {
                                   ...(tempSettings.serviceImages || {}),
                                   [srv.id]: compressed,

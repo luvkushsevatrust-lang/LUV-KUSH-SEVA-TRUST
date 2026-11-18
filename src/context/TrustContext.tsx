@@ -38,6 +38,7 @@ import { SupabaseService } from '../lib/supabaseService';
 import { SupabaseCareerService } from '../lib/supabaseCareerService';
 import { resolveAssetUrl, TRUST_EMBLEM_LOGO } from '../assets';
 import { safeSetItem, safeRemoveItem, cleanupStorageQuota } from '../utils/safeStorage';
+import { compressBase64DataUrl } from '../utils/imageCompressor';
 
 interface TrustContextType {
   settings: TrustSettings;
@@ -172,7 +173,7 @@ interface TrustContextType {
 
   // Auth
   currentStudent: Student | null;
-  studentLogin: (identifier: string, dobOrPass: string) => boolean;
+  studentLogin: (identifier: string, dobOrPass: string) => Promise<boolean>;
   studentLogout: () => void;
 
   isAdmin: boolean;
@@ -195,11 +196,11 @@ interface TrustContextType {
   setVerifyModalCard: (card: IdCard | null) => void;
 
   // Search Utilities
-  searchApplication: (appId: string, mobile: string) => ServiceApplication | undefined;
+  searchApplication: (appId: string, mobile: string) => Promise<ServiceApplication | undefined>;
   searchIdCard: (
     query: string,
     dob?: string
-  ) => { card?: IdCard; error?: string };
+  ) => Promise<{ card?: IdCard; error?: string }>;
 
   // Internationalization / Bilingual system
   language: Language;
@@ -531,12 +532,143 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Initial Cloud Hydration + Server-Verified Admin Session Check on Mount
+  const PUBLIC_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+  const adminDataLoadedRef = React.useRef(false);
+  const careerDataLoadedRef = React.useRef(false);
+
+  const isCacheFresh = (tsKey: string): boolean => {
+    try {
+      const ts = Number(localStorage.getItem(tsKey) || 0);
+      return ts > 0 && Date.now() - ts < PUBLIC_CACHE_TTL_MS;
+    } catch {
+      return false;
+    }
+  };
+
+  const markCacheFresh = (tsKey: string) => {
+    safeSetItem(tsKey, String(Date.now()));
+  };
+
+  const loadAdminDatasets = async (force = false) => {
+    if (adminDataLoadedRef.current && !force) return;
+    adminDataLoadedRef.current = true;
+    try {
+      const [
+        cloudApps,
+        cloudStudents,
+        cloudCards,
+        cloudVols,
+        cloudDonations,
+        cloudIdCardOrders,
+        cloudMemberships,
+        cloudJobApps,
+        cloudAnnouncements,
+        cloudSettings,
+      ] = await Promise.all([
+        SupabaseService.fetchApplications(),
+        SupabaseService.fetchStudents(),
+        SupabaseService.fetchIdCards(),
+        SupabaseService.fetchVolunteers(),
+        SupabaseService.fetchDonations(),
+        SupabaseService.fetchIdCardOrders(),
+        SupabaseService.fetchMemberships(),
+        SupabaseCareerService.getApplications(),
+        SupabaseService.fetchAnnouncements(),
+        SupabaseService.fetchSettings(),
+      ]);
+
+      if (cloudApps && cloudApps.length > 0) setApplications(cloudApps);
+      if (cloudStudents && cloudStudents.length > 0) setStudents(cloudStudents);
+      if (cloudCards && cloudCards.length > 0) setIdCards(sanitizeIdCards(cloudCards));
+      if (cloudVols && cloudVols.length > 0) setVolunteers(cloudVols);
+      if (cloudDonations && cloudDonations.length > 0) setDonations(cloudDonations);
+      if (cloudIdCardOrders && cloudIdCardOrders.length > 0) setIdCardOrders(cloudIdCardOrders);
+      if (cloudMemberships) setMemberships(cloudMemberships);
+      if (cloudJobApps && cloudJobApps.length > 0) setJobApplications(cloudJobApps);
+      if (cloudAnnouncements && cloudAnnouncements.length > 0) {
+        setAnnouncements(cloudAnnouncements);
+        markCacheFresh('lkst_cache_announcements_ts');
+      }
+      if (cloudSettings) {
+        setSettings(cloudSettings);
+        markCacheFresh('lkst_cache_settings_ts');
+
+        // Auto-shrink oversized legacy Base64 images (>120KB) in trust_settings once on Admin load
+        (async () => {
+          try {
+            const THRESHOLD = 160_000;
+            let changed = false;
+            const next: TrustSettings = {
+              ...cloudSettings,
+              serviceImages: { ...(cloudSettings.serviceImages || {}) },
+            };
+
+            if (next.logoUrl && next.logoUrl.startsWith('data:image/') && next.logoUrl.length > THRESHOLD) {
+              const c = await compressBase64DataUrl(next.logoUrl, 480, 480, 0.75, 80 * 1024);
+              if (c.length < next.logoUrl.length) {
+                next.logoUrl = c;
+                changed = true;
+              }
+            }
+            if (next.chairpersonPhotoUrl && next.chairpersonPhotoUrl.startsWith('data:image/') && next.chairpersonPhotoUrl.length > THRESHOLD) {
+              const c = await compressBase64DataUrl(next.chairpersonPhotoUrl, 600, 600, 0.72, 85 * 1024);
+              if (c.length < next.chairpersonPhotoUrl.length) {
+                next.chairpersonPhotoUrl = c;
+                changed = true;
+              }
+            }
+            if (next.officeBuildingPhotoUrl && next.officeBuildingPhotoUrl.startsWith('data:image/') && next.officeBuildingPhotoUrl.length > THRESHOLD) {
+              const c = await compressBase64DataUrl(next.officeBuildingPhotoUrl, 960, 720, 0.72, 95 * 1024);
+              if (c.length < next.officeBuildingPhotoUrl.length) {
+                next.officeBuildingPhotoUrl = c;
+                changed = true;
+              }
+            }
+            if (next.donationQrUrl && next.donationQrUrl.startsWith('data:image/') && next.donationQrUrl.length > THRESHOLD) {
+              const c = await compressBase64DataUrl(next.donationQrUrl, 500, 500, 0.75, 80 * 1024);
+              if (c.length < next.donationQrUrl.length) {
+                next.donationQrUrl = c;
+                changed = true;
+              }
+            }
+            for (const key of Object.keys(next.serviceImages || {})) {
+              const val = next.serviceImages![key];
+              if (val && val.startsWith('data:image/') && val.length > THRESHOLD) {
+                const c = await compressBase64DataUrl(val, 800, 600, 0.72, 85 * 1024);
+                if (c.length < val.length) {
+                  next.serviceImages![key] = c;
+                  changed = true;
+                }
+              }
+            }
+
+            if (changed) {
+              setSettings(next);
+              safeSetItem('lkst_settings', JSON.stringify(next));
+              markCacheFresh('lkst_cache_settings_ts');
+              await SupabaseService.saveSettings(next);
+            }
+          } catch {
+            // non-critical background optimization
+          }
+        })();
+      }
+      setSupabaseStatus((prev) => ({
+        ...prev,
+        isConnected: true,
+        lastSyncedAt: new Date().toLocaleTimeString(),
+      }));
+    } catch (err: any) {
+      adminDataLoadedRef.current = false;
+      console.warn('[Supabase] Admin dataset hydration failed:', err?.message);
+    }
+  };
+
+  // Initial Public Hydration (Settings + Announcements ONLY, TTL-cached) + Admin Session Verification
   useEffect(() => {
     let isMounted = true;
-    const loadFromSupabase = async () => {
+    const loadInitialPublicData = async () => {
       try {
-        // Verify stored admin session token with server before unlocking dashboard
         let verifiedAdmin = false;
         const storedToken = localStorage.getItem('lkst_admin_token');
         if (storedToken) {
@@ -550,7 +682,6 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               safeRemoveItem('lkst_admin_token');
             }
           } catch {
-            // Check Supabase Auth session if local Express server is unavailable
             const { data: sbSession } = await supabase.auth.getSession();
             if (sbSession?.session?.user?.app_metadata?.role === 'admin') {
               verifiedAdmin = true;
@@ -562,88 +693,79 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setIsAdmin(verifiedAdmin);
         }
 
-        const [
-          cloudApps,
-          cloudStudents,
-          cloudCards,
-          cloudVols,
-          cloudDonations,
-          cloudIdCardOrders,
-          cloudMemberships,
-          cloudAnnouncements,
-          cloudSettings,
-          cloudJobs,
-          cloudJobApps,
-          cloudPlacement,
-        ] = await Promise.all([
-          SupabaseService.fetchApplications(),
-          SupabaseService.fetchStudents(),
-          SupabaseService.fetchIdCards(),
-          SupabaseService.fetchVolunteers(),
-          verifiedAdmin ? SupabaseService.fetchDonations() : Promise.resolve(null),
-          verifiedAdmin ? SupabaseService.fetchIdCardOrders() : Promise.resolve(null),
-          verifiedAdmin ? SupabaseService.fetchMemberships() : Promise.resolve(null),
-          SupabaseService.fetchAnnouncements(),
-          SupabaseService.fetchSettings(),
-          SupabaseCareerService.getJobs(),
-          SupabaseCareerService.getApplications(),
-          SupabaseCareerService.getPlacementAddress(),
-        ]);
+        const needSettings =
+          !isCacheFresh('lkst_cache_settings_ts') || !localStorage.getItem('lkst_settings');
+        const needAnnouncements =
+          !isCacheFresh('lkst_cache_announcements_ts') || !localStorage.getItem('lkst_announcements');
 
-        if (!isMounted) return;
-
-        if (cloudApps && cloudApps.length > 0) {
-          setApplications(cloudApps);
-        }
-        if (cloudStudents && cloudStudents.length > 0) {
-          setStudents(cloudStudents);
-        }
-        if (cloudCards && cloudCards.length > 0) {
-          setIdCards(sanitizeIdCards(cloudCards));
-        }
-        if (cloudVols && cloudVols.length > 0) {
-          setVolunteers(cloudVols);
-        }
-        if (cloudDonations && cloudDonations.length > 0) {
-          setDonations(cloudDonations);
-        }
-        if (cloudIdCardOrders && cloudIdCardOrders.length > 0) {
-          setIdCardOrders(cloudIdCardOrders);
-        }
-        if (cloudMemberships) {
-          setMemberships(cloudMemberships);
-        }
-        if (cloudAnnouncements && cloudAnnouncements.length > 0) {
-          setAnnouncements(cloudAnnouncements);
-        }
-        if (cloudSettings) {
-          setSettings(cloudSettings);
-        }
-        if (cloudJobs && cloudJobs.length > 0) {
-          setJobs(cloudJobs);
-        }
-        if (cloudJobApps && cloudJobApps.length > 0) {
-          setJobApplications(cloudJobApps);
-        }
-        if (cloudPlacement) {
-          setPlacementAddress(cloudPlacement);
+        if (needSettings || needAnnouncements) {
+          const [cloudSettings, cloudAnnouncements] = await Promise.all([
+            needSettings ? SupabaseService.fetchSettings() : Promise.resolve(null),
+            needAnnouncements ? SupabaseService.fetchAnnouncements() : Promise.resolve(null),
+          ]);
+          if (!isMounted) return;
+          if (cloudSettings) {
+            setSettings(cloudSettings);
+            markCacheFresh('lkst_cache_settings_ts');
+          }
+          if (cloudAnnouncements && cloudAnnouncements.length > 0) {
+            setAnnouncements(cloudAnnouncements);
+            markCacheFresh('lkst_cache_announcements_ts');
+          }
         }
 
-        setSupabaseStatus((prev) => ({
-          ...prev,
-          isConnected: true,
-          lastSyncedAt: new Date().toLocaleTimeString(),
-        }));
+        if (isMounted) {
+          setSupabaseStatus((prev) => ({
+            ...prev,
+            isConnected: true,
+            lastSyncedAt: prev.lastSyncedAt || new Date().toLocaleTimeString(),
+          }));
+        }
       } catch (err: any) {
         console.warn('[Supabase] Initial hydration skipped:', err?.message);
       }
     };
 
-    loadFromSupabase();
+    loadInitialPublicData();
     return () => {
       isMounted = false;
     };
   }, []);
+
+  // Route & Role-Based Lazy Hydration (never loads admin or career data on general public routes)
+  useEffect(() => {
+    if (
+      (currentPage === 'careers' || currentPage === 'career' || currentPage === 'admin') &&
+      !careerDataLoadedRef.current
+    ) {
+      careerDataLoadedRef.current = true;
+      const needJobs =
+        !isCacheFresh('lkst_cache_jobs_ts') || !localStorage.getItem('lkst_career_jobs_v1');
+      const needPlacement =
+        !isCacheFresh('lkst_cache_placement_ts') ||
+        !localStorage.getItem('lkst_career_placement_v1');
+
+      if (needJobs || needPlacement) {
+        Promise.all([
+          needJobs ? SupabaseCareerService.getJobs() : Promise.resolve(null),
+          needPlacement ? SupabaseCareerService.getPlacementAddress() : Promise.resolve(null),
+        ]).then(([cloudJobs, cloudPlacement]) => {
+          if (cloudJobs && cloudJobs.length > 0) {
+            setJobs(cloudJobs);
+            markCacheFresh('lkst_cache_jobs_ts');
+          }
+          if (cloudPlacement) {
+            setPlacementAddress(cloudPlacement);
+            markCacheFresh('lkst_cache_placement_ts');
+          }
+        });
+      }
+    }
+
+    if (isAdmin && currentPage === 'admin' && !adminDataLoadedRef.current) {
+      loadAdminDatasets();
+    }
+  }, [currentPage, isAdmin]);
 
   // Run storage quota cleanup on initial startup to clear any bloated items
   useEffect(() => {
@@ -755,8 +877,9 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ...(newSettings?.serviceImages || {}),
         },
       };
-      // Synchronously write to safe localStorage
+      // Synchronously write to safe localStorage and update TTL
       safeSetItem('lkst_settings', JSON.stringify(updated));
+      markCacheFresh('lkst_cache_settings_ts');
       SupabaseService.saveSettings(updated);
       return updated;
     });
@@ -823,7 +946,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             statusRemarks: remarks !== undefined ? remarks : app.statusRemarks,
             reviewedAt: new Date().toISOString(),
           };
-          SupabaseService.saveApplication(updated);
+          SupabaseService.updateApplicationStatusOnly(id, status, updated.statusRemarks);
 
           // Synchronize associated ID card
           const existingCard = idCards.find(
@@ -1051,9 +1174,14 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const addStudent = (
     data: Omit<Student, 'id' | 'registrationNumber' | 'status' | 'registeredAt'>
   ): Student => {
-    const studentCount = students.length + 1;
-    const newId = `LKST-STU-2026-${100 + studentCount}`;
-    const newRegNum = `LKST-REG-${9800 + studentCount}`;
+    const uniqueSuffix = adminDataLoadedRef.current
+      ? String(100 + students.length + 1)
+      : `${String(Date.now()).slice(-3)}${Math.floor(10 + Math.random() * 89)}`;
+    const uniqueRegNum = adminDataLoadedRef.current
+      ? `LKST-REG-${9800 + students.length + 1}`
+      : `LKST-REG-${String(Date.now()).slice(-4)}${Math.floor(10 + Math.random() * 89)}`;
+    const newId = `LKST-STU-2026-${uniqueSuffix}`;
+    const newRegNum = uniqueRegNum;
     const newStudent: Student = {
       ...data,
       id: newId,
@@ -1116,7 +1244,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             status,
             statusRemarks: remarks !== undefined ? remarks : s.statusRemarks,
           };
-          SupabaseService.saveStudent(updated);
+          SupabaseService.updateStudentStatusOnly(id, status);
 
           const existingCard = idCards.find(
             (c) => c.sourceId === id || c.registrationNumber === s.registrationNumber
@@ -1252,7 +1380,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       prev.map((v) => {
         if (v.id === id) {
           const updated = { ...v, status };
-          SupabaseService.saveVolunteer(updated);
+          SupabaseService.updateVolunteerStatusOnly(id, status);
           const existingCard = idCards.find(
             (c) => c.sourceId === id || c.registrationNumber === id
           );
@@ -1524,17 +1652,39 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     SupabaseService.deleteAnnouncement(id);
   };
 
-  const studentLogin = (identifier: string, dobOrPass: string): boolean => {
+  const studentLogin = async (identifier: string, dobOrPass: string): Promise<boolean> => {
     const cleanId = identifier.trim().toLowerCase();
     const cleanAuth = dobOrPass.trim();
 
-    const found = students.find(
+    let found = students.find(
       (s) =>
         (s.id.toLowerCase() === cleanId ||
           s.registrationNumber.toLowerCase() === cleanId ||
           s.mobile === cleanId) &&
         (s.dob === cleanAuth || s.password === cleanAuth || cleanAuth === 'password123')
     );
+
+    if (!found) {
+      const cloudStudent = await SupabaseService.lookupStudentForLogin(identifier);
+      if (
+        cloudStudent &&
+        (cloudStudent.dob === cleanAuth ||
+          cloudStudent.password === cleanAuth ||
+          cleanAuth === 'password123')
+      ) {
+        found = cloudStudent;
+        setStudents((prev) => [
+          cloudStudent,
+          ...prev.filter((s) => s.id !== cloudStudent.id),
+        ]);
+        const cardRes = await SupabaseService.lookupPublicIdCard(
+          cloudStudent.registrationNumber || cloudStudent.id
+        );
+        if (cardRes?.card) {
+          setIdCards((prev) => sanitizeIdCards([cardRes.card!, ...prev]));
+        }
+      }
+    }
 
     if (found) {
       setCurrentStudent(found);
@@ -1571,14 +1721,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (res.ok && data?.success && data?.token) {
         safeSetItem('lkst_admin_token', data.token);
         setIsAdmin(true);
-        const [adminDonations, adminOrders, adminMemberships] = await Promise.all([
-          SupabaseService.fetchDonations(),
-          SupabaseService.fetchIdCardOrders(),
-          SupabaseService.fetchMemberships(),
-        ]);
-        if (adminDonations) setDonations(adminDonations);
-        if (adminOrders) setIdCardOrders(adminOrders);
-        if (adminMemberships) setMemberships(adminMemberships);
+        await loadAdminDatasets(true);
         return { success: true };
       }
 
@@ -1609,14 +1752,7 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ) {
         safeSetItem('lkst_admin_token', authData.session.access_token);
         setIsAdmin(true);
-        const [adminDonations, adminOrders, adminMemberships] = await Promise.all([
-          SupabaseService.fetchDonations(),
-          SupabaseService.fetchIdCardOrders(),
-          SupabaseService.fetchMemberships(),
-        ]);
-        if (adminDonations) setDonations(adminDonations);
-        if (adminOrders) setIdCardOrders(adminOrders);
-        if (adminMemberships) setMemberships(adminMemberships);
+        await loadAdminDatasets(true);
         return { success: true };
       }
       return {
@@ -1671,19 +1807,37 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     safeRemoveItem('lkst_admin_token');
     safeRemoveItem('lkst_is_admin');
     supabase.auth.signOut().catch(() => {});
+    adminDataLoadedRef.current = false;
     setMemberships([]);
     setIsAdmin(false);
     setCurrentPage('home');
   };
 
-  const searchApplication = (appId: string, mobile: string): ServiceApplication | undefined => {
+  const searchApplication = async (
+    appId: string,
+    mobile: string
+  ): Promise<ServiceApplication | undefined> => {
     const cleanId = appId.trim().toUpperCase();
     const cleanMobile = mobile.trim();
-    return applications.find(
+    const localMatch = applications.find(
       (a) =>
         (a.id.toUpperCase() === cleanId || a.id.includes(cleanId)) &&
         (a.mobile.includes(cleanMobile) || cleanMobile === '')
     );
+    if (localMatch) return localMatch;
+
+    const remoteMatch = await SupabaseService.lookupPublicApplication(appId, mobile);
+    if (remoteMatch) {
+      setApplications((prev) => [remoteMatch, ...prev.filter((a) => a.id !== remoteMatch.id)]);
+      if (remoteMatch.status === 'Approved') {
+        const cardRes = await SupabaseService.lookupPublicIdCard(remoteMatch.id);
+        if (cardRes?.card) {
+          setIdCards((prev) => sanitizeIdCards([cardRes.card!, ...prev]));
+        }
+      }
+      return remoteMatch;
+    }
+    return undefined;
   };
 
   /**
@@ -1692,17 +1846,16 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
    * 2. Registration/Application/Student ID (e.g. LKST-REG-9801, LKST-APP-2026-1001)
    * 3. Mobile number + DOB (optional)
    */
-  const searchIdCard = (
+  const searchIdCard = async (
     query: string,
     dob?: string
-  ): { card?: IdCard; error?: string } => {
+  ): Promise<{ card?: IdCard; error?: string }> => {
     const cleanQuery = query.trim().toUpperCase();
     const cleanDob = dob ? dob.trim() : '';
 
-    // Direct card number match
+    // 1. Check local cache first (zero network egress for cached/sample cards)
     let found = idCards.find((c) => c.cardNumber.toUpperCase() === cleanQuery);
 
-    // Registration number / source ID match
     if (!found) {
       found = idCards.find(
         (c) =>
@@ -1711,7 +1864,6 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
     }
 
-    // Mobile number (+ DOB if provided)
     if (!found) {
       found = idCards.find(
         (c) =>
@@ -1720,8 +1872,37 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
     }
 
+    // 2. Targeted 1-row Supabase lookup if not found in local cache
+    let matchedApp = applications.find(
+      (a) =>
+        a.id.toUpperCase() === cleanQuery ||
+        (a.mobile === query.trim() && (cleanDob === '' || a.dob === cleanDob))
+    );
+    let matchedStudent = students.find(
+      (s) =>
+        s.registrationNumber.toUpperCase() === cleanQuery ||
+        s.id.toUpperCase() === cleanQuery ||
+        (s.mobile === query.trim() && (cleanDob === '' || s.dob === cleanDob))
+    );
+
+    if (!found && !matchedApp && !matchedStudent) {
+      const cloudRes = await SupabaseService.lookupPublicIdCard(query, dob);
+      if (cloudRes?.card) {
+        found = cloudRes.card;
+        setIdCards((prev) => sanitizeIdCards([cloudRes.card!, ...prev]));
+      } else if (cloudRes?.app) {
+        matchedApp = cloudRes.app;
+        setApplications((prev) => [cloudRes.app!, ...prev.filter((a) => a.id !== cloudRes.app!.id)]);
+      } else if (cloudRes?.student) {
+        matchedStudent = cloudRes.student;
+        setStudents((prev) => [
+          cloudRes.student!,
+          ...prev.filter((s) => s.id !== cloudRes.student!.id),
+        ]);
+      }
+    }
+
     if (found) {
-      // Check status: only Approved/Active can be downloaded/printed
       if (found.status === 'Pending') {
         return {
           card: found,
@@ -1738,32 +1919,18 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { card: found };
     }
 
-    // Check if application exists but ID card not yet generated
-    const app = applications.find(
-      (a) =>
-        a.id.toUpperCase() === cleanQuery ||
-        (a.mobile === query.trim() && (cleanDob === '' || a.dob === cleanDob))
-    );
-    if (app) {
-      if (app.status === 'Approved') {
-        // Auto-generate card on demand
-        const created = generateIdCardForRecord('application', app, 'Active');
+    if (matchedApp) {
+      if (matchedApp.status === 'Approved') {
+        const created = generateIdCardForRecord('application', matchedApp, 'Active');
         return { card: created };
       }
       return {
-        error: `आवेदन संख्या ${app.id} प्राप्त हुई, किंतु वर्तमान स्थिति "${app.status}" है। स्वीकृति के पश्चात पहचान पत्र स्वतः सक्रिय होगा।`,
+        error: `आवेदन संख्या ${matchedApp.id} प्राप्त हुई, किंतु वर्तमान स्थिति "${matchedApp.status}" है। स्वीकृति के पश्चात पहचान पत्र स्वतः सक्रिय होगा।`,
       };
     }
 
-    // Check student
-    const stu = students.find(
-      (s) =>
-        s.registrationNumber.toUpperCase() === cleanQuery ||
-        s.id.toUpperCase() === cleanQuery ||
-        (s.mobile === query.trim() && (cleanDob === '' || s.dob === cleanDob))
-    );
-    if (stu) {
-      const created = generateIdCardForRecord('student', stu, 'Active');
+    if (matchedStudent) {
+      const created = generateIdCardForRecord('student', matchedStudent, 'Active');
       return { card: created };
     }
 
@@ -1822,8 +1989,10 @@ export const TrustProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const submitJobApplication = async (
     data: Omit<JobApplication, 'id' | 'status' | 'submittedAt'>
   ): Promise<JobApplication> => {
-    const nextSeq = 1000 + jobApplications.length + 1;
-    const newId = `LKST-JOB-2026-${nextSeq}`;
+    const seq = adminDataLoadedRef.current
+      ? String(1000 + jobApplications.length + 1)
+      : `${String(Date.now()).slice(-4)}${Math.floor(10 + Math.random() * 89)}`;
+    const newId = `LKST-JOB-2026-${seq}`;
     const newApp: JobApplication = {
       ...data,
       id: newId,

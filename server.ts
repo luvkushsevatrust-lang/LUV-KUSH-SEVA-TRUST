@@ -458,7 +458,7 @@ async function startServer() {
       if (supabase) {
         const { data } = await supabase
           .from('razorpay_orders')
-          .select('*')
+          .select('order_id, purpose, amount, amount_paise, currency, status, donor_name, email, contact, notes, receipt_number')
           .eq('order_id', razorpayOrderId)
           .maybeSingle();
         orderRow = data;
@@ -974,7 +974,7 @@ async function startServer() {
 
       const { data, error } = await supabase
         .from('donations')
-        .select('*')
+        .select('id, receipt_number, donor_name, mobile, email, address, pan_card, pan_or_aadhaar, amount, payment_mode, transaction_id, purpose, is_verified, status, approval_remarks, approved_at, approved_by, payment_gateway, razorpay_order_id, razorpay_payment_id, donated_at')
         .eq('status', 'Approved')
         .or(filters.join(','))
         .order('donated_at', { ascending: false })
@@ -1152,8 +1152,9 @@ async function startServer() {
     }
     const { data, error } = await supabase
       .from('donations')
-      .select('*')
-      .order('donated_at', { ascending: false });
+      .select('id, receipt_number, donor_name, mobile, email, address, pan_card, pan_or_aadhaar, amount, payment_mode, transaction_id, purpose, is_verified, status, approval_remarks, approved_at, approved_by, payment_gateway, razorpay_order_id, razorpay_payment_id, donated_at')
+      .order('donated_at', { ascending: false })
+      .limit(200);
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1217,8 +1218,9 @@ async function startServer() {
     }
     const { data, error } = await supabase
       .from('id_card_orders')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('id, order_id, payment_id, tier, applicant_id, full_name, mobile, email, service_category, amount_fee, is_paid, admin_approved, admin_approved_at, admin_approved_by, card_issued, id_card_id, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1305,8 +1307,9 @@ async function startServer() {
     }
     const { data, error } = await supabase
       .from('memberships')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('id, membership_number, receipt_number, full_name, father_or_husband_name, dob, gender, mobile, email, address, district, state, pin_code, aadhaar_number, pan_card, occupation, qualification, photo_url, membership_type, fee_amount, payment_status, status, razorpay_order_id, razorpay_payment_id, payment_mode, paid_at, receipt_email_sent, receipt_email_sent_at, receipt_email_id, audit_status, audit_notes, audited_by, audited_at, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }
@@ -1319,9 +1322,10 @@ async function startServer() {
     }
     const { data, error } = await supabase
       .from('membership_audit_logs')
-      .select('*')
+      .select('id, membership_id, membership_number, action, previous_audit_status, new_audit_status, audit_notes, audited_by, created_at')
       .eq('membership_id', req.params.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: false })
+      .limit(50);
     if (error) {
       return res.status(500).json({ success: false, error: error.message });
     }

@@ -8,26 +8,35 @@ export const StudentLoginPage: React.FC = () => {
   const [authKey, setAuthKey] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identifier.trim() || !authKey.trim()) {
-      setErrorMsg(
-        language === 'en'
-          ? 'Please enter Registration Number and Date of Birth or Password.'
-          : 'कृपया पंजीकरण संख्या और जन्म तिथि दर्ज करें।'
-      );
+    if (!identifier.trim() || !authKey.trim() || isLoggingIn) {
+      if (!identifier.trim() || !authKey.trim()) {
+        setErrorMsg(
+          language === 'en'
+            ? 'Please enter Registration Number and Date of Birth or Password.'
+            : 'कृपया पंजीकरण संख्या और जन्म तिथि दर्ज करें।'
+        );
+      }
       return;
     }
 
-    const success = studentLogin(identifier, authKey);
-    if (success) {
-      setCurrentPage('student-dashboard');
-    } else {
-      setErrorMsg(
-        language === 'en'
-          ? 'Invalid credentials! Please verify registration number or date of birth. (e.g. LKST-REG-9801 / 2010-06-15)'
-          : 'अमान्य विवरण! कृपया पंजीकरण संख्या या जन्म तिथि जांचें। (उदा. LKST-REG-9801 / 2010-06-15)'
-      );
+    setIsLoggingIn(true);
+    try {
+      const success = await studentLogin(identifier, authKey);
+      if (success) {
+        setCurrentPage('student-dashboard');
+      } else {
+        setErrorMsg(
+          language === 'en'
+            ? 'Invalid credentials! Please verify registration number or date of birth. (e.g. LKST-REG-9801 / 2010-06-15)'
+            : 'अमान्य विवरण! कृपया पंजीकरण संख्या या जन्म तिथि जांचें। (उदा. LKST-REG-9801 / 2010-06-15)'
+        );
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 

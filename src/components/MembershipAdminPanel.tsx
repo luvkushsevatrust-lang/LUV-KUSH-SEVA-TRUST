@@ -102,7 +102,7 @@ export const MembershipAdminPanel: React.FC = () => {
   };
 
   useEffect(() => {
-    if (selectedMember) {
+    if (selectedMember?.id) {
       setAuditStatusInput(selectedMember.auditStatus || 'Pending Audit');
       setRecordStatusInput(selectedMember.status || 'Confirmed');
       setAuditNotesInput(selectedMember.auditNotes || '');
@@ -114,7 +114,8 @@ export const MembershipAdminPanel: React.FC = () => {
     } else {
       setAuditLogs([]);
     }
-  }, [selectedMember]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedMember?.id]);
 
   // Statistics
   const totalCount = memberships.length;

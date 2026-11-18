@@ -181,16 +181,24 @@ BEGIN
 END $$;
 `;
 
+const JOB_LIST_COLS =
+  'id, title, title_hi, category, position, position_hi, qualification, qualification_hi, experience, experience_hi, salary, salary_hi, vacancies, location, location_hi, deadline, status, description, description_hi, requirements, requirements_hi, posted_at';
+const JOB_APPLICATION_COLS =
+  'id, job_id, job_title, job_category, position, full_name, father_or_guardian_name, dob, gender, mobile, whatsapp_number, email, address, district, block, village, educational_qualification, professional_qualification, work_experience, resume_url, resume_file_name, photo_url, additional_docs_url, additional_docs_file_name, declaration_accepted, status, status_remarks, interview_date, interview_time, interview_address, submitted_at, reviewed_at';
+const PLACEMENT_ADDRESS_COLS =
+  'id, title, title_hi, placement_location, placement_location_hi, interview_address, interview_address_hi, google_maps_url, contact_person_name, contact_person_phone, contact_person_designation, instructions, instructions_hi, placement_pdf_url, placement_pdf_name, updated_at';
+
 export class SupabaseCareerService {
   /**
    * Load all jobs with local cache fallback
    */
-  static async getJobs(): Promise<JobVacancy[]> {
+  static async getJobs(limit = 50): Promise<JobVacancy[]> {
     try {
       const { data, error } = await supabase
         .from('jobs')
-        .select('*')
-        .order('posted_at', { ascending: false });
+        .select(JOB_LIST_COLS)
+        .order('posted_at', { ascending: false })
+        .limit(limit);
 
       if (!error && data && data.length > 0) {
         const mapped: JobVacancy[] = data.map((row: any) => ({
@@ -286,14 +294,15 @@ export class SupabaseCareerService {
   }
 
   /**
-   * Get all job applications
+   * Get all job applications (Admin only, explicit columns, paginated limit)
    */
-  static async getApplications(): Promise<JobApplication[]> {
+  static async getApplications(limit = 150): Promise<JobApplication[]> {
     try {
       const { data, error } = await supabase
         .from('job_applications')
-        .select('*')
-        .order('submitted_at', { ascending: false });
+        .select(JOB_APPLICATION_COLS)
+        .order('submitted_at', { ascending: false })
+        .limit(limit);
 
       if (!error && data && Array.isArray(data)) {
         const mapped: JobApplication[] = data.map((row: any) => ({
@@ -382,7 +391,12 @@ export class SupabaseCareerService {
         declaration_accepted: app.declarationAccepted,
         status: app.status || 'Pending',
         submitted_at: app.submittedAt || new Date().toISOString(),
-        raw_data: app,
+        raw_data: {
+          id: app.id,
+          jobId: app.jobId,
+          fullName: app.fullName,
+          mobile: app.mobile,
+        },
       });
 
       // Also record initial status in history
@@ -457,7 +471,7 @@ export class SupabaseCareerService {
     try {
       const { data, error } = await supabase
         .from('job_applications')
-        .select('*')
+        .select(JOB_APPLICATION_COLS)
         .eq('id', cleanId)
         .eq('mobile', cleanMobile)
         .maybeSingle();
@@ -528,7 +542,7 @@ export class SupabaseCareerService {
     try {
       const { data, error } = await supabase
         .from('placement_addresses')
-        .select('*')
+        .select(PLACEMENT_ADDRESS_COLS)
         .eq('id', 'current_placement')
         .maybeSingle();
 
@@ -589,7 +603,7 @@ export class SupabaseCareerService {
         placement_pdf_url: info.placementPdfUrl,
         placement_pdf_name: info.placementPdfName,
         updated_at: new Date().toISOString(),
-        raw_data: info,
+        raw_data: { id: 'current_placement', updatedAt: new Date().toISOString() },
       });
     } catch (err) {
       console.warn('Supabase savePlacementAddress error:', err);

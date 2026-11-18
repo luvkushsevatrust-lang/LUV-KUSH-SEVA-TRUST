@@ -3,11 +3,46 @@
  * Scales large mobile phone photos (3-12MB) down to crisp, lightweight web images (30-80KB)
  */
 
+function encodeCanvasWithBudget(
+  img: HTMLImageElement,
+  maxWidth: number,
+  maxHeight: number,
+  initialQuality: number,
+  maxBytes = 95 * 1024
+): string | null {
+  let { width, height } = img;
+  const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
+  width = Math.max(1, Math.round(width * ratio));
+  height = Math.max(1, Math.round(height * ratio));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let q = initialQuality;
+  let result = canvas.toDataURL('image/jpeg', q);
+
+  // Step down quality gently if encoded Base64 still exceeds target byte budget
+  while (result.length > maxBytes * 1.37 && q > 0.48) {
+    q = Math.max(0.45, Number((q - 0.1).toFixed(2)));
+    result = canvas.toDataURL('image/jpeg', q);
+  }
+  return result;
+}
+
 export async function compressImageFile(
   file: File,
   maxWidth = 800,
   maxHeight = 800,
-  quality = 0.75
+  quality = 0.72,
+  maxBytes = 95 * 1024
 ): Promise<string> {
   // If not an image (e.g. PDF file), read as standard data URL
   if (!file.type.startsWith('image/')) {
@@ -41,35 +76,9 @@ export async function compressImageFile(
       const img = new Image();
       img.onload = () => {
         try {
-          let { width, height } = img;
-
-          // Calculate scaled dimensions maintaining aspect ratio
-          const ratio = Math.min(maxWidth / width, maxHeight / height, 1);
-          width = Math.max(1, Math.round(width * ratio));
-          height = Math.max(1, Math.round(height * ratio));
-
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            resolve(rawDataUrl);
-            return;
-          }
-
-          // Fill white background for transparent PNG/WebP being converted to JPEG
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillRect(0, 0, width, height);
-
-          // Draw scaled image
-          ctx.drawImage(img, 0, 0, width, height);
-
-          // Convert to compressed JPEG data URL
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-          resolve(compressedDataUrl);
+          const compressed = encodeCanvasWithBudget(img, maxWidth, maxHeight, quality, maxBytes);
+          resolve(compressed || rawDataUrl);
         } catch {
-          // If canvas processing fails, fallback to raw data
           resolve(rawDataUrl);
         }
       };
@@ -86,5 +95,41 @@ export async function compressImageFile(
     };
 
     reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Re-compresses an existing oversized Base64 data URL (used to auto-shrink legacy DB images)
+ */
+export async function compressBase64DataUrl(
+  dataUrl: string,
+  maxWidth = 680,
+  maxHeight = 680,
+  quality = 0.7,
+  maxBytes = 85 * 1024
+): Promise<string> {
+  if (!dataUrl || !dataUrl.startsWith('data:image/') || dataUrl.startsWith('data:image/svg+xml')) {
+    return dataUrl;
+  }
+  if (dataUrl.length <= maxBytes * 1.37) {
+    return dataUrl;
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const compressed = encodeCanvasWithBudget(img, maxWidth, maxHeight, quality, maxBytes);
+        if (compressed && compressed.length < dataUrl.length) {
+          resolve(compressed);
+        } else {
+          resolve(dataUrl);
+        }
+      } catch {
+        resolve(dataUrl);
+      }
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
   });
 }

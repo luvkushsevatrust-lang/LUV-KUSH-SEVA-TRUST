@@ -18,14 +18,21 @@ export const ApplicationStatusModal: React.FC<ApplicationStatusModalProps> = ({
   const [searched, setSearched] = useState(false);
   const [result, setResult] = useState<ServiceApplication | undefined>(undefined);
 
+  const [isSearching, setIsSearching] = useState(false);
+
   if (!isOpen) return null;
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!appId.trim()) return;
-    const found = searchApplication(appId, mobile);
-    setResult(found);
-    setSearched(true);
+    if (!appId.trim() || isSearching) return;
+    setIsSearching(true);
+    try {
+      const found = await searchApplication(appId, mobile);
+      setResult(found);
+      setSearched(true);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {

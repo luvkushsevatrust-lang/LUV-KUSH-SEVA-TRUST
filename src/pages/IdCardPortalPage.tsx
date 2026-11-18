@@ -24,39 +24,51 @@ export const IdCardPortalPage: React.FC = () => {
   const [foundCard, setFoundCard] = useState<IdCard | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const handleSearch = (e: React.FormEvent) => {
+  const [isSearching, setIsSearching] = useState(false);
+
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim()) return;
+    if (!query.trim() || isSearching) return;
 
     setErrorMessage('');
-    const res = searchIdCard(query, dob);
+    setIsSearching(true);
+    try {
+      const res = await searchIdCard(query, dob);
 
-    if (res.card) {
-      setFoundCard(res.card);
-      setSearched(true);
-      if (res.error) {
-        setErrorMessage(res.error);
+      if (res.card) {
+        setFoundCard(res.card);
+        setSearched(true);
+        if (res.error) {
+          setErrorMessage(res.error);
+        }
+      } else {
+        setFoundCard(null);
+        setSearched(true);
+        setErrorMessage(
+          res.error ||
+            (language === 'en'
+              ? 'ID Card not found. Please verify your ID card number, registration number, or mobile number and try again.'
+              : 'पहचान पत्र नहीं मिला। कृपया पहचान पत्र संख्या, पंजीकरण संख्या अथवा मोबाइल नंबर जांचकर पुनः प्रयास करें।')
+        );
       }
-    } else {
-      setFoundCard(null);
-      setSearched(true);
-      setErrorMessage(
-        res.error ||
-          (language === 'en'
-            ? 'ID Card not found. Please verify your ID card number, registration number, or mobile number and try again.'
-            : 'पहचान पत्र नहीं मिला। कृपया पहचान पत्र संख्या, पंजीकरण संख्या अथवा मोबाइल नंबर जांचकर पुनः प्रयास करें।')
-      );
+    } finally {
+      setIsSearching(false);
     }
   };
 
-  const handleQuickDemo = (demoId: string) => {
+  const handleQuickDemo = async (demoId: string) => {
     setQuery(demoId);
     setDob('');
-    const res = searchIdCard(demoId);
-    if (res.card) {
-      setFoundCard(res.card);
-      setSearched(true);
-      setErrorMessage(res.error || '');
+    setIsSearching(true);
+    try {
+      const res = await searchIdCard(demoId);
+      if (res.card) {
+        setFoundCard(res.card);
+        setSearched(true);
+        setErrorMessage(res.error || '');
+      }
+    } finally {
+      setIsSearching(false);
     }
   };
 
